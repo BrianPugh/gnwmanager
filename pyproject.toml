@@ -164,3 +164,7 @@ staticmethod-decorators = [
     "pydantic.validator",
     "pydantic.root_validator",
 ]
+
+[tool.codespell]
+skip = 'poetry.lock,'
+ignore-words-list = "ptd"

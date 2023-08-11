@@ -92,7 +92,7 @@ CP = $(PREFIX)objcopy
 SZ = $(PREFIX)size
 endif
 HEX = $(CP) -O ihex
-BIN = $(CP) -O binary -S
+BIN = $(CP) -O binary -S --verbose
 
 #######################################
 # CFLAGS
@@ -184,7 +184,16 @@ $(BUILD_DIR)/%.hex: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
 	$(HEX) $< $@
 
 $(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
-	$(BIN) $< $@
+	@$(V)$(BIN) \
+		-j .isr_vector \
+		-j .text \
+		-j .rodata \
+		-j .ARM.extab \
+		-j .preinit_array \
+		-j .init_array \
+		-j .fini_array \
+		-j .data \
+		$< $@
 
 $(BUILD_DIR):
 	mkdir $@
@@ -192,11 +201,12 @@ $(BUILD_DIR):
 
 
 OPENOCD ?= openocd
-OCDIFACE ?= interface/stlink.cfg
+ADAPTER ?= stlink
+INTFLASH_ADDRESS = 0x08000000
 
 flash: $(BUILD_DIR)/$(TARGET).bin
-	dd if=$(BUILD_DIR)/$(TARGET).bin of=$(BUILD_DIR)/$(TARGET)_flash.bin bs=1024 count=128
-	$(OPENOCD) -f $(OCDIFACE) -c "transport select hla_swd" -f "target/stm32h7x.cfg" -c "reset_config none; program $(BUILD_DIR)/$(TARGET)_flash.bin 0x08000000 verify reset exit"
+	$(OPENOCD) -f scripts/interface_$(ADAPTER).cfg -c "program $< $(INTFLASH_ADDRESS) verify reset exit"
+.PHONY: flash_intflash
 
 .PHONY: flash
 

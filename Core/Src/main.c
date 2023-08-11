@@ -25,6 +25,7 @@
 #include "buttons.h"
 #include "flash.h"
 #include "lcd.h"
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -47,14 +48,9 @@ LTDC_HandleTypeDef hltdc;
 
 OSPI_HandleTypeDef hospi1;
 
-SAI_HandleTypeDef hsai_BlockA1;
-DMA_HandleTypeDef hdma_sai1_a;
-
 SPI_HandleTypeDef hspi2;
 
 /* USER CODE BEGIN PV */
-
-uint16_t audiobuffer[48000] __attribute__((section (".audio")));
 
 /* USER CODE END PV */
 
@@ -106,7 +102,6 @@ int main(void)
   MX_LTDC_Init();
   MX_SPI2_Init();
   MX_OCTOSPI1_Init();
-  MX_SAI1_Init();
 
   /* Initialize interrupts */
   MX_NVIC_Init();
@@ -131,12 +126,6 @@ int main(void)
   uint16_t color = 0x0000;
   uint32_t i = 0;
 
-  // Create a continuous square wave and loop it using DMA in circular mode
-  for (uint32_t i = 0; i < sizeof(audiobuffer) / sizeof(audiobuffer[0]); i++) {
-    audiobuffer[i] = (i % (48000 / 500)) > 48 ? 200 : -200;
-  }
-  HAL_SAI_Transmit_DMA(&hsai_BlockA1, audiobuffer, sizeof(audiobuffer) / sizeof(audiobuffer[0]));
-
   while (1)
   {
     /* USER CODE END WHILE */
@@ -154,10 +143,10 @@ int main(void)
       color = 0x00f0;
     }
     if(buttons & B_Down) {
-      
+
       color = *ptr&0xff;
     }
-    
+
     for(int x=0; x < 320; x++) {
       for(int y=0; y < 240; y++) {
         // framebuffer[(y*320)+x] = i;
@@ -166,12 +155,12 @@ int main(void)
         } else {
           framebuffer[(y*320)+x] = 0xffff;
         }
-        
+
         // i++;
       }
       // i++;
     }
-    
+
     HAL_Delay(20);
     i++;
     // if(i % 30 == 0) {
@@ -180,7 +169,7 @@ int main(void)
     //   } else {
     //     color = 0xf800;
     //   }
-      
+
     // }
 // HAL_Delay(500);
 // for(int x=0; x < 320; x++) {
@@ -427,42 +416,6 @@ static void MX_OCTOSPI1_Init(void)
   /* USER CODE BEGIN OCTOSPI1_Init 2 */
 
   /* USER CODE END OCTOSPI1_Init 2 */
-
-}
-
-/**
-  * @brief SAI1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SAI1_Init(void)
-{
-
-  /* USER CODE BEGIN SAI1_Init 0 */
-
-  /* USER CODE END SAI1_Init 0 */
-
-  /* USER CODE BEGIN SAI1_Init 1 */
-
-  /* USER CODE END SAI1_Init 1 */
-  hsai_BlockA1.Instance = SAI1_Block_A;
-  hsai_BlockA1.Init.AudioMode = SAI_MODEMASTER_TX;
-  hsai_BlockA1.Init.Synchro = SAI_ASYNCHRONOUS;
-  hsai_BlockA1.Init.OutputDrive = SAI_OUTPUTDRIVE_DISABLE;
-  hsai_BlockA1.Init.NoDivider = SAI_MASTERDIVIDER_ENABLE;
-  hsai_BlockA1.Init.FIFOThreshold = SAI_FIFOTHRESHOLD_EMPTY;
-  hsai_BlockA1.Init.AudioFrequency = SAI_AUDIO_FREQUENCY_48K;
-  hsai_BlockA1.Init.SynchroExt = SAI_SYNCEXT_DISABLE;
-  hsai_BlockA1.Init.MonoStereoMode = SAI_MONOMODE;
-  hsai_BlockA1.Init.CompandingMode = SAI_NOCOMPANDING;
-  hsai_BlockA1.Init.TriState = SAI_OUTPUT_NOTRELEASED;
-  if (HAL_SAI_InitProtocol(&hsai_BlockA1, SAI_I2S_STANDARD, SAI_PROTOCOL_DATASIZE_16BIT, 2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SAI1_Init 2 */
-
-  /* USER CODE END SAI1_Init 2 */
 
 }
 

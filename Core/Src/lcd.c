@@ -2,7 +2,7 @@
 #include "stm32h7xx_hal.h"
 #include "main.h"
 
-uint16_t framebuffer[320 * 240];
+uint16_t framebuffer[320 * 240] __attribute__((section (".lcd")));
 
 void lcd_backlight_off() {
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
@@ -62,7 +62,7 @@ void lcd_init(SPI_HandleTypeDef *spi, LTDC_HandleTypeDef *ltdc) {
   HAL_Delay(2);
   HAL_SPI_Transmit(spi, "\x08\x80", 2, 100);
   HAL_Delay(2);
-  
+
   // CS
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
   // HAL_Delay(100);
@@ -76,7 +76,7 @@ void lcd_init(SPI_HandleTypeDef *spi, LTDC_HandleTypeDef *ltdc) {
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
   HAL_Delay(2);
   HAL_SPI_Transmit(spi, "\x80\x80", 2, 100);
-  
+
   HAL_Delay(2);
   // CS
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
@@ -98,7 +98,7 @@ void lcd_init(SPI_HandleTypeDef *spi, LTDC_HandleTypeDef *ltdc) {
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
   HAL_Delay(2);
   HAL_SPI_Transmit(spi, "\x1b\x00", 2, 100);
-  
+
   HAL_Delay(2);
   // CS
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
@@ -106,8 +106,8 @@ void lcd_init(SPI_HandleTypeDef *spi, LTDC_HandleTypeDef *ltdc) {
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
   HAL_Delay(2);
   HAL_SPI_Transmit(spi, "\xe0\x00", 2, 100);
-  
-  
+
+
   HAL_Delay(2);
   // CS
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
@@ -115,7 +115,7 @@ void lcd_init(SPI_HandleTypeDef *spi, LTDC_HandleTypeDef *ltdc) {
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
   HAL_Delay(2);
   HAL_SPI_Transmit(spi, "\x6a\x80", 2, 100);
-  
+
   HAL_Delay(2);
   // CS
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);

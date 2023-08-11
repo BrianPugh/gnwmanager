@@ -64,8 +64,7 @@ MEMORY
   ITCMRAM  (xrw) : ORIGIN = 0x00000000, LENGTH = 64K
   DTCMRAM  (xrw) : ORIGIN = 0x20000000, LENGTH = 128K
   RAM      (xrw) : ORIGIN = 0x24000000, LENGTH = 1024K
-  FLASH    (xr ) : ORIGIN = 0x8000000,  LENGTH = 128K
-  EXTFLASH (xr ) : ORIGIN = 0x90000000, LENGTH = 1024K
+  FLASH    (xr ) : ORIGIN = 0x08000000, LENGTH = 128K
 }
 
 /* Define output sections */
@@ -75,15 +74,8 @@ SECTIONS
   {
     . = ALIGN(4);
     *(.lcd)
-    *(.audio)
     . = ALIGN(4);
   }  > RAM
-
-  ._extflash :
-  {
-    . = ALIGN(4);
-    _extflash = .;       /* define a global symbols to point at the external flash */
-  } >EXTFLASH
 
   /* The startup code goes first into FLASH */
   .isr_vector :
@@ -119,7 +111,11 @@ SECTIONS
     . = ALIGN(4);
   } >FLASH
 
-  .ARM.extab   : { *(.ARM.extab* .gnu.linkonce.armextab.*) } >FLASH
+  .ARM.extab :
+  {
+    *(.ARM.extab* .gnu.linkonce.armextab.*)
+  } >FLASH
+
   .ARM : {
     __exidx_start = .;
     *(.ARM.exidx*)
@@ -132,6 +128,7 @@ SECTIONS
     KEEP (*(.preinit_array*))
     PROVIDE_HIDDEN (__preinit_array_end = .);
   } >FLASH
+
   .init_array :
   {
     PROVIDE_HIDDEN (__init_array_start = .);
@@ -139,6 +136,7 @@ SECTIONS
     KEEP (*(.init_array*))
     PROVIDE_HIDDEN (__init_array_end = .);
   } >FLASH
+
   .fini_array :
   {
     PROVIDE_HIDDEN (__fini_array_start = .);
@@ -189,8 +187,6 @@ SECTIONS
     . = . + _Min_Stack_Size;
     . = ALIGN(8);
   } >DTCMRAM
-
-
 
   /* Remove information from the standard libraries */
   /DISCARD/ :
