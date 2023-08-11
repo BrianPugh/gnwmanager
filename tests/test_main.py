@@ -1,6 +1,6 @@
 import pytest
 
-import pythontemplate
+import gnwmanager
 
 
 @pytest.fixture

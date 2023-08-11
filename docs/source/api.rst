@@ -1,7 +1,7 @@
 API
 ===
 
-.. automodule:: pythontemplate
+.. automodule:: gnwmanager
    :members:
    :undoc-members:
    :show-inheritance:

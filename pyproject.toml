@@ -8,22 +8,22 @@ vcs = "git"
 style = "semver"
 
 [tool.poetry]
-name = "pythontemplate"
+name = "gnwmanager"
 version = "0.0.0"  # Do not change, let poetry-dynamic-versioning handle it.
-homepage = "https://github.com/GIT_USERNAME/GIT_REPONAME"
-repository = "https://github.com/GIT_USERNAME/GIT_REPONAME"
+homepage = "https://github.com/BrianPugh/gnwmanager"
+repository = "https://github.com/BrianPugh/gnwmanager"
 license = "Apache-2.0"
 description = ""
-authors = ["YOUR_NAME_HERE"]
+authors = ["Brian Pugh"]
 readme = "README.rst"
-packages = [{include = "pythontemplate"}]
-include = ["pythontemplate/*.so", "pythontemplate/*.pyd"]  # Compiled extensions
+packages = [{include = "gnwmanager"}]
+include = ["gnwmanager/*.so", "gnwmanager/*.pyd"]  # Compiled extensions
 
 [tool.poetry.build]
 generate-setup-file = false
 
 [tool.poetry.scripts]
-pythontemplate = "pythontemplate.cli.main:run_app"
+gnwmanager = "gnwmanager.cli.main:run_app"
 
 [tool.poetry.dependencies]
 # Be as loose as possible if writing a library.

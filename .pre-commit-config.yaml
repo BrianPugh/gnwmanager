@@ -1,7 +1,7 @@
 exclude: ^(poetry.lock|.idea/)
 repos:
   - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: "v0.0.280"
+    rev: "v0.0.284"
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
@@ -59,7 +59,7 @@ repos:
       - id: creosote
         args:
           - "--venv=.venv"
-          - "--paths=pythontemplate"
+          - "--paths=gnwmanager"
           - "--deps-file=pyproject.toml"
           - "--sections=tool.poetry.dependencies"
 
@@ -70,6 +70,6 @@ repos:
         exclude: ^(poetry.lock)
 
   - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.318
+    rev: v1.1.321
     hooks:
       - id: pyright

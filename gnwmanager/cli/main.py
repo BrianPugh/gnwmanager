@@ -1,7 +1,7 @@
 import typer
 from typer import Option
 
-import pythontemplate
+import gnwmanager
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False, add_completion=False)
 # Add functions from other files like:
@@ -11,7 +11,7 @@ app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False, add_comp
 def version_callback(value: bool):
     if not value:
         return
-    print(pythontemplate.__version__)
+    print(gnwmanager.__version__)
     raise typer.Exit()
 
 
@@ -23,7 +23,7 @@ def common(
         "--version",
         "-v",
         callback=version_callback,
-        help="Print pythontemplate version.",
+        help="Print gnwmanager version.",
     ),
 ):
     pass
