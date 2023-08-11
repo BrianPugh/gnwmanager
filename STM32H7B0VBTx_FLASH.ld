@@ -74,6 +74,7 @@ SECTIONS
   {
     . = ALIGN(4);
     *(.lcd)
+    *(.flashapp_comm)
     . = ALIGN(4);
   }  > RAM
 

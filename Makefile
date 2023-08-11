@@ -41,6 +41,10 @@ Core/Src/lcd.c \
 Core/Src/buttons.c \
 Core/Src/main.c \
 Core/Src/odroid_overlay.c \
+Core/Src/flashapp.c \
+Core/Src/sha256.c \
+Core/Src/lzma/LzmaDec.c \
+Core/Src/lzma/lzma.c \
 Core/Src/stm32h7xx_it.c \
 Core/Src/stm32h7xx_hal_msp.c \
 Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cortex.c \
@@ -68,7 +72,8 @@ Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_spi.c \
 Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_spi_ex.c \
 Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_ospi.c \
 Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_sai.c \
-Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_sai_ex.c
+Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_sai_ex.c \
+Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_wwdg.c
 
 # ASM sources
 ASM_SOURCES =  \
@@ -126,6 +131,7 @@ AS_INCLUDES =
 # C includes
 C_INCLUDES =  \
 -ICore/Inc \
+-ICore/Src/lzma \
 -IDrivers/STM32H7xx_HAL_Driver/Inc \
 -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy \
 -IDrivers/CMSIS/Device/ST/STM32H7xx/Include \

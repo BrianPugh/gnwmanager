@@ -26,7 +26,7 @@
 #include "flash.h"
 #include "lcd.h"
 #include <string.h>
-#include "odroid_overlay.h"
+#include "flashapp.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -46,10 +46,9 @@
 /* Private variables ---------------------------------------------------------*/
 
 LTDC_HandleTypeDef hltdc;
-
 OSPI_HandleTypeDef hospi1;
-
 SPI_HandleTypeDef hspi2;
+WWDG_HandleTypeDef hwwdg1;
 
 /* USER CODE BEGIN PV */
 
@@ -64,6 +63,7 @@ static void MX_SPI2_Init(void);
 static void MX_OCTOSPI1_Init(void);
 static void MX_SAI1_Init(void);
 static void MX_NVIC_Init(void);
+static void MX_WWDG1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -103,19 +103,20 @@ int main(void)
   MX_LTDC_Init();
   MX_SPI2_Init();
   MX_OCTOSPI1_Init();
+  MX_WWDG1_Init();
 
   /* Initialize interrupts */
   MX_NVIC_Init();
-  /* USER CODE BEGIN 2 */
 
+  /* USER CODE BEGIN 2 */
   lcd_init(&hspi2, &hltdc);
   memset(framebuffer, 0xff, 320*240*2);
 
+  OSPI_Init(&hospi1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  flash_memory_map(&hospi1);
 
   // Sanity check, sometimes this is triggered
   uint32_t add = 0x90000000;
@@ -124,70 +125,7 @@ int main(void)
     Error_Handler();
   }
 
-  uint16_t color = 0x0000;
-  uint32_t i = 0;
-
-  while (1)
-  {
-    /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
-
-    uint32_t buttons = buttons_get();
-    if(buttons & B_Left) {
-      color = 0xf000;
-    }
-    if(buttons & B_Right) {
-      color = 0x0f00;
-    }
-    if(buttons & B_Up) {
-      color = 0x00f0;
-    }
-    if(buttons & B_Down) {
-
-      color = *ptr&0xff;
-    }
-
-    for(int x=0; x < 320; x++) {
-      for(int y=0; y < 240; y++) {
-        // framebuffer[(y*320)+x] = i;
-        if(((x + i)/10 % 2 == 0) && (((y + i)/10 % 2 == 0))){
-          framebuffer[(y*320)+x] = color;
-        } else {
-          framebuffer[(y*320)+x] = 0xffff;
-        }
-
-        // i++;
-      }
-      // i++;
-    }
-
-    odroid_overlay_draw_text(10, 20, 100, "HELLO", curr_colors->sel_c, curr_colors->bg_c);
-
-    HAL_Delay(20);
-    i++;
-    // if(i % 30 == 0) {
-    //   if(color == 0xf800) {
-    //     color = 0x7e0;
-    //   } else {
-    //     color = 0xf800;
-    //   }
-
-    // }
-// HAL_Delay(500);
-// for(int x=0; x < 320; x++) {
-// for(int y=0; y < 240; y++) {
-// framebuffer[(y*320)+x] = 0x7e0;
-// }
-// }
-// HAL_Delay(500);
-// for(int x=0; x < 320; x++) {
-// for(int y=0; y < 240; y++) {
-// framebuffer[(y*320)+x] = 0x1f;
-// }
-// }
-// HAL_Delay(500);
-  }
+  flashapp_main();
   /* USER CODE END 3 */
 }
 
@@ -471,6 +409,35 @@ static void MX_SPI2_Init(void)
 }
 
 /**
+  * @brief WWDG1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_WWDG1_Init(void)
+{
+
+  /* USER CODE BEGIN WWDG1_Init 0 */
+
+  /* USER CODE END WWDG1_Init 0 */
+
+  /* USER CODE BEGIN WWDG1_Init 1 */
+
+  /* USER CODE END WWDG1_Init 1 */
+  hwwdg1.Instance = WWDG1;
+  hwwdg1.Init.Prescaler = WWDG_PRESCALER_128;
+  hwwdg1.Init.Window = 127;
+  hwwdg1.Init.Counter = 127;
+  hwwdg1.Init.EWIMode = WWDG_EWI_ENABLE;
+  if (HAL_WWDG_Init(&hwwdg1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN WWDG1_Init 2 */
+
+  /* USER CODE END WWDG1_Init 2 */
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -562,7 +529,10 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void wdog_refresh()
+{
+    HAL_WWDG_Refresh(&hwwdg1);
+}
 /* USER CODE END 4 */
 
 /**
