@@ -26,6 +26,7 @@
 #include "flash.h"
 #include "lcd.h"
 #include <string.h>
+#include "odroid_overlay.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -160,6 +161,8 @@ int main(void)
       }
       // i++;
     }
+
+    odroid_overlay_draw_text(10, 20, 100, "HELLO", curr_colors->sel_c, curr_colors->bg_c);
 
     HAL_Delay(20);
     i++;

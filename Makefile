@@ -40,6 +40,7 @@ Core/Src/flash.c \
 Core/Src/lcd.c \
 Core/Src/buttons.c \
 Core/Src/main.c \
+Core/Src/odroid_overlay.c \
 Core/Src/stm32h7xx_it.c \
 Core/Src/stm32h7xx_hal_msp.c \
 Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cortex.c \

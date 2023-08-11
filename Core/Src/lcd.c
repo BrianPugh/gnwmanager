@@ -2,7 +2,7 @@
 #include "stm32h7xx_hal.h"
 #include "main.h"
 
-uint16_t framebuffer[320 * 240] __attribute__((section (".lcd")));
+pixel_t framebuffer[320 * 240] __attribute__((section (".lcd")));
 
 void lcd_backlight_off() {
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);

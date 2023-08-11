@@ -4,11 +4,15 @@
 #include "stm32h7xx_hal.h"
 #include <stdint.h>
 
-extern uint16_t framebuffer[320 * 240]  __attribute__((section (".lcd")));
+typedef uint16_t pixel_t;
 
-#define GFX_MAX_WIDTH 320
+#define GW_LCD_WIDTH  320
+#define GW_LCD_HEIGHT 240
+
+extern pixel_t framebuffer[GW_LCD_WIDTH * GW_LCD_HEIGHT]  __attribute__((section (".lcd")));
 
 void lcd_init(SPI_HandleTypeDef *spi, LTDC_HandleTypeDef *ltdc);
 void lcd_backlight_on();
 void lcd_backlight_off();
+
 #endif
