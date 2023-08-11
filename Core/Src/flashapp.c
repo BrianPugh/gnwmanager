@@ -451,6 +451,8 @@ void flashapp_main(void)
     //flashapp.tab.img_header = &logo_flash;
     //flashapp.tab.img_logo = &logo_gnw;
 
+    memset(comm, 0, sizeof(struct flashapp_comm));
+
     while (true) {
         if (comm->program_chunk_count == 1) {
             sprintf(flashapp.tab.status, "G&W FlashApp: Awaiting Data");
