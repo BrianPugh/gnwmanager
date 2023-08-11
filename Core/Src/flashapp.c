@@ -465,6 +465,7 @@ void flashapp_main(void)
             flashapp_run(&flashapp);
         }
 
+        lcd_wait_for_vblank();
         redraw(&flashapp);
     }
 }

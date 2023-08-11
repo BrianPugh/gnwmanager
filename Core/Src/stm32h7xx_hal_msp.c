@@ -199,8 +199,11 @@ void HAL_LTDC_MspInit(LTDC_HandleTypeDef* hltdc)
     GPIO_InitStruct.Alternate = GPIO_AF11_LTDC;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /* USER CODE BEGIN LTDC_MspInit 1 */
+    /* LTDC interrupt Init */
+    HAL_NVIC_SetPriority(LTDC_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(LTDC_IRQn);
 
+  /* USER CODE BEGIN LTDC_MspInit 1 */
   /* USER CODE END LTDC_MspInit 1 */
   }
 

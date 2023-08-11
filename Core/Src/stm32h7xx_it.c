@@ -58,6 +58,7 @@
 /* External variables --------------------------------------------------------*/
 extern OSPI_HandleTypeDef hospi1;
 extern DMA_HandleTypeDef hdma_sai1_a;
+extern LTDC_HandleTypeDef hltdc;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -198,6 +199,20 @@ void SysTick_Handler(void)
 /* please refer to the startup file (startup_stm32h7xx.s).                    */
 /******************************************************************************/
 
+
+/**
+  * @brief This function handles LTDC global interrupt.
+  */
+void LTDC_IRQHandler(void)
+{
+  /* USER CODE BEGIN LTDC_IRQn 0 */
+
+  /* USER CODE END LTDC_IRQn 0 */
+  HAL_LTDC_IRQHandler(&hltdc);
+  /* USER CODE BEGIN LTDC_IRQn 1 */
+
+  /* USER CODE END LTDC_IRQn 1 */
+}
 
 /**
   * @brief This function handles OCTOSPI1 global interrupt.

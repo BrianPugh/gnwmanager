@@ -3,137 +3,108 @@
 #include "main.h"
 
 pixel_t framebuffer[320 * 240] __attribute__((section (".lcd")));
+static uint32_t frame_counter;
+extern LTDC_HandleTypeDef hltdc;
+
 
 void lcd_backlight_off() {
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
 }
+
 void lcd_backlight_on() {
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
 }
 
+
+static void gw_set_power_1V8(uint32_t p) {
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_1, p == 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+}
+static void gw_set_power_3V3(uint32_t p) {
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_4, p == 1 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+}
+static void gw_lcd_set_chipselect(uint32_t p) {
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, p == 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+}
+static void gw_lcd_set_reset(uint32_t p) {
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_8, p == 0 ? GPIO_PIN_SET : GPIO_PIN_RESET);
+}
+
+static void gw_lcd_spi_tx(SPI_HandleTypeDef *spi, uint8_t *pData) {
+  gw_lcd_set_chipselect(1);
+  HAL_Delay(2);
+  HAL_SPI_Transmit(spi, pData, 2, 100);
+  HAL_Delay(2);
+  wdog_refresh();
+  gw_lcd_set_chipselect(0);
+  HAL_Delay(2);
+}
+
+void lcd_deinit(SPI_HandleTypeDef *spi) {
+  // Power off
+  gw_set_power_1V8(0);
+  gw_set_power_3V3(0);
+}
+
 void lcd_init(SPI_HandleTypeDef *spi, LTDC_HandleTypeDef *ltdc) {
+  // Disable LCD Chip select
+  gw_lcd_set_chipselect(0);
 
-  // Turn display *off* completely.
-  lcd_backlight_off();
+  // LCD reset
+  gw_lcd_set_reset(0);
 
-  // 3.3v power to display *SET* to disable supply.
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_1, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_4, GPIO_PIN_RESET);
+  // Wake up !
+  // Enable 1.8V &3V3 power supply
+  gw_set_power_3V3(1);
+  HAL_Delay(2);
+  gw_set_power_1V8(1);
+  HAL_Delay(50);
+  wdog_refresh();
 
-
-  // TURN OFF CHIP SELECT
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
-  // TURN OFF PD8
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_8, GPIO_PIN_RESET);
-
-  // Turn off CS
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
-  HAL_Delay(100);
-
-  lcd_backlight_on();
-
-
-// Wake
-// Enable 3.3v
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_1, GPIO_PIN_RESET);
-  HAL_Delay(1);
-  // Enable 1.8V
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_4, GPIO_PIN_SET);
-  // also assert CS, not sure where to put this yet
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
-  HAL_Delay(7);
-
-
-
-// HAL_SPI_Transmit(spi, "\x55\x55\x55\x55\x55\x55\x55\x55\x55\x55", 10, 100);
   // Lets go, bootup sequence.
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_8, GPIO_PIN_SET);
-  HAL_Delay(2);
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_8, GPIO_PIN_RESET);
-  HAL_Delay(2);
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_8, GPIO_PIN_SET);
+  /* reset sequence */
+  gw_lcd_set_reset(0);
+  HAL_Delay(1);
+  gw_lcd_set_reset(1);
+  HAL_Delay(20);
+  gw_lcd_set_reset(0);
+  HAL_Delay(50);
+  wdog_refresh();
 
-  HAL_Delay(10);
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
-  HAL_Delay(2);
-  HAL_SPI_Transmit(spi, "\x08\x80", 2, 100);
-  HAL_Delay(2);
+  gw_lcd_spi_tx(spi, (uint8_t *)"\x08\x80");
+  gw_lcd_spi_tx(spi, (uint8_t *)"\x6E\x80");
+  gw_lcd_spi_tx(spi, (uint8_t *)"\x80\x80");
 
-  // CS
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
-  // HAL_Delay(100);
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
-  HAL_Delay(2);
-  HAL_SPI_Transmit(spi, "\x6E\x80", 2, 100);
-  HAL_Delay(2);
-  // CS
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
-  // HAL_Delay(100);
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
-  HAL_Delay(2);
-  HAL_SPI_Transmit(spi, "\x80\x80", 2, 100);
+  gw_lcd_spi_tx(spi, (uint8_t *)"\x68\x00");
+  gw_lcd_spi_tx(spi, (uint8_t *)"\xd0\x00");
+  gw_lcd_spi_tx(spi, (uint8_t *)"\x1b\x00");
+  gw_lcd_spi_tx(spi, (uint8_t *)"\xe0\x00");
 
-  HAL_Delay(2);
-  // CS
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
-  // HAL_Delay(100);
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
-  HAL_Delay(2);
-  HAL_SPI_Transmit(spi, "\x68\x00", 2, 100);
-  HAL_Delay(2);
-  // CS
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
-  // HAL_Delay(100);
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
-  HAL_Delay(2);
-  HAL_SPI_Transmit(spi, "\xd0\x00", 2, 100);
-  HAL_Delay(2);
-  // CS
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
-  // HAL_Delay(100);
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
-  HAL_Delay(2);
-  HAL_SPI_Transmit(spi, "\x1b\x00", 2, 100);
+  gw_lcd_spi_tx(spi, (uint8_t *)"\x6a\x80");
+  gw_lcd_spi_tx(spi, (uint8_t *)"\x80\x00");
+  gw_lcd_spi_tx(spi, (uint8_t *)"\x14\x80");
+  wdog_refresh();
 
-  HAL_Delay(2);
-  // CS
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
-  // HAL_Delay(100);
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
-  HAL_Delay(2);
-  HAL_SPI_Transmit(spi, "\xe0\x00", 2, 100);
+  HAL_LTDC_SetAddress(ltdc,(uint32_t) framebuffer, 0);
 
+  memset(framebuffer, 0, sizeof(framebuffer));
 
-  HAL_Delay(2);
-  // CS
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
-  // HAL_Delay(100);
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
-  HAL_Delay(2);
-  HAL_SPI_Transmit(spi, "\x6a\x80", 2, 100);
+  __HAL_LTDC_ENABLE_IT(&hltdc, LTDC_IT_LI | LTDC_IT_RR);
+  HAL_LTDC_ProgramLineEvent(&hltdc, 239);
+}
 
-  HAL_Delay(2);
-  // CS
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
-  // HAL_Delay(100);
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
-  HAL_Delay(2);
-  HAL_SPI_Transmit(spi, "\x80\x00", 2, 100);
-  HAL_Delay(2);
-  // CS
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
-  // HAL_Delay(100);
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
-  HAL_Delay(2);
-  HAL_SPI_Transmit(spi, "\x14\x80", 2, 100);
-  HAL_Delay(2);
-  // CS
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
+void HAL_LTDC_LineEventCallback (LTDC_HandleTypeDef *hltdc) {
+  frame_counter++;
+  HAL_LTDC_ProgramLineEvent(hltdc,  239);
+}
 
-
-  HAL_LTDC_SetAddress(ltdc,(uint32_t) &framebuffer,0);
+void lcd_wait_for_vblank(void)
+{
+  uint32_t old_counter = frame_counter;
+  while (old_counter == frame_counter) {
+    __asm("nop");
+  }
 }
