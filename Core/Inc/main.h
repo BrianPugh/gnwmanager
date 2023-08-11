@@ -42,7 +42,7 @@ extern "C" {
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
-
+extern RTC_HandleTypeDef hrtc;
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/

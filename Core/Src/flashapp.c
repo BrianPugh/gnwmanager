@@ -12,6 +12,7 @@
 #include "lzma.h"
 #include "sha256.h"
 #include "odroid_overlay.h"
+#include "rg_rtc.h"
 
 
 #define DBG(...) printf(__VA_ARGS__)
@@ -263,7 +264,7 @@ static void flashapp_run(flashapp_t *flashapp)
 
         if(comm->utc_timestamp){
             // Set time
-            //GW_SetUnixTime(comm->utc_timestamp);
+            GW_SetUnixTime(comm->utc_timestamp);
             comm->utc_timestamp = 0;
         }
 
