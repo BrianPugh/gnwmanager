@@ -13,18 +13,15 @@
 #include "sha256.h"
 #include "odroid_overlay.h"
 #include "rg_rtc.h"
+#include "bitmaps.h"
 
 
 #define DBG(...) printf(__VA_ARGS__)
 // #define DBG(...)
 
-#define STATUS_HEIGHT (33)
-#define HEADER_HEIGHT (47)
-#define IMAGE_BANNER_HEIGHT (32)
-#define IMAGE_BANNER_WIDTH  (GW_LCD_WIDTH)
 
-static const int font_height = 8; //odroid_overlay_get_font_size();
-static const int font_width = 8; //odroid_overlay_get_font_width();
+static const int font_height = 8;
+static const int font_width = 8;
 
 #define LIST_X_OFFSET    (0)
 #define LIST_Y_OFFSET    (STATUS_HEIGHT)
@@ -39,16 +36,6 @@ static const int font_width = 8; //odroid_overlay_get_font_width();
 #define PROGRESS_HEIGHT   (2 * LIST_LINE_HEIGHT)
 
 #define PERFORM_HASH_CHECK 1
-
-typedef struct {
-    char name[64];
-    char status[64];
-    const void *img_logo;
-    const void *img_header;
-    bool initialized;
-    bool is_empty;
-    void *arg;
-} tab_t;
 
 typedef enum {
     FLASHAPP_INIT                   = 0x00,

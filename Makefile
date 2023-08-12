@@ -46,6 +46,7 @@ Core/Src/sha256.c \
 Core/Src/lzma/LzmaDec.c \
 Core/Src/lzma/lzma.c \
 Core/Src/rg_rtc.c \
+Core/Src/logos.c \
 Core/Src/stm32h7xx_it.c \
 Core/Src/stm32h7xx_hal_msp.c \
 Core/Src/system_stm32h7xx.c \

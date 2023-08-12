@@ -2,6 +2,8 @@
 #include "font_basic.h"
 #include <string.h>
 #include <stdio.h>
+#include "rg_rtc.h"
+#include "main.h"
 
 static pixel_t overlay_buffer[GW_LCD_WIDTH * 32 * 2] __attribute__((aligned(4)));
 
@@ -14,6 +16,22 @@ static const colors_t gui_colors[] = {
 };
 colors_t *curr_colors = (colors_t *)(&gui_colors[0]);
 
+
+uint16_t get_darken_pixel(uint16_t color, uint16_t darken)
+{
+    int16_t r = (int16_t)((color & 0b1111100000000000) * darken / 100) & 0b1111100000000000;
+    int16_t g = (int16_t)((color & 0b0000011111100000) * darken / 100) & 0b0000011111100000;
+    int16_t b = (int16_t)((color & 0b0000000000011111) * darken / 100) & 0b0000000000011111;
+    return r | g | b;
+}
+
+uint16_t get_shined_pixel(uint16_t color, uint16_t shined)
+{
+    int16_t r = (int16_t)((color & 0b1111100000000000) + (0b1111100000000000 - (color & 0b1111100000000000)) / 100 * shined) & 0b1111100000000000;
+    int16_t g = (int16_t)((color & 0b0000011111100000) + (0b0000011111100000 - (color & 0b0000011111100000)) / 100 * shined) & 0b0000011111100000;
+    int16_t b = (int16_t)((color & 0b0000000000011111) + (0b0000000000011111 - (color & 0b0000000000011111)) * shined / 100) & 0b0000000000011111;
+    return r | g | b;
+}
 
 void odroid_display_write_rect(short left, short top, short width, short height, short stride, const uint16_t* buffer)
 {
@@ -121,4 +139,105 @@ void odroid_overlay_draw_fill_rect(int x, int y, int width, int height, uint16_t
         odroid_display_write(x, y_pos, width, thickness, overlay_buffer);
         y_pos += 16;
     }
+}
+
+void gui_draw_header(tab_t *tab)
+{
+
+    odroid_overlay_draw_fill_rect(0, GW_LCD_HEIGHT - IMAGE_BANNER_HEIGHT - 15, GW_LCD_WIDTH, 32, curr_colors->main_c);
+
+    if (tab->img_header)
+        odroid_overlay_draw_logo(8, GW_LCD_HEIGHT - IMAGE_BANNER_HEIGHT - 15 + 7, (retro_logo_image *)(tab->img_header), curr_colors->sel_c);
+
+    if (tab->img_logo) {
+        retro_logo_image *img_logo = (retro_logo_image *)(tab->img_logo);
+        int h = img_logo->height;
+        h = (IMAGE_BANNER_HEIGHT - h) / 2;
+        int w = h + img_logo->width;
+
+        odroid_overlay_draw_logo(GW_LCD_WIDTH - w - 1,
+                                 GW_LCD_HEIGHT - IMAGE_BANNER_HEIGHT - 15 + h,
+                                 img_logo, get_shined_pixel(curr_colors->main_c, 25));
+    }
+
+    odroid_overlay_draw_fill_rect(0, GW_LCD_HEIGHT - 15, GW_LCD_WIDTH, 1, curr_colors->sel_c);
+    odroid_overlay_draw_fill_rect(0, GW_LCD_HEIGHT - 13, GW_LCD_WIDTH, 4, curr_colors->main_c);
+    odroid_overlay_draw_fill_rect(0, GW_LCD_HEIGHT - 10, GW_LCD_WIDTH, 2, curr_colors->bg_c);
+    odroid_overlay_draw_fill_rect(0, GW_LCD_HEIGHT - 8, GW_LCD_WIDTH, 2, curr_colors->main_c);
+    odroid_overlay_draw_fill_rect(0, GW_LCD_HEIGHT - 6, GW_LCD_WIDTH, 2, curr_colors->bg_c);
+    odroid_overlay_draw_fill_rect(0, GW_LCD_HEIGHT - 4, GW_LCD_WIDTH, 1, curr_colors->main_c);
+    odroid_overlay_draw_fill_rect(0, GW_LCD_HEIGHT - 3, GW_LCD_WIDTH, 2, curr_colors->bg_c);
+    odroid_overlay_draw_fill_rect(0, GW_LCD_HEIGHT - 1, GW_LCD_WIDTH, 1, curr_colors->main_c);
+}
+
+void odroid_overlay_draw_logo(uint16_t x_pos, uint16_t y_pos, const retro_logo_image *logo, uint16_t color)
+{
+    uint16_t *dst_img = framebuffer;
+    int w = (logo->width + 7) / 8;
+    for (int i = 0; i < w; i++)
+        for (int y = 0; y < logo->height; y++)
+        {
+            const char glyph = logo->logo[y * w + i];
+            //for (int x = 0; x < 8; x++)
+            if (glyph & 0x80)
+                dst_img[(y + y_pos) * 320 + i * 8 + 0 + x_pos] = color;
+            if (glyph & 0x40)
+                dst_img[(y + y_pos) * 320 + i * 8 + 1 + x_pos] = color;
+            if (glyph & 0x20)
+                dst_img[(y + y_pos) * 320 + i * 8 + 2 + x_pos] = color;
+            if (glyph & 0x10)
+                dst_img[(y + y_pos) * 320 + i * 8 + 3 + x_pos] = color;
+            if (glyph & 0x08)
+                dst_img[(y + y_pos) * 320 + i * 8 + 4 + x_pos] = color;
+            if (glyph & 0x04)
+                dst_img[(y + y_pos) * 320 + i * 8 + 5 + x_pos] = color;
+            if (glyph & 0x02)
+                dst_img[(y + y_pos) * 320 + i * 8 + 6 + x_pos] = color;
+            if (glyph & 0x01)
+                dst_img[(y + y_pos) * 320 + i * 8 + 7 + x_pos] = color;
+        }
+};
+
+static void draw_clock_digit(uint16_t *fb, const uint8_t clock, uint16_t px, uint16_t py, uint16_t color)
+{
+    static const unsigned char *CLOCK_DIGITS[] = {img_clock_00, img_clock_01, img_clock_02, img_clock_03, img_clock_04, img_clock_05, img_clock_06, img_clock_07, img_clock_08, img_clock_09};
+    const unsigned char *img = CLOCK_DIGITS[clock];
+    for (uint8_t y = 0; y < 10; y++)
+        for (uint8_t x = 0; x < 6; x++)
+            if (img[y] & (1 << (7 - x)))
+                fb[px + x + GW_LCD_WIDTH * (py + y)] = color;
+};
+
+void odroid_overlay_clock(int x_pos, int y_pos)
+{
+    uint16_t *dst_img = framebuffer;
+    HAL_RTC_GetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN);
+    HAL_RTC_GetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN);
+
+    uint16_t color = get_darken_pixel(curr_colors->main_c, 75);
+    draw_clock_digit(dst_img, 8, x_pos + 30, y_pos, color);
+    draw_clock_digit(dst_img, 8, x_pos + 22, y_pos, color);
+    draw_clock_digit(dst_img, 8, x_pos + 8, y_pos, color);
+    draw_clock_digit(dst_img, 8, x_pos, y_pos, color);
+
+    draw_clock_digit(dst_img, GW_currentTime.Minutes % 10, x_pos + 30, y_pos, curr_colors->sel_c);
+    draw_clock_digit(dst_img, GW_currentTime.Minutes / 10, x_pos + 22, y_pos, curr_colors->sel_c);
+    draw_clock_digit(dst_img, GW_currentTime.Hours % 10, x_pos + 8, y_pos, curr_colors->sel_c);
+    draw_clock_digit(dst_img, GW_currentTime.Hours / 10, x_pos, y_pos, curr_colors->sel_c);
+
+    color = (GW_currentTime.SubSeconds < 100) ? curr_colors->sel_c : get_darken_pixel(curr_colors->main_c, 75);
+    odroid_overlay_draw_fill_rect(x_pos + 17, y_pos + 2, 2, 2, color);
+    odroid_overlay_draw_fill_rect(x_pos + 17, y_pos + 6, 2, 2, color);
+};
+
+void gui_draw_status(tab_t *tab)
+{
+    odroid_overlay_draw_fill_rect(0, 0, GW_LCD_WIDTH, STATUS_HEIGHT, curr_colors->main_c);
+    odroid_overlay_draw_fill_rect(0, 1, GW_LCD_WIDTH, 2, curr_colors->bg_c);
+    odroid_overlay_draw_fill_rect(0, 4, GW_LCD_WIDTH, 2, curr_colors->bg_c);
+    odroid_overlay_draw_fill_rect(0, 8, GW_LCD_WIDTH, 2, curr_colors->bg_c);
+
+    odroid_overlay_draw_logo(8, 16, (retro_logo_image *)(&logo_rgw), curr_colors->sel_c);
+
+    odroid_overlay_clock(GW_LCD_WIDTH - 74, 17);
 }
