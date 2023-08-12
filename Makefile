@@ -22,7 +22,7 @@ TARGET = gw_flashapp
 # debug build?
 DEBUG = 1
 # optimization
-OPT = -Og
+OPT ?= -Og
 
 
 #######################################
