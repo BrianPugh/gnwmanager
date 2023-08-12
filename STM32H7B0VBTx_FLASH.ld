@@ -66,6 +66,13 @@ MEMORY
   RAM      (xrw) : ORIGIN = 0x24000000, LENGTH = 1024K
   FLASH    (xr ) : ORIGIN = 0x08000000, LENGTH = 128K
 }
+REGION_ALIAS("FIRMWARE_LOCATION", FLASH)
+REGION_ALIAS("REGION_ISR", FIRMWARE_LOCATION);
+REGION_ALIAS("REGION_TEXT", FIRMWARE_LOCATION);
+REGION_ALIAS("REGION_RODATA", FIRMWARE_LOCATION);
+REGION_ALIAS("REGION_DATA", FIRMWARE_LOCATION);
+REGION_ALIAS("REGION_ARM", FIRMWARE_LOCATION);
+REGION_ALIAS("REGION_ARR", FIRMWARE_LOCATION);
 
 /* Define output sections */
 SECTIONS
@@ -78,13 +85,12 @@ SECTIONS
     . = ALIGN(4);
   }  > RAM
 
-  /* The startup code goes first into ITCMRAM */
   .isr_vector :
   {
     . = ALIGN(4);
     KEEP(*(.isr_vector)) /* Startup code */
     . = ALIGN(4);
-  } >ITCMRAM
+  } > REGION_ISR
 
   /* The program code and other data goes into ITCMRAM */
   .text :
@@ -101,7 +107,7 @@ SECTIONS
 
     . = ALIGN(4);
     _etext = .;        /* define a global symbols at end of code */
-  } >ITCMRAM
+  } >REGION_TEXT
 
   /* Constant data goes into ITCMRAM */
   .rodata :
@@ -110,25 +116,25 @@ SECTIONS
     *(.rodata)         /* .rodata sections (constants, strings, etc.) */
     *(.rodata*)        /* .rodata* sections (constants, strings, etc.) */
     . = ALIGN(4);
-  } >ITCMRAM
+  } >REGION_RODATA
 
   .ARM.extab :
   {
     *(.ARM.extab* .gnu.linkonce.armextab.*)
-  } >ITCMRAM
+  } >REGION_ARM
 
   .ARM : {
     __exidx_start = .;
     *(.ARM.exidx*)
     __exidx_end = .;
-  } >ITCMRAM
+  } >REGION_ARM
 
   .preinit_array     :
   {
     PROVIDE_HIDDEN (__preinit_array_start = .);
     KEEP (*(.preinit_array*))
     PROVIDE_HIDDEN (__preinit_array_end = .);
-  } >ITCMRAM
+  } >REGION_ARR
 
   .init_array :
   {
@@ -136,7 +142,7 @@ SECTIONS
     KEEP (*(SORT(.init_array.*)))
     KEEP (*(.init_array*))
     PROVIDE_HIDDEN (__init_array_end = .);
-  } >ITCMRAM
+  } >REGION_ARR
 
   .fini_array :
   {
@@ -144,7 +150,7 @@ SECTIONS
     KEEP (*(SORT(.fini_array.*)))
     KEEP (*(.fini_array*))
     PROVIDE_HIDDEN (__fini_array_end = .);
-  } >ITCMRAM
+  } >REGION_ARR
 
   /* used by the startup to initialize data */
   _sidata = LOADADDR(.data);
@@ -159,7 +165,7 @@ SECTIONS
 
     . = ALIGN(4);
     _edata = .;        /* define a global symbol at data end */
-  } >DTCMRAM AT> ITCMRAM
+  } >DTCMRAM AT> REGION_DATA
 
 
   /* Uninitialized data section */
