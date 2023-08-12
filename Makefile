@@ -138,9 +138,9 @@ C_INCLUDES =  \
 
 
 # compile gcc flags
-ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -Werror -fdata-sections -ffunction-sections
+ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
 
-CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -Werror -fdata-sections -ffunction-sections
+CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
 
 ifeq ($(DEBUG), 1)
 CFLAGS += -g -gdwarf-2 -O0
@@ -212,17 +212,17 @@ ADAPTER ?= stlink
 flash: $(BUILD_DIR)/$(TARGET).bin
 	@$(OPENOCD) -f scripts/interface_$(ADAPTER).cfg \
 		-c 'init; reset halt' \
-		-c 'program $< 0x00000000' \
-		-c 'set MSP 0x[string range [mdw 0x00000000] 12 19]' \
-		-c 'set PC 0x[string range [mdw 0x00000004] 12 19]' \
+		-c 'program $< 0x08000000 verify' \
+		-c 'set MSP 0x[string range [mdw 0x08000000] 12 19]' \
+		-c 'set PC 0x[string range [mdw 0x08000004] 12 19]' \
 		-c 'reg msp $$MSP' \
 		-c 'reg pc $$PC' \
-		-c 'resume;exit'
+		-c 'resume;'
 .PHONY: flash
 
 GDB ?= $(PREFIX)gdb
 
-debug: $(BUILD_DIR)/$(TARGET).elf
+gdb: $(BUILD_DIR)/$(TARGET).elf
 	$(GDB) $< -ex "target extended-remote :3333"
 .PHONY: debug
 
