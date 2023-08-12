@@ -207,8 +207,8 @@ static void draw_progress(flashapp_t *flashapp)
 static void redraw(flashapp_t *flashapp)
 {
     // Re-use header, status and footer from the retro-go code
-    //gui_draw_header(&flashapp->tab);
-    //gui_draw_status(&flashapp->tab);
+    gui_draw_header(&flashapp->tab);
+    gui_draw_status(&flashapp->tab);
 
     draw_progress(flashapp);
 }
@@ -434,8 +434,8 @@ void flashapp_main(void)
 {
     flashapp_t flashapp = {};
     flashapp.context_counter = 1;
-    //flashapp.tab.img_header = &logo_flash;
-    //flashapp.tab.img_logo = &logo_gnw;
+    flashapp.tab.img_header = &logo_flash;
+    flashapp.tab.img_logo = &logo_gnw;
 
     memset((void *)comm, 0, sizeof(struct flashapp_comm));
 
