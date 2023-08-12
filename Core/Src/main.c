@@ -104,7 +104,7 @@ int main(void)
   MX_LTDC_Init();
   MX_SPI2_Init();
   MX_OCTOSPI1_Init();
-  MX_RTC_Init();
+  //MX_RTC_Init();
   MX_WWDG1_Init();
 
   /* Initialize interrupts */
@@ -126,6 +126,9 @@ int main(void)
   if(*ptr == 0x88888888) {
     Error_Handler();
   }
+
+  SCB_InvalidateICache();
+  SCB_EnableICache();
 
   flashapp_main();
   /* USER CODE END 3 */

@@ -4,7 +4,7 @@
 #include <string.h>
 
 pixel_t framebuffer[320 * 240] __attribute__((section (".lcd")));
-static uint32_t frame_counter;
+static volatile uint32_t frame_counter;
 extern LTDC_HandleTypeDef hltdc;
 
 

@@ -206,8 +206,7 @@ static void draw_progress(flashapp_t *flashapp)
 
 static void redraw(flashapp_t *flashapp)
 {
-    // Re-use header, status and footer from the retro-go code
-    gui_draw_header(&flashapp->tab);
+    gui_draw_header(&flashapp->tab); // really a footer, but whatever
     gui_draw_status(&flashapp->tab);
 
     draw_progress(flashapp);
@@ -441,7 +440,7 @@ void flashapp_main(void)
 
     while (true) {
         if (comm->program_chunk_count == 1) {
-            sprintf(flashapp.tab.status, "G&W FlashApp: Awaiting Data TEST");
+            sprintf(flashapp.tab.status, "G&W FlashApp: Awaiting Data");
         } else {
             sprintf(flashapp.tab.status, "G&W FlashApp: Received (%ld/%ld)",
                     comm->program_chunk_idx, comm->program_chunk_count);

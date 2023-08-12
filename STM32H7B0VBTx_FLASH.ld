@@ -92,7 +92,7 @@ SECTIONS
     . = ALIGN(4);
   } > REGION_ISR
 
-  /* The program code and other data goes into ITCMRAM */
+  /* The program code*/
   .text :
   {
     . = ALIGN(4);
