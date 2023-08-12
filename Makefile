@@ -207,12 +207,16 @@ $(BUILD_DIR):
 
 OPENOCD ?= openocd
 ADAPTER ?= stlink
-INTFLASH_ADDRESS = 0x08000000
 
 flash: $(BUILD_DIR)/$(TARGET).bin
-	$(OPENOCD) -f scripts/interface_$(ADAPTER).cfg -c "program $< $(INTFLASH_ADDRESS) verify reset exit"
-.PHONY: flash_intflash
-
+	@$(OPENOCD) -f scripts/interface_$(ADAPTER).cfg \
+		-c 'init; reset halt' \
+		-c 'program $< 0x00000000' \
+		-c 'set MSP 0x[string range [mdw 0x00000000] 12 19]' \
+		-c 'set PC 0x[string range [mdw 0x00000004] 12 19]' \
+		-c 'reg msp $$MSP' \
+		-c 'reg pc $$PC' \
+		-c 'resume;exit'
 .PHONY: flash
 
 GDB ?= $(PREFIX)gdb
