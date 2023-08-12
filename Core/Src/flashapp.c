@@ -80,6 +80,7 @@ typedef enum {
     FLASHAPP_STATUS_BUSY            = 0xcafe0002,
 } flashapp_status_t;
 
+/* flashapp_t is only modified by program, not host computer */
 typedef struct {
     tab_t    tab;
     uint32_t erase_address;
@@ -92,7 +93,7 @@ typedef struct {
     uint32_t context_counter;
 } flashapp_t;
 
-struct work_context {
+typedef struct {
     union{
         struct{
             // This work context is ready for the on-device flashapp to process.
@@ -120,20 +121,20 @@ struct work_context {
             // The expected sha256 hash of the decompressed data (if originally compressed)
             uint8_t expected_sha256_decompressed[32];
 
-            unsigned char *buffer;
+            volatile unsigned char *buffer;
         };
         struct{
             // Force spacing, allowing for backward-compatible additional variables
             char padding[4096];
         };
     };
-};
+} volatile work_context_t;
 
 struct flashapp_comm {  // Values are read or written by the debugger
                         // only add attributes at the end (before work_buffers)
                         // so that addresses don't change.
     union {
-        struct{
+        volatile struct{
             // FlashApp state-machine state
             uint32_t flashapp_state;
 
@@ -159,19 +160,19 @@ struct flashapp_comm {  // Values are read or written by the debugger
         };
     };
 
-    struct work_context contexts[2];
+    volatile work_context_t contexts[2];
 
-    struct work_context active_context;
+    work_context_t active_context;
 
-    unsigned char buffer[2][256 << 10];
+    volatile unsigned char buffer[2][256 << 10];
 
     unsigned char decompress_buffer[256 << 10];
 };
 
 // framebuffer1 is used as an actual framebuffer.
 // framebuffer2 and onwards is used as a buffer for the flash.
-static volatile struct flashapp_comm comm_data __attribute__((section (".flashapp_comm")));
-static volatile struct flashapp_comm *comm = &comm_data;
+static struct flashapp_comm comm_data __attribute__((section (".flashapp_comm")));
+static struct flashapp_comm *comm = &comm_data;
 
 static void draw_text_line_centered(uint16_t y_pos,
                                     const char *text,
@@ -240,15 +241,12 @@ static void state_inc(void)
 
 static void flashapp_run(flashapp_t *flashapp)
 {
-    struct work_context *context = &comm->active_context;
+    work_context_t *context = &comm->active_context;
     uint8_t program_calculated_sha256[32];
 
     switch (comm->flashapp_state) {
     case FLASHAPP_INIT:
-        // Clear variables shared with the host
-        memset(comm, 0, sizeof(*comm));
         comm->program_chunk_count = 1;
-
         flashapp->progress_value = 0;
         flashapp->progress_max = 0;
 
@@ -273,7 +271,7 @@ static void flashapp_run(flashapp_t *flashapp)
             if(comm->contexts[i].ready == flashapp->context_counter){
                 flashapp->context_counter++;
                 comm->active_context_index = i;
-                memcpy(context, &comm->contexts[i], sizeof(struct work_context));
+                memcpy((void *)context, (void *)&comm->contexts[i], sizeof(work_context_t));
                 context->buffer = comm->buffer[i];
 
                 if(context->erase){
@@ -307,7 +305,7 @@ static void flashapp_run(flashapp_t *flashapp)
 
         break;
     case FLASHAPP_START:
-        sprintf(flashapp->tab.name, "Processing...", context->size);
+        sprintf(flashapp->tab.name, "Processing...");
         comm->program_status = FLASHAPP_STATUS_BUSY;
         state_inc();
         break;
@@ -339,27 +337,27 @@ static void flashapp_run(flashapp_t *flashapp)
         if(context->decompressed_size){
             uint32_t n_decomp_bytes;
             n_decomp_bytes = lzma_inflate(comm->decompress_buffer, sizeof(comm->decompress_buffer),
-                                          context->buffer, context->size);
+                                          (uint8_t *)context->buffer, context->size);
             assert(n_decomp_bytes == context->decompressed_size);
 
             context->size = context->decompressed_size;
             context->decompressed_size = 0;
             context->buffer = comm->decompress_buffer;
-            memcpy(context->expected_sha256, context->expected_sha256_decompressed, 32);
+            memcpy((void *)context->expected_sha256, (void *)context->expected_sha256_decompressed, 32);
 
             // We can now early release the context
-            memset(&comm->contexts[comm->active_context_index], 0, sizeof(struct work_context));
+            memset((void *)&comm->contexts[comm->active_context_index], 0, sizeof(work_context_t));
 
             state_set(FLASHAPP_CHECK_HASH_RAM_NEXT);
         }
         else{
             if(context->buffer != comm->decompress_buffer){
                 //The data came in NOT compressed
-                memcpy(comm->decompress_buffer, context->buffer, 256 << 10);
+                memcpy((void *)comm->decompress_buffer, (void *)context->buffer, 256 << 10);
                 context->buffer = comm->decompress_buffer;
 
                 // We can now early release the context
-                memset(&comm->contexts[comm->active_context_index], 0, sizeof(struct work_context));
+                memset((void *)&comm->contexts[comm->active_context_index], 0, sizeof(work_context_t));
             }
             state_inc();
         }
@@ -397,7 +395,7 @@ static void flashapp_run(flashapp_t *flashapp)
 
         flashapp->progress_max = context->size;
         flashapp->program_bytes_left = context->size;
-        flashapp->program_buf = context->buffer;
+        flashapp->program_buf = (unsigned char*)context->buffer;
 
         state_inc();
         break;
@@ -452,11 +450,11 @@ void flashapp_main(void)
     //flashapp.tab.img_header = &logo_flash;
     //flashapp.tab.img_logo = &logo_gnw;
 
-    memset(comm, 0, sizeof(struct flashapp_comm));
+    memset((void *)comm, 0, sizeof(struct flashapp_comm));
 
     while (true) {
         if (comm->program_chunk_count == 1) {
-            sprintf(flashapp.tab.status, "G&W FlashApp: Awaiting Data");
+            sprintf(flashapp.tab.status, "G&W FlashApp: Awaiting Data TEST");
         } else {
             sprintf(flashapp.tab.status, "G&W FlashApp: Received (%ld/%ld)",
                     comm->program_chunk_idx, comm->program_chunk_count);

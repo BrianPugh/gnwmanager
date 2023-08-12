@@ -40,6 +40,8 @@ void GW_SetCurrentDay(const uint8_t day);
 void GW_SetCurrentWeekday(const uint8_t weekday);
 void GW_SetCurrentYear(const uint8_t year);
 
+void GW_SetUnixTime(uint32_t time);
+
 #ifdef __cplusplus
 }
 #endif

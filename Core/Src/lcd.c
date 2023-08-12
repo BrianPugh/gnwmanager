@@ -1,6 +1,7 @@
 #include "lcd.h"
 #include "stm32h7xx_hal.h"
 #include "main.h"
+#include <string.h>
 
 pixel_t framebuffer[320 * 240] __attribute__((section (".lcd")));
 static uint32_t frame_counter;

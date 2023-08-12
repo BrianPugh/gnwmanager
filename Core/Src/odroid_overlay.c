@@ -1,5 +1,7 @@
 #include "odroid_overlay.h"
 #include "font_basic.h"
+#include <string.h>
+#include <stdio.h>
 
 static pixel_t overlay_buffer[GW_LCD_WIDTH * 32 * 2] __attribute__((aligned(4)));
 
