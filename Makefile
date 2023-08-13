@@ -13,7 +13,7 @@
 ######################################
 # target
 ######################################
-TARGET = gw_flashapp
+TARGET = gnwmanager
 
 
 ######################################
@@ -200,6 +200,7 @@ $(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
 		-j .fini_array \
 		-j .data \
 		$< $@
+	cp $@ gnwmanager/firmware.bin
 
 $(BUILD_DIR):
 	mkdir $@
@@ -212,13 +213,18 @@ ADAPTER ?= stlink
 flash: $(BUILD_DIR)/$(TARGET).bin
 	@$(OPENOCD) -f scripts/interface_$(ADAPTER).cfg \
 		-c 'init; reset halt' \
-		-c 'program $< 0x08000000 verify' \
-		-c 'set MSP 0x[string range [mdw 0x08000000] 12 19]' \
-		-c 'set PC 0x[string range [mdw 0x08000004] 12 19]' \
+		-c 'program $< 0x24000000' \
+		-c 'set MSP 0x[string range [mdw 0x24000000] 12 19]' \
+		-c 'set PC 0x[string range [mdw 0x24000004] 12 19]' \
 		-c 'reg msp $$MSP' \
-		-c 'reg pc $$PC' \
-		-c 'resume;'
+		-c 'reg pc $$PC'
+		-c 'resume; exit'
 .PHONY: flash
+
+openocd: $(BUILD_DIR)/$(TARGET).bin
+	@$(OPENOCD) -f scripts/interface_$(ADAPTER).cfg \
+		-c 'init; halt'
+.PHONY: openocd
 
 GDB ?= $(PREFIX)gdb
 

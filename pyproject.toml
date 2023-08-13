@@ -17,7 +17,7 @@ description = ""
 authors = ["Brian Pugh"]
 readme = "README.rst"
 packages = [{include = "gnwmanager"}]
-include = ["gnwmanager/*.so", "gnwmanager/*.pyd"]  # Compiled extensions
+include = ["gnwmanager/firmware.bin"]
 
 [tool.poetry.build]
 generate-setup-file = false
@@ -29,6 +29,9 @@ gnwmanager = "gnwmanager.cli.main:run_app"
 # Be as loose as possible if writing a library.
 python = ">=3.8"
 typer = ">=0.7.0"
+pyocd = { git = "https://github.com/BrianPugh/pyOCD.git", branch = "stm32h7b0-256k" }
+littlefs-python = ">=0.6.0"
+typing-extensions = "^4.7.1"
 
 [tool.poetry.group.docs.dependencies]
 sphinx = "~6.2.1"
@@ -95,7 +98,6 @@ select = [
     "PGH",  # pygrep-hooks
     "PTH", # flake8-use-pathlib
     "Q",  # flake8-quotes
-    "S",  # bandit
     "SIM",  # flake8-simplify
     "TRY",  # tryceratops
     "UP",  # pyupgrade
@@ -153,9 +155,6 @@ convention = "numpy"
     "D105",
     "D106",
     "D107",
-    "S101",  # use of "assert"
-    "S102",  # use of "exec"
-    "S106",  # possible hardcoded password.
     "PGH001",  # use of "eval"
 ]
 
@@ -167,4 +166,4 @@ staticmethod-decorators = [
 
 [tool.codespell]
 skip = 'poetry.lock,'
-ignore-words-list = "ptd"
+ignore-words-list = "ptd,hsi"

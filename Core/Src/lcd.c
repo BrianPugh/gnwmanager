@@ -3,7 +3,7 @@
 #include "main.h"
 #include <string.h>
 
-pixel_t framebuffer[320 * 240] __attribute__((section (".lcd")));
+pixel_t framebuffer[320 * 240] __attribute__((section(".lcd")));
 static volatile uint32_t frame_counter;
 extern LTDC_HandleTypeDef hltdc;
 

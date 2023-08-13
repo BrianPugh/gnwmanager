@@ -82,8 +82,8 @@
 
 /*!< Uncomment the following line if you need to relocate your vector Table in
      Internal SRAM. */
-/* #define VECT_TAB_SRAM */
-#define VECT_TAB_OFFSET  0x00000000UL /*!< Vector Table base offset field.
+#define VECT_TAB_SRAM
+#define VECT_TAB_OFFSET  0xE9800UL /*!< Vector Table base offset field.
                                       This value must be a multiple of 0x200. */
 /******************************************************************************/
 
@@ -164,7 +164,7 @@ void SystemInit (void)
 
   /* Reset HSEON, HSECSSON, CSION, HSI48ON, CSIKERON, PLL1ON, PLL2ON and PLL3ON bits */
   RCC->CR &= 0xEAF6ED7FU;
-  
+
    /* Decreasing the number of wait states because of lower CPU frequency */
   if(FLASH_LATENCY_DEFAULT  < (READ_BIT((FLASH->ACR), FLASH_ACR_LATENCY)))
   {

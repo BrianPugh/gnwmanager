@@ -64,9 +64,10 @@ MEMORY
   ITCMRAM  (xrw) : ORIGIN = 0x00000000, LENGTH = 64K
   DTCMRAM  (xrw) : ORIGIN = 0x20000000, LENGTH = 128K
   RAM      (xrw) : ORIGIN = 0x24000000, LENGTH = 1024K
+  AHBRAM   (xrw) : ORIGIN = 0x30000000, LENGTH = 128K
   FLASH    (xr ) : ORIGIN = 0x08000000, LENGTH = 128K
 }
-REGION_ALIAS("FIRMWARE_LOCATION", FLASH)
+REGION_ALIAS("FIRMWARE_LOCATION", RAM)
 REGION_ALIAS("REGION_ISR", FIRMWARE_LOCATION);
 REGION_ALIAS("REGION_TEXT", FIRMWARE_LOCATION);
 REGION_ALIAS("REGION_RODATA", FIRMWARE_LOCATION);
@@ -79,15 +80,16 @@ SECTIONS
 {
   .lcd :
   {
-    . = ALIGN(4);
-    *(.lcd)
-    *(.flashapp_comm)
-    . = ALIGN(4);
-  }  > RAM
+      . = ALIGN(4);
+      *(.lcd)
+      *(.flashapp_comm)
+      . = ALIGN(4);
+  } > RAM  /* 0xe9800 large */
 
   .isr_vector :
   {
     . = ALIGN(4);
+    __sfirmware = .;
     KEEP(*(.isr_vector)) /* Startup code */
     . = ALIGN(4);
   } > REGION_ISR
