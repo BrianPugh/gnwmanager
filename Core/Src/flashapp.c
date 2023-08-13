@@ -414,6 +414,12 @@ static void flashapp_run(flashapp_t *flashapp)
     }
 }
 
+#define FS_MAGIC = "littlefs"
+void find_littlefs(){
+    uint32_t erase_size = OSPI_GetSmallestEraseSize();
+    uint32_t flash_size = OSPI_GetSize();
+    assert(0);  // Not implemented yet
+}
 
 void flashapp_main(void)
 {

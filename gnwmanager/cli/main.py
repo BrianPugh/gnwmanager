@@ -44,7 +44,7 @@ def run_app():
         "frequency": 5_000_000,
         "connect_mode": "attach",
         "warning.cortex_m_default": False,
-        "target_override": "STM32H7B0",
+        "target_override": "STM32H7B0xx",
     }
 
     # Manual command chaining; Typer/Clicks's builtin is kinda broken.

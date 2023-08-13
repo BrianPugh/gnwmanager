@@ -1334,7 +1334,7 @@ test = ["coverage", "flake8", "pylint", "pytest (>=6.2)", "pytest-cov", "tox"]
 type = "git"
 url = "https://github.com/BrianPugh/pyOCD.git"
 reference = "stm32h7b0-256k"
-resolved_reference = "c12ebce15fd67b239c7d5029b61bcc2809ee6dd6"
+resolved_reference = "28b5e577e290a807083dec343ccceb818e7776ec"
 
 [[package]]
 name = "pytest"

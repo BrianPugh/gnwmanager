@@ -44,11 +44,12 @@
     .init_fn     = (_init_fn),                                                                                   \
 }
 
-#define JEDEC_CONFIG_DEF(_x0, _x1, _x2, _name, _config) \
-{                                                       \
-    .jedec_id.u32 = JEDEC_ID((_x0), (_x1), (_x2)),      \
-    .name         = (_name),                            \
-    .config       = (_config),                          \
+#define JEDEC_CONFIG_DEF(_x0, _x1, _x2, _name, _config, _size) \
+{                                                              \
+    .jedec_id.u32 = JEDEC_ID((_x0), (_x1), (_x2)),             \
+    .name         = (_name),                                   \
+    .config       = (_config),                                 \
+    .size         = (_size),                                   \
 }
 
 // Generic Status Register (SR) bits
@@ -171,6 +172,7 @@ typedef struct {
     jedec_id_t            jedec_id;
     const char           *name;
     const flash_config_t *config;
+    uint32_t size;
 } jedec_config_t;
 
 const flash_cmd_t cmds_spi_24b[CMD_COUNT] = {
@@ -334,36 +336,35 @@ const flash_config_t config_quad_32b_wb   = FLASH_CONFIG_DEF(cmds_quad_32b_wb,  
 const jedec_config_t jedec_map[] = {
 #if (EXTFLASH_FORCE_SPI == 0)
     // MX 24 bit address
-    JEDEC_CONFIG_DEF(0xC2, 0x25, 0x34, "MX25U8035F",  &config_quad_24b_mx),   // Stock 1MB (Mario)
-    JEDEC_CONFIG_DEF(0xC2, 0x25, 0x36, "MX25U3232F",  &config_quad_24b_mx),   // Stock 4MB (Zelda)
-    JEDEC_CONFIG_DEF(0xC2, 0x25, 0x37, "MX25U6432F",  &config_quad_24b_mx),   // 8MB
-    JEDEC_CONFIG_DEF(0xC2, 0x25, 0x38, "MX25U1283xF", &config_quad_24b_mx),   // 16MB MX25U12832F, MX25U12835F
+    JEDEC_CONFIG_DEF(0xC2, 0x25, 0x34, "MX25U8035F",  &config_quad_24b_mx,  1 << 20),   // Stock 1MB (Mario)
+    JEDEC_CONFIG_DEF(0xC2, 0x25, 0x36, "MX25U3232F",  &config_quad_24b_mx,  4 << 20),   // Stock 4MB (Zelda)
+    JEDEC_CONFIG_DEF(0xC2, 0x25, 0x37, "MX25U6432F",  &config_quad_24b_mx,  8 << 20),   // 8MB
+    JEDEC_CONFIG_DEF(0xC2, 0x25, 0x38, "MX25U1283xF", &config_quad_24b_mx, 16 << 20),   // 16MB MX25U12832F, MX25U12835F
 
     // MX 32 bit address
-    JEDEC_CONFIG_DEF(0xC2, 0x25, 0x39, "MX25U25635F",    &config_quad_32b_mx),   // 32 MB
-    JEDEC_CONFIG_DEF(0xC2, 0x25, 0x3A, "MX25U51245G",    &config_quad_32b_mx),   // 64 MB
-    JEDEC_CONFIG_DEF(0xC2, 0x24, 0x3A, "MX25U51245G",    &config_quad_32b_mx),   // 64 MB variant of unknown cause supplied by DigiKey (not listed in datasheet)	
-    JEDEC_CONFIG_DEF(0xC2, 0x95, 0x3A, "MX25U51245G-54", &config_quad_32b_mx54), // 64 MB
-    JEDEC_CONFIG_DEF(0xC2, 0x25, 0x3B, "MX66U1G45G",     &config_quad_32b_mx),   // 128 MB
-    JEDEC_CONFIG_DEF(0xC2, 0x25, 0x3C, "MX66U2G45G",     &config_quad_32b_mx),   // 256 MB
+    JEDEC_CONFIG_DEF(0xC2, 0x25, 0x39, "MX25U25635F",    &config_quad_32b_mx, 32 << 20),   // 32 MB
+    JEDEC_CONFIG_DEF(0xC2, 0x25, 0x3A, "MX25U51245G",    &config_quad_32b_mx, 64 << 20),   // 64 MB
+    JEDEC_CONFIG_DEF(0xC2, 0x24, 0x3A, "MX25U51245G",    &config_quad_32b_mx, 64 << 20),   // 64 MB variant of unknown cause supplied by DigiKey (not listed in datasheet)
+    JEDEC_CONFIG_DEF(0xC2, 0x95, 0x3A, "MX25U51245G-54", &config_quad_32b_mx54, 64 << 20), // 64 MB
+    JEDEC_CONFIG_DEF(0xC2, 0x25, 0x3B, "MX66U1G45G",     &config_quad_32b_mx, 128 << 20),   // 128 MB
+    JEDEC_CONFIG_DEF(0xC2, 0x25, 0x3C, "MX66U2G45G",     &config_quad_32b_mx, 256 << 20),   // 256 MB
 
     // Cypress/Infineon 32 bit address
     // These chips only have 64kB erase size which won't work well with the rest of the code.
-    JEDEC_CONFIG_DEF(0x01, 0x02, 0x20, "S25FS512S",   &config_quad_32b_s), // 64 MB
-    JEDEC_CONFIG_DEF(0x34, 0x2B, 0x1A, "S25FS512S",   &config_quad_32b_s), // 64 MB
+    JEDEC_CONFIG_DEF(0x01, 0x02, 0x20, "S25FS512S",   &config_quad_32b_s, 64 << 20), // 64 MB
+    JEDEC_CONFIG_DEF(0x34, 0x2B, 0x1A, "S25FS512S",   &config_quad_32b_s, 64 << 20), // 64 MB
 
     // ISSI 24 bit *untested*
     // TODO: Test and uncomment when it's confirmed they work well.
-    JEDEC_CONFIG_DEF(0x9D, 0x70, 0x18, "IS25WP128F",  &config_quad_24b_issi), // 16MB
+    JEDEC_CONFIG_DEF(0x9D, 0x70, 0x18, "IS25WP128F",  &config_quad_24b_issi, 16 << 20), // 16MB
 
 	// Winbond 24 bit address
-    JEDEC_CONFIG_DEF(0xEF, 0x60, 0x18, "W25Q128JW-Q/N", &config_quad_24b_wb), // 16MB, tested with W25Q128JWSIQ
-    JEDEC_CONFIG_DEF(0xEF, 0x80, 0x18, "W25Q128JW-M",   &config_quad_24b_wb), // 16MB
+    JEDEC_CONFIG_DEF(0xEF, 0x60, 0x18, "W25Q128JW-Q/N", &config_quad_24b_wb, 16 << 20), // 16MB, tested with W25Q128JWSIQ
+    JEDEC_CONFIG_DEF(0xEF, 0x80, 0x18, "W25Q128JW-M",   &config_quad_24b_wb, 16 << 20), // 16MB
 
 	// Winbond 32 bit address
-    JEDEC_CONFIG_DEF(0xEF, 0x60, 0x20, "W25Q512NW-Q/N", &config_quad_32b_wb), // 64MB
-    JEDEC_CONFIG_DEF(0xEF, 0x80, 0x20, "W25Q512NW-M",   &config_quad_32b_wb), // 64MB, tested with W25Q512NWEIM
-
+    JEDEC_CONFIG_DEF(0xEF, 0x60, 0x20, "W25Q512NW-Q/N", &config_quad_32b_wb, 64 << 20), // 64MB
+    JEDEC_CONFIG_DEF(0xEF, 0x80, 0x20, "W25Q512NW-M",   &config_quad_32b_wb, 64 << 20), // 64MB, tested with W25Q512NWEIM
 #endif
 };
 
@@ -373,6 +374,7 @@ static struct {
     jedec_id_t            jedec_id;
     const flash_config_t *config;
     const char           *name;
+    uint32_t              size;
     bool                  mem_mapped_enabled;
 } flash = {
     .config = &config_spi_24b, // Default config to use to probe status etc.
@@ -864,6 +866,7 @@ void OSPI_Init(OSPI_HandleTypeDef *hospi)
         if ((flash.jedec_id.u32 & 0xffffff) == (jedec_map[i].jedec_id.u32 & 0xffffff)) {
             flash.config = jedec_map[i].config;
             flash.name = jedec_map[i].name;
+            flash.size = jedec_map[i].size;
             DBG("Found config: %s\n", flash.name);
             break;
         }
@@ -874,4 +877,8 @@ void OSPI_Init(OSPI_HandleTypeDef *hospi)
     }
 
     OSPI_EnableMemoryMappedMode();
+}
+
+uint32_t OSPI_GetSize(void){
+    return flash.size;
 }
