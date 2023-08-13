@@ -108,7 +108,7 @@ typedef struct {
             // The expected sha256 hash of the decompressed data (if originally compressed)
             uint8_t expected_sha256_decompressed[32];
 
-            unsigned char *buffer;
+            volatile unsigned char *buffer;
         };
         struct{
             // Force spacing, allowing for backward-compatible additional variables
