@@ -37,6 +37,7 @@ def ext(
         int,
         Option(
             min=0,
+            help="Offset into external flash.",
         ),
     ] = 0,
     progress_file: Annotated[
@@ -121,6 +122,7 @@ def bank1(
         Option(
             min=0,
             max=256 << 10,
+            help="Offset into bank.",
         ),
     ] = 0,
 ):
@@ -149,6 +151,7 @@ def bank2(
         Option(
             min=0,
             max=256 << 10,
+            help="Offset into bank.",
         ),
     ] = 0,
 ):

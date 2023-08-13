@@ -8,12 +8,13 @@ from typer import Option
 import gnwmanager
 from gnwmanager.target import GnWTargetMixin, mixin_object
 
-from . import flash
+from . import flash, start
 
 session: Session
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False, add_completion=False)
-app.add_typer(flash.app, name="flash", chain=False)
+app.add_typer(flash.app, name="flash")
+app.command()(start.start)
 
 
 def version_callback(value: bool):
