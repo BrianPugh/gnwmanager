@@ -6,6 +6,8 @@ from pyocd.core.target import Target
 
 from gnwmanager.exceptions import DataError
 from gnwmanager.status import flashapp_status_enum_to_str
+from gnwmanager.utils import compress_lzma, sha256
+from gnwmanager.validation import validate_extflash_offset
 
 Variable = namedtuple("Variable", ["address", "size"])
 
@@ -32,11 +34,8 @@ def _populate_comm():
         contexts[i]["address"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
         contexts[i]["erase"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
         contexts[i]["erase_bytes"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
-        contexts[i]["decompressed_size"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
+        contexts[i]["compressed_size"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
         contexts[i]["expected_sha256"] = last_variable = Variable(last_variable.address + last_variable.size, 32)
-        contexts[i]["expected_sha256_decompressed"] = last_variable = Variable(
-            last_variable.address + last_variable.size, 32
-        )
 
         # Don't ever directly use this, just here for alignment purposes
         contexts[i]["__buffer_ptr"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
@@ -63,6 +62,8 @@ class GnWTargetMixin(Target):
             addr = _comm[key].address
         elif isinstance(key, int):
             addr = key
+        elif isinstance(key, Variable):
+            addr = key.address
         else:
             raise TypeError
         return self.read32(addr)
@@ -72,10 +73,24 @@ class GnWTargetMixin(Target):
             addr = _comm[key].address
         elif isinstance(key, int):
             addr = key
+        elif isinstance(key, Variable):
+            addr = key.address
         else:
             raise TypeError
 
         self.write32(addr, val)
+
+    def write_mem(self, key, val):
+        if isinstance(key, str):
+            addr = _comm[key].address
+        elif isinstance(key, int):
+            addr = key
+        elif isinstance(key, Variable):
+            addr = key.address
+        else:
+            raise TypeError
+
+        self.write_memory_block8(addr, val)
 
     def wait_for_idle(self, timeout=10):
         """Block until the on-device status is IDLE."""
@@ -93,3 +108,87 @@ class GnWTargetMixin(Target):
             if time() > t_deadline:
                 raise TimeoutError
             sleep(0.05)
+
+    def wait_for_all_contexts_complete(self, timeout=10):
+        time()
+        t_deadline = time() + timeout
+        for context in contexts:
+            while self.read_int(context["ready"]):
+                if time() > t_deadline:
+                    raise TimeoutError
+                sleep(0.05)
+        self.wait_for_idle(timeout=t_deadline - time())
+
+    def get_context(self, timeout=10):
+        time()
+        t_deadline = time() + timeout
+        while True:
+            for context in contexts:
+                if not self.read_int(context["ready"]):
+                    return context
+                if time() > t_deadline:
+                    raise TimeoutError
+            sleep(0.05)
+
+    def _init_context_counter(self):
+        if not hasattr(self, "context_counter"):
+            self.context_counter = 1
+
+    def write_ext(
+        self,
+        offset: int,
+        data: bytes,
+        erase: bool = True,
+        blocking: bool = True,
+        compress: bool = True,
+    ) -> None:
+        """Write data to extflash.
+
+        Limited to RAM constraints (i.e. <256KB writes).
+
+        ``program_chunk_idx`` must externally be set.
+
+        Parameters
+        ----------
+        offset: int
+            Offset into extflash to write.
+        size: int
+            Number of bytes to write.
+        erase: bool
+            Erases flash prior to write.
+            Defaults to ``True``.
+        """
+        self._init_context_counter()
+        validate_extflash_offset(offset)
+        if not data:
+            return
+        if len(data) > (256 << 10):
+            raise ValueError("Too large of data for a single write.")
+
+        context = self.get_context()
+
+        if blocking:
+            self.wait_for_idle()
+            self.halt()
+
+        self.write_int(context["address"], offset)
+        self.write_int(context["size"], len(data))
+
+        if erase:
+            self.write_int(context["erase"], 1)  # Perform an erase at `program_address`
+            self.write_int(context["erase_bytes"], len(data))
+
+        digest = sha256(data)
+        if compress:
+            data = compress_lzma(data)
+            self.write_int(context["compressed_size"], len(data))
+
+        self.write_mem(context["expected_sha256"], digest)
+        self.write_mem(context["buffer"], data)
+
+        self.write_int(context["ready"], self.context_counter)
+        self.context_counter += 1
+
+        if blocking:
+            self.resume()
+            self.wait_for_all_contexts_complete()

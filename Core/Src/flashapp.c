@@ -38,18 +38,18 @@ static const int font_width = 8;
 #define PERFORM_HASH_CHECK 1
 
 typedef enum {
-    FLASHAPP_INIT                   = 0x00,
-    FLASHAPP_IDLE                   = 0x01,
-    FLASHAPP_START                  = 0x02,
-    FLASHAPP_CHECK_HASH_RAM_NEXT    = 0x03,
-    FLASHAPP_CHECK_HASH_RAM         = 0x04,
-    FLASHAPP_DECOMPRESSING          = 0x05,
-    FLASHAPP_ERASE_NEXT             = 0x06,
-    FLASHAPP_ERASE                  = 0x07,
-    FLASHAPP_PROGRAM_NEXT           = 0x08,
-    FLASHAPP_PROGRAM                = 0x09,
-    FLASHAPP_CHECK_HASH_FLASH_NEXT  = 0x0A,
-    FLASHAPP_CHECK_HASH_FLASH       = 0x0B,
+    FLASHAPP_INIT                   ,
+    FLASHAPP_IDLE                   ,
+    FLASHAPP_START                  ,
+    FLASHAPP_DECOMPRESSING          ,
+    FLASHAPP_CHECK_HASH_RAM_NEXT    ,
+    FLASHAPP_CHECK_HASH_RAM         ,
+    FLASHAPP_ERASE_NEXT             ,
+    FLASHAPP_ERASE                  ,
+    FLASHAPP_PROGRAM_NEXT           ,
+    FLASHAPP_PROGRAM                ,
+    FLASHAPP_CHECK_HASH_FLASH_NEXT  ,
+    FLASHAPP_CHECK_HASH_FLASH       ,
 
     FLASHAPP_FINAL                  = 0x0C,
     FLASHAPP_ERROR                  = 0x0D,
@@ -99,14 +99,11 @@ typedef struct {
             // Number of bytes to be erased from program_address
             int32_t erase_bytes;
 
-            // 0 if the data has not been compressed
-            uint32_t decompressed_size;
+            // Set to 0 for no-compression
+            uint32_t compressed_size;
 
             // The expected sha256 of the loaded binary
             uint8_t expected_sha256[32];
-
-            // The expected sha256 hash of the decompressed data (if originally compressed)
-            uint8_t expected_sha256_decompressed[32];
 
             volatile unsigned char *buffer;
         };
@@ -295,6 +292,27 @@ static void flashapp_run(flashapp_t *flashapp)
         comm->program_status = FLASHAPP_STATUS_BUSY;
         state_inc();
         break;
+    case FLASHAPP_DECOMPRESSING:
+        if(context->compressed_size){
+            // Decompress the data; nothing after this state should reference decompression.
+            uint32_t n_decomp_bytes;
+            n_decomp_bytes = lzma_inflate(comm->decompress_buffer, sizeof(comm->decompress_buffer),
+                                          (uint8_t *)context->buffer, context->compressed_size);
+            assert(n_decomp_bytes == context->size);
+            context->buffer = comm->decompress_buffer;
+            // We can now early release the context
+            memset((void *)&comm->contexts[comm->active_context_index], 0, sizeof(work_context_t));
+        }
+        else{
+            //The data came in NOT compressed
+            memcpy((void *)comm->decompress_buffer, (void *)context->buffer, 256 << 10);
+            context->buffer = comm->decompress_buffer;
+
+            // We can now early release the context
+            memset((void *)&comm->contexts[comm->active_context_index], 0, sizeof(work_context_t));
+        }
+        state_inc();
+        break;
     case FLASHAPP_CHECK_HASH_RAM_NEXT:
         sprintf(flashapp->tab.name, "Checking hash in RAM (%ld bytes)", context->size);
         state_inc();
@@ -312,41 +330,9 @@ static void flashapp_run(flashapp_t *flashapp)
             break;
         } else {
             sprintf(flashapp->tab.name, "Hash OK in RAM");
-            state_inc();
         }
-#else
-        state_inc();
 #endif
-        break;
-    case FLASHAPP_DECOMPRESSING:
-        // Decompress the data; nothing after this state should reference decompression.
-        if(context->decompressed_size){
-            uint32_t n_decomp_bytes;
-            n_decomp_bytes = lzma_inflate(comm->decompress_buffer, sizeof(comm->decompress_buffer),
-                                          (uint8_t *)context->buffer, context->size);
-            assert(n_decomp_bytes == context->decompressed_size);
-
-            context->size = context->decompressed_size;
-            context->decompressed_size = 0;
-            context->buffer = comm->decompress_buffer;
-            memcpy((void *)context->expected_sha256, (void *)context->expected_sha256_decompressed, 32);
-
-            // We can now early release the context
-            memset((void *)&comm->contexts[comm->active_context_index], 0, sizeof(work_context_t));
-
-            state_set(FLASHAPP_CHECK_HASH_RAM_NEXT);
-        }
-        else{
-            if(context->buffer != comm->decompress_buffer){
-                //The data came in NOT compressed
-                memcpy((void *)comm->decompress_buffer, (void *)context->buffer, 256 << 10);
-                context->buffer = comm->decompress_buffer;
-
-                // We can now early release the context
-                memset((void *)&comm->contexts[comm->active_context_index], 0, sizeof(work_context_t));
-            }
-            state_inc();
-        }
+        state_inc();
         break;
     case FLASHAPP_ERASE_NEXT:
         if (context->erase) {

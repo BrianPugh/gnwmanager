@@ -32,6 +32,7 @@ typer = ">=0.7.0"
 pyocd = { git = "https://github.com/BrianPugh/pyOCD.git", branch = "stm32h7b0-256k" }
 littlefs-python = ">=0.6.0"
 typing-extensions = "^4.7.1"
+tqdm = "^4.66.1"
 
 [tool.poetry.group.docs.dependencies]
 sphinx = "~6.2.1"
