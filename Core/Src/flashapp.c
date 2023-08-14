@@ -423,7 +423,7 @@ void find_littlefs(){
     assert(0);  // Not implemented yet
 }
 
-#define FLASHAPP_BACKGROUND_COLOR _2C_(0x727351)
+#define FLASHAPP_BACKGROUND_COLOR RGB24_TO_RGB565(0x72, 0x73, 0x51)
 
 void flashapp_main(void)
 {
