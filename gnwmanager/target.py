@@ -6,7 +6,7 @@ from pyocd.core.target import Target
 
 from gnwmanager.exceptions import DataError
 from gnwmanager.status import flashapp_status_enum_to_str
-from gnwmanager.utils import compress_lzma, sha256
+from gnwmanager.utils import compress_lzma, sha256, EMPTY_HASH_DIGEST
 from gnwmanager.validation import validate_extflash_offset
 
 Variable = namedtuple("Variable", ["address", "size"])
@@ -192,3 +192,44 @@ class GnWTargetMixin(Target):
         if blocking:
             self.resume()
             self.wait_for_all_contexts_complete()
+
+    def erase_ext(self, offset: int, size: int, whole_chip: bool = False, **kwargs) -> None:
+        """Erase a range of data on extflash.
+
+        On-device flashapp will round up to nearest minimum erase size.
+        ``program_chunk_idx`` must externally be set.
+
+        Parameters
+        ----------
+        offset: int
+            Offset into extflash to erase.
+        size: int
+            Number of bytes to erase.
+        whole_chip: bool
+            If ``True``, ``size`` is ignored and the entire chip is erased.
+            Defaults to ``False``.
+        """
+        self._init_context_counter()
+        validate_extflash_offset(offset)
+
+        if size <= 0 and not whole_chip:
+            raise ValueError("Size must be >0; 0 erases the entire chip.")
+
+        context = self.get_context()
+
+        self.write_int(context["address"], offset)
+        self.write_int(context["erase"], 1)  # Perform an erase at `program_address`
+        self.write_int(context["size"], 0)
+
+        if whole_chip:
+            self.write_int(context["erase_bytes"].address, 0)  # Note: a 0 value erases the whole chip
+        else:
+            self.write_int(context["erase_bytes"].address, size)
+
+        self.write_mem(context["expected_sha256"], EMPTY_HASH_DIGEST)
+
+        self.write_int(context["ready"], self.context_counter)
+        self.context_counter += 1
+
+        self.wait_for_all_contexts_complete(**kwargs)
+

@@ -37,7 +37,7 @@ static const int font_width = 8;
 
 #define PERFORM_HASH_CHECK 1
 
-typedef enum {
+typedef enum {  // For the flashapp state machine
     FLASHAPP_INIT                   ,
     FLASHAPP_IDLE                   ,
     FLASHAPP_START                  ,
@@ -55,7 +55,7 @@ typedef enum {
     FLASHAPP_ERROR                  = 0x0D,
 } flashapp_state_t;
 
-typedef enum {
+typedef enum { // For signaling to computer
     FLASHAPP_BOOTING = 0,
 
     FLASHAPP_STATUS_BAD_HASH_RAM    = 0xbad00001,
@@ -63,13 +63,11 @@ typedef enum {
     FLASHAPP_STATUS_NOT_ALIGNED     = 0xbad00003,
 
     FLASHAPP_STATUS_IDLE            = 0xcafe0000,
-    FLASHAPP_STATUS_DONE            = 0xcafe0001,
-    FLASHAPP_STATUS_BUSY            = 0xcafe0002,
+    FLASHAPP_STATUS_BUSY            = 0xcafe0001,
 } flashapp_status_t;
 
 /* flashapp_t is only modified by program, not host computer */
-typedef struct {
-    tab_t    tab;
+typedef struct { // TODO: state should go in here
     uint32_t erase_address;
     uint32_t erase_bytes_left;
     uint32_t current_program_address;
@@ -266,7 +264,7 @@ static void flashapp_run(flashapp_t *flashapp)
                     uint32_t smallest_erase = OSPI_GetSmallestEraseSize();
 
                     if (flashapp->erase_address & (smallest_erase - 1)) {
-                        sprintf(flashapp->tab.name, "** Address not aligned to smallest erase size! **");
+                        //sprintf(flashapp->tab.name, "** Address not aligned to smallest erase size! **");
                         comm->program_status = FLASHAPP_STATUS_NOT_ALIGNED;
                         state_set(FLASHAPP_ERROR);
                         break;
@@ -285,12 +283,12 @@ static void flashapp_run(flashapp_t *flashapp)
                 break;
             }
         }
-        if(comm->flashapp_state == FLASHAPP_IDLE)
-            sprintf(flashapp->tab.name, "Waiting for command...");
+        //if(comm->flashapp_state == FLASHAPP_IDLE)
+        //    sprintf(flashapp->tab.name, "Waiting for command...");
 
         break;
     case FLASHAPP_START:
-        sprintf(flashapp->tab.name, "Processing...");
+        //sprintf(flashapp->tab.name, "Processing...");
         comm->program_status = FLASHAPP_STATUS_BUSY;
         state_inc();
         break;
@@ -316,7 +314,7 @@ static void flashapp_run(flashapp_t *flashapp)
         state_inc();
         break;
     case FLASHAPP_CHECK_HASH_RAM_NEXT:
-        sprintf(flashapp->tab.name, "Checking hash in RAM (%ld bytes)", context->size);
+        //sprintf(flashapp->tab.name, "Checking hash in RAM (%ld bytes)", context->size);
         state_inc();
         break;
     case FLASHAPP_CHECK_HASH_RAM:
@@ -326,12 +324,12 @@ static void flashapp_run(flashapp_t *flashapp)
 
         if (memcmp((const void *)program_calculated_sha256, (const void *)context->expected_sha256, 32) != 0) {
             // Hashes don't match even in RAM, openocd loading failed.
-            sprintf(flashapp->tab.name, "*** Hash mismatch in RAM ***");
+            //sprintf(flashapp->tab.name, "*** Hash mismatch in RAM ***");
             comm->program_status = FLASHAPP_STATUS_BAD_HASH_RAM;
             state_set(FLASHAPP_ERROR);
             break;
         } else {
-            sprintf(flashapp->tab.name, "Hash OK in RAM");
+            //sprintf(flashapp->tab.name, "Hash OK in RAM");
         }
 #endif
         state_inc();
@@ -339,11 +337,10 @@ static void flashapp_run(flashapp_t *flashapp)
     case FLASHAPP_ERASE_NEXT:
         if (context->erase) {
             if (context->erase_bytes == 0) {
-                sprintf(flashapp->tab.name, "Performing Chip Erase (takes time)");
+                //sprintf(flashapp->tab.name, "Performing Chip Erase (takes time)");
             }
             else {
-                sprintf(flashapp->tab.name, "Erasing %ld bytes...", flashapp->erase_bytes_left);
-                printf("Erasing %ld bytes at 0x%08lx\n", context->erase_bytes, flashapp->erase_address);
+                //sprintf(flashapp->tab.name, "Erasing %ld bytes...", flashapp->erase_bytes_left);
             }
             state_inc();
         } else {
@@ -363,7 +360,7 @@ static void flashapp_run(flashapp_t *flashapp)
         }
         break;
     case FLASHAPP_PROGRAM_NEXT:
-        sprintf(flashapp->tab.name, "Programming...");
+        //sprintf(flashapp->tab.name, "Programming...");
         flashapp->progress_value = 0;
         flashapp->current_program_address = context->address;
 
@@ -389,7 +386,7 @@ static void flashapp_run(flashapp_t *flashapp)
         }
         break;
     case FLASHAPP_CHECK_HASH_FLASH_NEXT:
-        sprintf(flashapp->tab.name, "Checking hash in FLASH");
+        //sprintf(flashapp->tab.name, "Checking hash in FLASH");
         OSPI_EnableMemoryMappedMode();
         state_inc();
         break;
@@ -400,13 +397,13 @@ static void flashapp_run(flashapp_t *flashapp)
 
         if (memcmp((char *)program_calculated_sha256, (char *)context->expected_sha256, 32) != 0) {
             // Hashes don't match in FLASH, programming failed.
-            sprintf(flashapp->tab.name, "*** Hash mismatch in FLASH ***");
+            //sprintf(flashapp->tab.name, "*** Hash mismatch in FLASH ***");
             comm->program_status = FLASHAPP_STATUS_BAD_HAS_FLASH;
             state_set(FLASHAPP_ERROR);
             break;
         }
 #endif
-        sprintf(flashapp->tab.name, "Hash OK in FLASH.");
+        //sprintf(flashapp->tab.name, "Hash OK in FLASH.");
         state_set(FLASHAPP_IDLE);
         break;
     case FLASHAPP_FINAL:
@@ -439,12 +436,12 @@ void flashapp_main(void)
     odroid_overlay_draw_fill_rect(0, 0, 320, 240, FLASHAPP_BACKGROUND_COLOR);
 
     while (true) {
-        if (comm->program_chunk_count == 1) {
-            sprintf(flashapp.tab.status, "G&W FlashApp: Awaiting Data");
-        } else {
-            sprintf(flashapp.tab.status, "G&W FlashApp: Received (%ld/%ld)",
-                    comm->program_chunk_idx, comm->program_chunk_count);
-        }
+        //if (comm->program_chunk_count == 1) {
+        //    sprintf(flashapp.tab.status, "G&W FlashApp: Awaiting Data");
+        //} else {
+        //    sprintf(flashapp.tab.status, "G&W FlashApp: Received (%ld/%ld)",
+        //            comm->program_chunk_idx, comm->program_chunk_count);
+        //}
 
         // Run multiple times to skip rendering when programming
         for (int i = 0; i < 16; i++) {
