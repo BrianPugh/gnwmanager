@@ -13,6 +13,7 @@
 #include "sha256.h"
 #include "rg_rtc.h"
 #include "odroid_overlay.h"
+#include "flashapp.h"
 #include "flashapp_gui.h"
 
 
@@ -24,23 +25,11 @@ typedef enum {  // For the flashapp state machine
     FLASHAPP_DECOMPRESSING          ,
     FLASHAPP_CHECK_HASH_RAM         ,
     FLASHAPP_ERASE                  ,
-    FLASHAPP_PROGRAM_NEXT           ,
     FLASHAPP_PROGRAM                ,
     FLASHAPP_CHECK_HASH_FLASH       ,
 
     FLASHAPP_ERROR = 0xF000,
 } flashapp_state_t;
-
-typedef enum { // For signaling program status to computer
-    FLASHAPP_BOOTING = 0,
-
-    FLASHAPP_STATUS_BAD_HASH_RAM    = 0xbad00001,
-    FLASHAPP_STATUS_BAD_HAS_FLASH   = 0xbad00002,
-    FLASHAPP_STATUS_NOT_ALIGNED     = 0xbad00003,
-
-    FLASHAPP_STATUS_IDLE            = 0xcafe0000,
-    FLASHAPP_STATUS_BUSY            = 0xcafe0001,
-} flashapp_status_t;
 
 
 typedef struct {
@@ -65,7 +54,7 @@ typedef struct {
             // Set to 0 for no-compression
             uint32_t compressed_size;
 
-            // The expected sha256 of the loaded binary
+            // The expected sha256 of the decompressed binary
             uint8_t expected_sha256[32];
 
             volatile unsigned char *buffer;
@@ -154,29 +143,27 @@ static void flashapp_run(void)
                 memcpy((void *)context, (void *)&comm->contexts[i], sizeof(work_context_t));
                 context->buffer = comm->buffer[i];
 
+                program_offset = context->address;
+                program_bytes_remaining = context->size;
                 if(context->erase){
                     erase_address = context->address;
                     erase_bytes_left = context->erase_bytes;
 
+                    // Start a non-blocking flash erase to run in the background
                     uint32_t smallest_erase = OSPI_GetSmallestEraseSize();
-
                     if (erase_address & (smallest_erase - 1)) {
                         // Address not aligned to smallest erase size
                         comm->program_status = FLASHAPP_STATUS_NOT_ALIGNED;
                         state = FLASHAPP_ERROR;
                         break;
                     }
-
                     // Round size up to nearest erase size if needed ?
                     if ((erase_bytes_left & (smallest_erase - 1)) != 0) {
                         erase_bytes_left += smallest_erase - (erase_bytes_left & (smallest_erase - 1));
                     }
-
-                    // Start a non-blocking flash erase to run in the background
                     OSPI_DisableMemoryMappedMode();
                     OSPI_Erase(&erase_address, &erase_bytes_left, false);
                 }
-                comm->program_status = FLASHAPP_STATUS_BUSY;
                 state++;
                 break;
             }
@@ -184,6 +171,7 @@ static void flashapp_run(void)
         comm->program_status = FLASHAPP_STATUS_IDLE;
         break;
     case FLASHAPP_DECOMPRESSING:
+        comm->program_status = FLASHAPP_STATUS_DECOMPRESS;
         if(context->compressed_size){
             // Decompress the data; nothing after this state should reference decompression.
             uint32_t n_decomp_bytes;
@@ -220,9 +208,10 @@ static void flashapp_run(void)
         break;
     case FLASHAPP_ERASE:
         if (!context->erase) {
-            state = FLASHAPP_PROGRAM_NEXT;
+            state = FLASHAPP_PROGRAM;
             break;
         }
+        comm->program_status = FLASHAPP_STATUS_ERASE;
 
         OSPI_DisableMemoryMappedMode();
         if (context->erase_bytes == 0) {
@@ -236,12 +225,8 @@ static void flashapp_run(void)
             }
         }
         break;
-    case FLASHAPP_PROGRAM_NEXT:
-        program_offset = context->address;
-        program_bytes_remaining = context->size;
-        state++;
-        break;
     case FLASHAPP_PROGRAM:
+        comm->program_status = FLASHAPP_STATUS_PROG;
         OSPI_DisableMemoryMappedMode();
         if (program_bytes_remaining > 0) {
             uint32_t dest_page = program_offset / 256;
