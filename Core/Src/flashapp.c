@@ -12,6 +12,7 @@
 #include "lzma.h"
 #include "sha256.h"
 #include "rg_rtc.h"
+#include "odroid_overlay.h"
 #include "flashapp_gui.h"
 
 
@@ -20,7 +21,6 @@
 typedef enum {  // For the flashapp state machine
     FLASHAPP_INIT                   ,
     FLASHAPP_IDLE                   ,
-    FLASHAPP_START                  ,
     FLASHAPP_DECOMPRESSING          ,
     FLASHAPP_CHECK_HASH_RAM         ,
     FLASHAPP_ERASE                  ,
@@ -91,9 +91,6 @@ struct flashapp_comm {  // Values are read or written by the debugger
                         // so that addresses don't change.
     union {
         volatile struct{
-            // FlashApp state-machine state
-            uint32_t flashapp_state;
-
             // Status register
             uint32_t program_status;
 
@@ -128,20 +125,9 @@ struct flashapp_comm {  // Values are read or written by the debugger
 static struct flashapp_comm comm_data __attribute__((section (".flashapp_comm")));
 static struct flashapp_comm *comm = &comm_data;
 
-static void state_set(flashapp_state_t state_next)
-{
-    printf("State: %ld -> %d\n", comm->flashapp_state, state_next);
-
-    comm->flashapp_state = state_next;
-}
-
-static void state_inc(void)
-{
-    state_set(comm->flashapp_state + 1);
-}
-
 static void flashapp_run(flashapp_t *flashapp)
 {
+    static flashapp_state_t state = FLASHAPP_INIT;
     static uint32_t context_counter = 1;
     static uint32_t erase_address;
     static uint32_t erase_bytes_left;
@@ -149,13 +135,13 @@ static void flashapp_run(flashapp_t *flashapp)
     work_context_t *context = &comm->active_context;
     uint8_t program_calculated_sha256[32];
 
-    switch (comm->flashapp_state) {
+    switch (state) {
     case FLASHAPP_INIT:
         comm->program_chunk_count = 1;
         flashapp->progress_value = 0;
         flashapp->progress_max = 0;
 
-        state_inc();
+        state++;
         break;
     case FLASHAPP_IDLE:
         OSPI_EnableMemoryMappedMode();
@@ -186,7 +172,7 @@ static void flashapp_run(flashapp_t *flashapp)
                     if (erase_address & (smallest_erase - 1)) {
                         // Address not aligned to smallest erase size
                         comm->program_status = FLASHAPP_STATUS_NOT_ALIGNED;
-                        state_set(FLASHAPP_ERROR);
+                        state = FLASHAPP_ERROR;
                         break;
                     }
 
@@ -200,7 +186,7 @@ static void flashapp_run(flashapp_t *flashapp)
                     OSPI_Erase(&erase_address, &erase_bytes_left, false);
                 }
                 comm->program_status = FLASHAPP_STATUS_BUSY;
-                state_inc();
+                state++;
                 break;
             }
         }
@@ -225,7 +211,7 @@ static void flashapp_run(flashapp_t *flashapp)
             // We can now early release the context
             memset((void *)&comm->contexts[comm->active_context_index], 0, sizeof(work_context_t));
         }
-        state_inc();
+        state++;
         break;
     case FLASHAPP_CHECK_HASH_RAM:
         // Calculate sha256 hash of the RAM first
@@ -235,15 +221,15 @@ static void flashapp_run(flashapp_t *flashapp)
         if (memcmp((const void *)program_calculated_sha256, (const void *)context->expected_sha256, 32) != 0) {
             // Hashes don't match even in RAM, openocd loading failed.
             comm->program_status = FLASHAPP_STATUS_BAD_HASH_RAM;
-            state_set(FLASHAPP_ERROR);
+            state = FLASHAPP_ERROR;
             break;
         }
 #endif
-        state_inc();
+        state++;
         break;
     case FLASHAPP_ERASE:
         if (!context->erase) {
-            state_set(FLASHAPP_PROGRAM_NEXT);
+            state = FLASHAPP_PROGRAM_NEXT;
             break;
         }
 
@@ -251,11 +237,11 @@ static void flashapp_run(flashapp_t *flashapp)
         if (context->erase_bytes == 0) {
             OSPI_NOR_WriteEnable();
             OSPI_ChipErase();
-            state_inc();
+            state++;
         } else {
             // Returns true when all erasing has been complete.
             if (OSPI_Erase(&erase_address, &erase_bytes_left, true)) {
-                state_inc();
+                state++;
             }
         }
         break;
@@ -267,7 +253,7 @@ static void flashapp_run(flashapp_t *flashapp)
         flashapp->program_bytes_left = context->size;
         flashapp->program_buf = (unsigned char*)context->buffer;
 
-        state_inc();
+        state++;
         break;
     case FLASHAPP_PROGRAM:
         OSPI_DisableMemoryMappedMode();
@@ -281,7 +267,7 @@ static void flashapp_run(flashapp_t *flashapp)
             flashapp->program_bytes_left -= bytes_to_write;
             flashapp->progress_value = flashapp->progress_max - flashapp->program_bytes_left;
         } else {
-            state_inc();
+            state++;
         }
         break;
     case FLASHAPP_CHECK_HASH_FLASH:
@@ -293,12 +279,12 @@ static void flashapp_run(flashapp_t *flashapp)
         if (memcmp((char *)program_calculated_sha256, (char *)context->expected_sha256, 32) != 0) {
             // Hashes don't match in FLASH, programming failed.
             comm->program_status = FLASHAPP_STATUS_BAD_HAS_FLASH;
-            state_set(FLASHAPP_ERROR);
+            state = FLASHAPP_ERROR;
             break;
         }
 #endif
         // Hash OK in FLASH
-        state_set(FLASHAPP_IDLE);
+        state = FLASHAPP_IDLE;
         break;
     case FLASHAPP_ERROR:
         // Stay in state until reset.

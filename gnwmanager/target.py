@@ -6,7 +6,7 @@ from pyocd.core.target import Target
 
 from gnwmanager.exceptions import DataError
 from gnwmanager.status import flashapp_status_enum_to_str
-from gnwmanager.utils import compress_lzma, sha256, EMPTY_HASH_DIGEST
+from gnwmanager.utils import EMPTY_HASH_DIGEST, compress_lzma, sha256
 from gnwmanager.validation import validate_extflash_offset
 
 Variable = namedtuple("Variable", ["address", "size"])
@@ -20,8 +20,7 @@ contexts = [{} for i in range(2)]
 
 def _populate_comm():
     # Communication Variables; put in a function to prevent variable leakage.
-    _comm["flashapp_state"] = last_variable = Variable(_comm["flashapp_comm"].address, 4)
-    _comm["program_status"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
+    _comm["program_status"] = last_variable = Variable(_comm["flashapp_comm"].address, 4)
     _comm["utc_timestamp"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
     _comm["program_chunk_idx"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
     _comm["program_chunk_count"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
@@ -232,4 +231,3 @@ class GnWTargetMixin(Target):
         self.context_counter += 1
 
         self.wait_for_all_contexts_complete(**kwargs)
-
