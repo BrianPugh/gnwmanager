@@ -55,6 +55,7 @@ def ext(
 
     validate_extflash_offset(offset)
     start_gnwmanager()
+    breakpoint()
 
     target = session.target
 

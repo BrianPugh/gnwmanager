@@ -3,7 +3,7 @@
 #include "stdbool.h"
 #include "stdint.h"
 #include "lcd.h"
-#include "bitmaps.h"
+#include "segments.h"
 
 #define STATUS_HEIGHT (33)
 #define HEADER_HEIGHT (47)

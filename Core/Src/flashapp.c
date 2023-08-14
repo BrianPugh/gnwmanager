@@ -13,7 +13,7 @@
 #include "sha256.h"
 #include "odroid_overlay.h"
 #include "rg_rtc.h"
-#include "bitmaps.h"
+#include "flashapp_gui.h"
 
 
 #define DBG(...) printf(__VA_ARGS__)
@@ -158,6 +158,7 @@ struct flashapp_comm {  // Values are read or written by the debugger
 static struct flashapp_comm comm_data __attribute__((section (".flashapp_comm")));
 static struct flashapp_comm *comm = &comm_data;
 
+#if 0
 static void draw_text_line_centered(uint16_t y_pos,
                                     const char *text,
                                     uint16_t color,
@@ -203,11 +204,12 @@ static void draw_progress(flashapp_t *flashapp)
 
 static void redraw(flashapp_t *flashapp)
 {
-    gui_draw_header(&flashapp->tab); // really a footer, but whatever
-    gui_draw_status(&flashapp->tab);
+    //gui_draw_header(&flashapp->tab); // really a footer, but whatever
+    //gui_draw_status(&flashapp->tab);
 
-    draw_progress(flashapp);
+    //draw_progress(flashapp);
 }
+#endif
 
 
 static void state_set(flashapp_state_t state_next)
@@ -421,14 +423,20 @@ void find_littlefs(){
     assert(0);  // Not implemented yet
 }
 
+#define FLASHAPP_BACKGROUND_COLOR _2C_(0x727351)
+
 void flashapp_main(void)
 {
     flashapp_t flashapp = {};
     flashapp.context_counter = 1;
+#if 0
     flashapp.tab.img_header = &logo_flash;
     flashapp.tab.img_logo = &logo_gnw;
+#endif
 
     memset((void *)comm, 0, sizeof(struct flashapp_comm));
+
+    odroid_overlay_draw_fill_rect(0, 0, 320, 240, FLASHAPP_BACKGROUND_COLOR);
 
     while (true) {
         if (comm->program_chunk_count == 1) {
@@ -445,6 +453,6 @@ void flashapp_main(void)
         }
 
         lcd_wait_for_vblank();
-        redraw(&flashapp);
+        flashapp_gui_draw();
     }
 }

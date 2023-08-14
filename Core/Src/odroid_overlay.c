@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "rg_rtc.h"
 #include "main.h"
+#include "flashapp_gui.h"
 
 static pixel_t overlay_buffer[GW_LCD_WIDTH * 32 * 2] __attribute__((aligned(4)));
 
@@ -200,12 +201,14 @@ void odroid_overlay_draw_logo(uint16_t x_pos, uint16_t y_pos, const retro_logo_i
 
 static void draw_clock_digit(uint16_t *fb, const uint8_t clock, uint16_t px, uint16_t py, uint16_t color)
 {
-    static const unsigned char *CLOCK_DIGITS[] = {img_clock_00, img_clock_01, img_clock_02, img_clock_03, img_clock_04, img_clock_05, img_clock_06, img_clock_07, img_clock_08, img_clock_09};
+#if 0
+    static const unsigned char *CLOCK_DIGITS[] = {img_clock_0, img_clock_1, img_clock_2, img_clock_3, img_clock_4, img_clock_5, img_clock_6, img_clock_7, img_clock_8, img_clock_9};
     const unsigned char *img = CLOCK_DIGITS[clock];
     for (uint8_t y = 0; y < 10; y++)
         for (uint8_t x = 0; x < 6; x++)
             if (img[y] & (1 << (7 - x)))
                 fb[px + x + GW_LCD_WIDTH * (py + y)] = color;
+#endif
 };
 
 void odroid_overlay_clock(int x_pos, int y_pos)
@@ -232,6 +235,7 @@ void odroid_overlay_clock(int x_pos, int y_pos)
 
 void gui_draw_status(tab_t *tab)
 {
+#if 0
     odroid_overlay_draw_fill_rect(0, 0, GW_LCD_WIDTH, STATUS_HEIGHT, curr_colors->main_c);
     odroid_overlay_draw_fill_rect(0, 1, GW_LCD_WIDTH, 2, curr_colors->bg_c);
     odroid_overlay_draw_fill_rect(0, 4, GW_LCD_WIDTH, 2, curr_colors->bg_c);
@@ -240,4 +244,5 @@ void gui_draw_status(tab_t *tab)
     odroid_overlay_draw_logo(8, 16, (retro_logo_image *)(&logo_rgw), curr_colors->sel_c);
 
     odroid_overlay_clock(GW_LCD_WIDTH - 74, 17);
+#endif
 }

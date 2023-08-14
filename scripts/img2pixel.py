@@ -7,16 +7,19 @@ from PIL import Image
 
 def write_pixels(prefix, fn, invert=False):
     img = Image.open(fn).convert(mode="RGB")
-    out = [f"const retro_logo_image {prefix}{fn.stem} {{\n"]
-    header = f"extern retro_logo_image {prefix}{fn.stem};\n"
-
-    (img.width + 7) // 8
+    out = [
+        f"const retro_logo_image {prefix}{fn.stem} = {{\n",
+        f"    .height = {img.height},\n",
+        f"    .width = {img.width},\n",
+        "    .logo = {\n",
+    ]
+    header = f"extern const retro_logo_image {prefix}{fn.stem};\n"
 
     for y in range(img.height):
         bits_data = 0
         bits_count = 0
 
-        hex_data = ["    "]
+        hex_data = ["        "]
         comment_graphic = [
             " // ",
         ]
@@ -52,6 +55,7 @@ def write_pixels(prefix, fn, invert=False):
         out.extend(comment_graphic)
         out.append("\n")
 
+    out.append("    }\n")
     out.append("};\n\n")
     return "".join(out), header
 
@@ -77,7 +81,8 @@ def main():
         "\n",
         "#include <stdint.h>\n",
         "\n",
-        "typedef struct {\n    uint16_t width;\n",
+        "typedef struct {\n",
+        "    uint16_t width;\n",
         "    uint16_t height;\n",
         "    const char logo[];\n",
         "} retro_logo_image;\n",
