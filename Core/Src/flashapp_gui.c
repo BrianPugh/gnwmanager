@@ -3,7 +3,7 @@
 #include "flashapp_gui.h"
 
 #define ACTIVE 0x0000
-#define INACTIVE RGB24_TO_RGB565(0x56, 0x56, 0x56)
+#define INACTIVE RGB24_TO_RGB565(0x5A, 0x5A, 0x5A)
 
 #define CLOCK_DIGIT_SPACE 22
 #define CLOCK_ORIGIN_Y 21
@@ -44,16 +44,16 @@ void flashapp_gui_draw(){
     odroid_overlay_draw_logo(ERROR2_ORIGIN_X, ERROR2_ORIGIN_Y, &img_flash, INACTIVE);
     odroid_overlay_draw_logo(ERROR2_ORIGIN_X + 65, ERROR2_ORIGIN_Y, &img_ram, INACTIVE);
 
-    odroid_overlay_draw_logo(RUN_ORIGIN_X + 0 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_0, ACTIVE);
-    odroid_overlay_draw_logo(RUN_ORIGIN_X + 1 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_1, ACTIVE);
-    odroid_overlay_draw_logo(RUN_ORIGIN_X + 2 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_2, ACTIVE);
+    odroid_overlay_draw_logo(RUN_ORIGIN_X + 0 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_0, INACTIVE);
+    odroid_overlay_draw_logo(RUN_ORIGIN_X + 1 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_1, INACTIVE);
+    odroid_overlay_draw_logo(RUN_ORIGIN_X + 2 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_2, INACTIVE);
     odroid_overlay_draw_logo(RUN_ORIGIN_X + 3 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_3, ACTIVE);
-    odroid_overlay_draw_logo(RUN_ORIGIN_X + 4 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_4, ACTIVE);
-    odroid_overlay_draw_logo(RUN_ORIGIN_X + 5 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_5, ACTIVE);
-    odroid_overlay_draw_logo(RUN_ORIGIN_X + 6 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_6, ACTIVE);
-    odroid_overlay_draw_logo(RUN_ORIGIN_X + 7 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_7, ACTIVE);
-    odroid_overlay_draw_logo(RUN_ORIGIN_X + 8 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_8, ACTIVE);
-    odroid_overlay_draw_logo(RUN_ORIGIN_X + 9 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_9, ACTIVE);
+    odroid_overlay_draw_logo(RUN_ORIGIN_X + 4 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_4, INACTIVE);
+    odroid_overlay_draw_logo(RUN_ORIGIN_X + 5 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_5, INACTIVE);
+    odroid_overlay_draw_logo(RUN_ORIGIN_X + 6 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_6, INACTIVE);
+    odroid_overlay_draw_logo(RUN_ORIGIN_X + 7 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_7, INACTIVE);
+    odroid_overlay_draw_logo(RUN_ORIGIN_X + 8 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_8, INACTIVE);
+    odroid_overlay_draw_logo(RUN_ORIGIN_X + 9 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_9, INACTIVE);
 
     const retro_logo_image* progress[] = {
         &img_progress_0,
@@ -69,6 +69,9 @@ void flashapp_gui_draw(){
     };
 
     for(uint8_t i=0; i < 26; i++){
-        odroid_overlay_draw_logo(5 + i * 12, 200, progress[i % 10], ACTIVE);
+        if(i < 13)
+            odroid_overlay_draw_logo(5 + i * 12, 200, progress[i % 10], ACTIVE);
+        else
+            odroid_overlay_draw_logo(5 + i * 12, 200, progress[i % 10], INACTIVE);
     }
 }
