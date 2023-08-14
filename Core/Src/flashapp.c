@@ -42,13 +42,6 @@ typedef enum { // For signaling program status to computer
     FLASHAPP_STATUS_BUSY            = 0xcafe0001,
 } flashapp_status_t;
 
-/* flashapp_t is only modified by program, not host computer.
- */
-typedef struct {
-    uint32_t current_program_address;
-    uint32_t program_bytes_left;
-    uint8_t* program_buf;
-} flashapp_t;
 
 typedef struct {
     union{
@@ -123,15 +116,21 @@ struct flashapp_comm {  // Values are read or written by the debugger
 static struct flashapp_comm comm_data __attribute__((section (".flashapp_comm")));
 static struct flashapp_comm *comm = &comm_data;
 
-static void flashapp_run(flashapp_t *flashapp)
+static void flashapp_run(void)
 {
     static flashapp_state_t state = FLASHAPP_INIT;
     static uint32_t context_counter = 1;
-    static uint32_t erase_address;
-    static uint32_t erase_bytes_left;
+    static uint32_t erase_address = 0;  // Holds intermediate erase address.
+                                        // Is it's own variable since context->address is used by both
+                                        // programming and erasing.
+    static uint32_t erase_bytes_left = 0;
+    static uint32_t program_offset = 0; // Current offset into extflash that needs to be programmed
+    static uint32_t program_bytes_remaining = 0;
 
     work_context_t *context = &comm->active_context;
     uint8_t program_calculated_sha256[32];
+
+    wdog_refresh();
 
     switch (state) {
     case FLASHAPP_INIT:
@@ -238,21 +237,20 @@ static void flashapp_run(flashapp_t *flashapp)
         }
         break;
     case FLASHAPP_PROGRAM_NEXT:
-        flashapp->current_program_address = context->address;
-        flashapp->program_bytes_left = context->size;
-        flashapp->program_buf = (unsigned char*)context->buffer;
+        program_offset = context->address;
+        program_bytes_remaining = context->size;
         state++;
         break;
     case FLASHAPP_PROGRAM:
         OSPI_DisableMemoryMappedMode();
-        if (flashapp->program_bytes_left > 0) {
-            uint32_t dest_page = flashapp->current_program_address / 256;
-            uint32_t bytes_to_write = flashapp->program_bytes_left > 256 ? 256 : flashapp->program_bytes_left;
+        if (program_bytes_remaining > 0) {
+            uint32_t dest_page = program_offset / 256;
+            uint32_t bytes_to_write = program_bytes_remaining > 256 ? 256 : program_bytes_remaining;
             OSPI_NOR_WriteEnable();
-            OSPI_PageProgram(dest_page * 256, flashapp->program_buf, bytes_to_write);
-            flashapp->current_program_address += bytes_to_write;
-            flashapp->program_buf += bytes_to_write;
-            flashapp->program_bytes_left -= bytes_to_write;
+            OSPI_PageProgram(dest_page * 256, context->buffer, bytes_to_write);
+            program_offset += bytes_to_write;
+            context->buffer += bytes_to_write;
+            program_bytes_remaining -= bytes_to_write;
         } else {
             state++;
         }
@@ -290,8 +288,6 @@ void find_littlefs(){
 
 void flashapp_main(void)
 {
-    flashapp_t flashapp = {};
-
     memset((void *)comm, 0, sizeof(struct flashapp_comm));
 
     // Draw LCD silvery background once.
@@ -300,8 +296,7 @@ void flashapp_main(void)
     while (true) {
         // Run multiple times to skip rendering when programming
         for (int i = 0; i < 16; i++) {
-            wdog_refresh();
-            flashapp_run(&flashapp);
+            flashapp_run();
         }
 
         lcd_wait_for_vblank();
