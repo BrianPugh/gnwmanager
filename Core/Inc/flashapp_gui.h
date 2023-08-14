@@ -6,6 +6,7 @@
 
 typedef struct{
     flashapp_status_t *status;
-} flashapp_gui_state_t;
+    float_t percent_complete;
+} flashapp_gui_t;
 
 void flashapp_gui_draw();

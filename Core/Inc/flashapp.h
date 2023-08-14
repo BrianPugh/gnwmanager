@@ -1,6 +1,7 @@
 #pragma once
+#include <stdint.h>
 
-typedef enum { // For signaling program status to computer
+enum flashapp_status { // For signaling program status to computer
     FLASHAPP_BOOTING = 0,
 
     FLASHAPP_STATUS_BAD_HASH_RAM    = 0xbad00001,
@@ -11,6 +12,8 @@ typedef enum { // For signaling program status to computer
     FLASHAPP_STATUS_DECOMPRESS      = 0xcafe0000,
     FLASHAPP_STATUS_ERASE           = 0xcafe0001,
     FLASHAPP_STATUS_PROG            = 0xcafe0002,
-} flashapp_status_t;
+};
+typedef uint32_t flashapp_status_t;  // All computer interactions are uint32_t for simplicity.
+                                    // No need to be stingy about RAM.
 
 void flashapp_main(void);

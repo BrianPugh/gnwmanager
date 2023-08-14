@@ -102,8 +102,7 @@ struct flashapp_comm {  // Values are read or written by the debugger
     unsigned char decompress_buffer[256 << 10];
 };
 
-static struct flashapp_comm comm_data __attribute__((section (".flashapp_comm")));
-static struct flashapp_comm *comm = &comm_data;
+static struct flashapp_comm comm __attribute__((section (".flashapp_comm")));
 
 static void flashapp_run(void)
 {
@@ -116,32 +115,32 @@ static void flashapp_run(void)
     static uint32_t program_offset = 0; // Current offset into extflash that needs to be programmed
     static uint32_t program_bytes_remaining = 0;
 
-    work_context_t *context = &comm->active_context;
+    work_context_t *context = &comm.active_context;
     uint8_t program_calculated_sha256[32];
 
     wdog_refresh();
 
     switch (state) {
     case FLASHAPP_INIT:
-        comm->program_chunk_count = 1;
+        comm.program_chunk_count = 1;
         state++;
         break;
     case FLASHAPP_IDLE:
         OSPI_EnableMemoryMappedMode();
 
-        if(comm->utc_timestamp){
+        if(comm.utc_timestamp){
             // Set time
-            GW_SetUnixTime(comm->utc_timestamp);
-            comm->utc_timestamp = 0;
+            GW_SetUnixTime(comm.utc_timestamp);
+            comm.utc_timestamp = 0;
         }
 
         // Attempt to find the next ready context in queue
         for(uint8_t i=0; i < 2; i++){
-            if(comm->contexts[i].ready == context_counter){
+            if(comm.contexts[i].ready == context_counter){
                 context_counter++;
-                comm->active_context_index = i;
-                memcpy((void *)context, (void *)&comm->contexts[i], sizeof(work_context_t));
-                context->buffer = comm->buffer[i];
+                comm.active_context_index = i;
+                memcpy((void *)context, (void *)&comm.contexts[i], sizeof(work_context_t));
+                context->buffer = comm.buffer[i];
 
                 program_offset = context->address;
                 program_bytes_remaining = context->size;
@@ -153,7 +152,7 @@ static void flashapp_run(void)
                     uint32_t smallest_erase = OSPI_GetSmallestEraseSize();
                     if (erase_address & (smallest_erase - 1)) {
                         // Address not aligned to smallest erase size
-                        comm->program_status = FLASHAPP_STATUS_NOT_ALIGNED;
+                        comm.program_status = FLASHAPP_STATUS_NOT_ALIGNED;
                         state = FLASHAPP_ERROR;
                         break;
                     }
@@ -168,27 +167,27 @@ static void flashapp_run(void)
                 break;
             }
         }
-        comm->program_status = FLASHAPP_STATUS_IDLE;
+        comm.program_status = FLASHAPP_STATUS_IDLE;
         break;
     case FLASHAPP_DECOMPRESSING:
-        comm->program_status = FLASHAPP_STATUS_DECOMPRESS;
+        comm.program_status = FLASHAPP_STATUS_DECOMPRESS;
         if(context->compressed_size){
             // Decompress the data; nothing after this state should reference decompression.
             uint32_t n_decomp_bytes;
-            n_decomp_bytes = lzma_inflate(comm->decompress_buffer, sizeof(comm->decompress_buffer),
+            n_decomp_bytes = lzma_inflate(comm.decompress_buffer, sizeof(comm.decompress_buffer),
                                           (uint8_t *)context->buffer, context->compressed_size);
             assert(n_decomp_bytes == context->size);
-            context->buffer = comm->decompress_buffer;
+            context->buffer = comm.decompress_buffer;
             // We can now early release the context
-            memset((void *)&comm->contexts[comm->active_context_index], 0, sizeof(work_context_t));
+            memset((void *)&comm.contexts[comm.active_context_index], 0, sizeof(work_context_t));
         }
         else{
             //The data came in NOT compressed
-            memcpy((void *)comm->decompress_buffer, (void *)context->buffer, 256 << 10);
-            context->buffer = comm->decompress_buffer;
+            memcpy((void *)comm.decompress_buffer, (void *)context->buffer, 256 << 10);
+            context->buffer = comm.decompress_buffer;
 
             // We can now early release the context
-            memset((void *)&comm->contexts[comm->active_context_index], 0, sizeof(work_context_t));
+            memset((void *)&comm.contexts[comm.active_context_index], 0, sizeof(work_context_t));
         }
         state++;
         break;
@@ -199,7 +198,7 @@ static void flashapp_run(void)
 
         if (memcmp((const void *)program_calculated_sha256, (const void *)context->expected_sha256, 32) != 0) {
             // Hashes don't match even in RAM, openocd loading failed.
-            comm->program_status = FLASHAPP_STATUS_BAD_HASH_RAM;
+            comm.program_status = FLASHAPP_STATUS_BAD_HASH_RAM;
             state = FLASHAPP_ERROR;
             break;
         }
@@ -211,7 +210,7 @@ static void flashapp_run(void)
             state = FLASHAPP_PROGRAM;
             break;
         }
-        comm->program_status = FLASHAPP_STATUS_ERASE;
+        comm.program_status = FLASHAPP_STATUS_ERASE;
 
         OSPI_DisableMemoryMappedMode();
         if (context->erase_bytes == 0) {
@@ -226,13 +225,13 @@ static void flashapp_run(void)
         }
         break;
     case FLASHAPP_PROGRAM:
-        comm->program_status = FLASHAPP_STATUS_PROG;
+        comm.program_status = FLASHAPP_STATUS_PROG;
         OSPI_DisableMemoryMappedMode();
         if (program_bytes_remaining > 0) {
             uint32_t dest_page = program_offset / 256;
             uint32_t bytes_to_write = program_bytes_remaining > 256 ? 256 : program_bytes_remaining;
             OSPI_NOR_WriteEnable();
-            OSPI_PageProgram(dest_page * 256, context->buffer, bytes_to_write);
+            OSPI_PageProgram(dest_page * 256, (uint8_t *)context->buffer, bytes_to_write);
             program_offset += bytes_to_write;
             context->buffer += bytes_to_write;
             program_bytes_remaining -= bytes_to_write;
@@ -248,7 +247,7 @@ static void flashapp_run(void)
 
         if (memcmp((char *)program_calculated_sha256, (char *)context->expected_sha256, 32) != 0) {
             // Hashes don't match in FLASH, programming failed.
-            comm->program_status = FLASHAPP_STATUS_BAD_HAS_FLASH;
+            comm.program_status = FLASHAPP_STATUS_BAD_HAS_FLASH;
             state = FLASHAPP_ERROR;
             break;
         }
@@ -273,7 +272,9 @@ void find_littlefs(){
 
 void flashapp_main(void)
 {
-    memset((void *)comm, 0, sizeof(struct flashapp_comm));
+    flashapp_gui_t gui;
+    memset((void *)&comm, 0, sizeof(comm));
+    gui.status = &comm.program_status;
 
     // Draw LCD silvery background once.
     odroid_overlay_draw_fill_rect(0, 0, 320, 240, FLASHAPP_BACKGROUND_COLOR);
@@ -285,6 +286,6 @@ void flashapp_main(void)
         }
 
         lcd_wait_for_vblank();
-        flashapp_gui_draw();
+        flashapp_gui_draw(&gui);
     }
 }
