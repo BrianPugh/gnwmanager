@@ -42,16 +42,14 @@ typedef enum { // For signaling program status to computer
     FLASHAPP_STATUS_BUSY            = 0xcafe0001,
 } flashapp_status_t;
 
-/* flashapp_t is only modified by program, not host computer */
-typedef struct { // TODO: state should go in here
-    uint32_t erase_address;
-    uint32_t erase_bytes_left;
+/* flashapp_t is only modified by program, not host computer.
+ */
+typedef struct {
     uint32_t current_program_address;
     uint32_t program_bytes_left;
     uint8_t* program_buf;
     uint32_t progress_max;
     uint32_t progress_value;
-    uint32_t context_counter;
 } flashapp_t;
 
 typedef struct {
@@ -144,6 +142,10 @@ static void state_inc(void)
 
 static void flashapp_run(flashapp_t *flashapp)
 {
+    static uint32_t context_counter = 1;
+    static uint32_t erase_address;
+    static uint32_t erase_bytes_left;
+
     work_context_t *context = &comm->active_context;
     uint8_t program_calculated_sha256[32];
 
@@ -169,33 +171,33 @@ static void flashapp_run(flashapp_t *flashapp)
 
         // Attempt to find the next ready context in queue
         for(uint8_t i=0; i < 2; i++){
-            if(comm->contexts[i].ready == flashapp->context_counter){
-                flashapp->context_counter++;
+            if(comm->contexts[i].ready == context_counter){
+                context_counter++;
                 comm->active_context_index = i;
                 memcpy((void *)context, (void *)&comm->contexts[i], sizeof(work_context_t));
                 context->buffer = comm->buffer[i];
 
                 if(context->erase){
-                    flashapp->erase_address = context->address;
-                    flashapp->erase_bytes_left = context->erase_bytes;
+                    erase_address = context->address;
+                    erase_bytes_left = context->erase_bytes;
 
                     uint32_t smallest_erase = OSPI_GetSmallestEraseSize();
 
-                    if (flashapp->erase_address & (smallest_erase - 1)) {
-                        //sprintf(flashapp->tab.name, "** Address not aligned to smallest erase size! **");
+                    if (erase_address & (smallest_erase - 1)) {
+                        // Address not aligned to smallest erase size
                         comm->program_status = FLASHAPP_STATUS_NOT_ALIGNED;
                         state_set(FLASHAPP_ERROR);
                         break;
                     }
 
                     // Round size up to nearest erase size if needed ?
-                    if ((flashapp->erase_bytes_left & (smallest_erase - 1)) != 0) {
-                        flashapp->erase_bytes_left += smallest_erase - (flashapp->erase_bytes_left & (smallest_erase - 1));
+                    if ((erase_bytes_left & (smallest_erase - 1)) != 0) {
+                        erase_bytes_left += smallest_erase - (erase_bytes_left & (smallest_erase - 1));
                     }
 
                     // Start a non-blocking flash erase to run in the background
                     OSPI_DisableMemoryMappedMode();
-                    OSPI_Erase(&flashapp->erase_address, &flashapp->erase_bytes_left, false);
+                    OSPI_Erase(&erase_address, &erase_bytes_left, false);
                 }
                 comm->program_status = FLASHAPP_STATUS_BUSY;
                 state_inc();
@@ -251,7 +253,8 @@ static void flashapp_run(flashapp_t *flashapp)
             OSPI_ChipErase();
             state_inc();
         } else {
-            if (OSPI_Erase(&flashapp->erase_address, &flashapp->erase_bytes_left, true)) {
+            // Returns true when all erasing has been complete.
+            if (OSPI_Erase(&erase_address, &erase_bytes_left, true)) {
                 state_inc();
             }
         }
@@ -315,7 +318,6 @@ void find_littlefs(){
 void flashapp_main(void)
 {
     flashapp_t flashapp = {};
-    flashapp.context_counter = 1;
 
     memset((void *)comm, 0, sizeof(struct flashapp_comm));
 
