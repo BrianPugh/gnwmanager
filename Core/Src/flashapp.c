@@ -48,8 +48,6 @@ typedef struct {
     uint32_t current_program_address;
     uint32_t program_bytes_left;
     uint8_t* program_buf;
-    uint32_t progress_max;
-    uint32_t progress_value;
 } flashapp_t;
 
 typedef struct {
@@ -138,16 +136,10 @@ static void flashapp_run(flashapp_t *flashapp)
     switch (state) {
     case FLASHAPP_INIT:
         comm->program_chunk_count = 1;
-        flashapp->progress_value = 0;
-        flashapp->progress_max = 0;
-
         state++;
         break;
     case FLASHAPP_IDLE:
         OSPI_EnableMemoryMappedMode();
-
-        flashapp->progress_value = 0;
-        flashapp->progress_max = 0;
 
         if(comm->utc_timestamp){
             // Set time
@@ -246,13 +238,9 @@ static void flashapp_run(flashapp_t *flashapp)
         }
         break;
     case FLASHAPP_PROGRAM_NEXT:
-        flashapp->progress_value = 0;
         flashapp->current_program_address = context->address;
-
-        flashapp->progress_max = context->size;
         flashapp->program_bytes_left = context->size;
         flashapp->program_buf = (unsigned char*)context->buffer;
-
         state++;
         break;
     case FLASHAPP_PROGRAM:
@@ -265,7 +253,6 @@ static void flashapp_run(flashapp_t *flashapp)
             flashapp->current_program_address += bytes_to_write;
             flashapp->program_buf += bytes_to_write;
             flashapp->program_bytes_left -= bytes_to_write;
-            flashapp->progress_value = flashapp->progress_max - flashapp->program_bytes_left;
         } else {
             state++;
         }
