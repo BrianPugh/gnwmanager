@@ -31,7 +31,10 @@ def _populate_comm():
 
     for i in range(2):
         struct_start = _comm["flashapp_comm"].address + ((i + 1) * 4096)
-        contexts[i]["ready"] = last_variable = Variable(struct_start, 4)
+
+        # Don't ever directly use this, just here for alignment purposes
+        contexts[i]["__buffer_ptr"] = last_variable = Variable(struct_start, 4)
+
         contexts[i]["size"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
         contexts[i]["offset"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
         contexts[i]["erase"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
@@ -40,8 +43,7 @@ def _populate_comm():
         contexts[i]["expected_sha256"] = last_variable = Variable(last_variable.address + last_variable.size, 32)
         contexts[i]["bank"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
 
-        # Don't ever directly use this, just here for alignment purposes
-        contexts[i]["__buffer_ptr"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
+        contexts[i]["ready"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
 
     struct_start = _comm["flashapp_comm"].address + (3 * 4096)
     _comm["active_context"] = last_variable = Variable(struct_start, 4096)
