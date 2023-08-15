@@ -1,4 +1,5 @@
 from collections import namedtuple
+from math import ceil
 from time import sleep, time
 from types import MethodType
 
@@ -7,7 +8,7 @@ from pyocd.core.target import Target
 from gnwmanager.exceptions import DataError
 from gnwmanager.status import flashapp_status_enum_to_str
 from gnwmanager.utils import EMPTY_HASH_DIGEST, compress_lzma, sha256
-from gnwmanager.validation import validate_extflash_offset
+from gnwmanager.validation import validate_extflash_offset, validate_intflash_offset
 
 Variable = namedtuple("Variable", ["address", "size"])
 
@@ -36,6 +37,7 @@ def _populate_comm():
         contexts[i]["erase_bytes"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
         contexts[i]["compressed_size"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
         contexts[i]["expected_sha256"] = last_variable = Variable(last_variable.address + last_variable.size, 32)
+        contexts[i]["bank"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
 
         # Don't ever directly use this, just here for alignment purposes
         contexts[i]["__buffer_ptr"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
@@ -48,6 +50,10 @@ def _populate_comm():
 
 
 _populate_comm()
+
+
+def round_up(value, mod):
+    return int(ceil(value / mod) * mod)
 
 
 def mixin_object(obj, cls):
@@ -120,6 +126,9 @@ class GnWTargetMixin(Target):
         self.wait_for_idle(timeout=t_deadline - time())
 
     def get_context(self, timeout=10):
+        if not hasattr(self, "context_counter"):
+            self.context_counter = 1
+
         time()
         t_deadline = time() + timeout
         while True:
@@ -129,10 +138,6 @@ class GnWTargetMixin(Target):
                 if time() > t_deadline:
                     raise TimeoutError
             sleep(0.05)
-
-    def _init_context_counter(self):
-        if not hasattr(self, "context_counter"):
-            self.context_counter = 1
 
     def write_ext(
         self,
@@ -158,7 +163,6 @@ class GnWTargetMixin(Target):
             Erases flash prior to write.
             Defaults to ``True``.
         """
-        self._init_context_counter()
         validate_extflash_offset(offset)
         if not data:
             return
@@ -216,7 +220,6 @@ class GnWTargetMixin(Target):
             If ``True``, ``size`` is ignored and the entire chip is erased.
             Defaults to ``False``.
         """
-        self._init_context_counter()
         validate_extflash_offset(offset)
 
         if size <= 0 and not whole_chip:
@@ -227,6 +230,7 @@ class GnWTargetMixin(Target):
         self.write_int(context["offset"], offset)
         self.write_int(context["erase"], 1)  # Perform an erase at `offset`
         self.write_int(context["size"], 0)
+        self.write_int(context["bank"], 0)
 
         if whole_chip:
             self.write_int(context["erase_bytes"].address, 0)  # Note: a 0 value erases the whole chip
@@ -239,3 +243,30 @@ class GnWTargetMixin(Target):
         self.context_counter += 1
 
         self.wait_for_all_contexts_complete(**kwargs)
+        self.wait_for_idle()
+
+    def erase_int(self, bank: int, offset: int, size: int, **kwargs) -> None:
+        validate_intflash_offset(offset)
+
+        if size <= 0:
+            raise ValueError
+
+        size = round_up(size, 8192)
+
+        if bank not in (1, 2):
+            raise ValueError
+
+        context = self.get_context()
+
+        self.write_int(context["offset"], offset)
+        self.write_int(context["erase"], 1)  # Perform an erase at `offset`
+        self.write_int(context["size"], 0)
+        self.write_int(context["bank"], bank)
+
+        self.write_mem(context["expected_sha256"], EMPTY_HASH_DIGEST)
+
+        self.write_int(context["ready"], self.context_counter)
+        self.context_counter += 1
+
+        self.wait_for_all_contexts_complete(**kwargs)
+        self.wait_for_idle()

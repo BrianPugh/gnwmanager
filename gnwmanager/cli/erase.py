@@ -24,12 +24,8 @@ def erase(location: Annotated[EraseLocation, Argument(case_sensitive=False)]):
         # TODO: maybe add visualization callback
         target.erase_ext(0, 0, whole_chip=True, timeout=10_000)
 
-    addresses = []
     if location in ("bank1", "all"):
-        addresses.append((0x0800_0000, 0x0800_0000 + (256 * 1024)))
-    if location in ("bank2", "all"):
-        addresses.append((0x0810_0000, 0x0810_0000 + (256 * 1024)))
+        target.erase_int(1, 0, 256 << 10)
 
-    if addresses:
-        eraser = FlashEraser(session, FlashEraser.Mode.SECTOR)
-        eraser.erase(addresses)
+    if location in ("bank2", "all"):
+        target.erase_int(2, 0, 256 << 10)

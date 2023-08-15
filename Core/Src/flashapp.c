@@ -17,8 +17,6 @@
 #include "flashapp_gui.h"
 
 
-#define PERFORM_HASH_CHECK 1
-
 typedef enum {  // For the flashapp state machine
     FLASHAPP_IDLE                   ,
     FLASHAPP_DECOMPRESSING          ,
@@ -55,6 +53,8 @@ typedef struct {
 
             // The expected sha256 of the decompressed binary
             uint8_t expected_sha256[32];
+
+            uint32_t bank;  // 0 - ext; 1 - bank1; 2 - bank2
 
             volatile unsigned char *buffer;
         };
@@ -106,6 +106,36 @@ struct flashapp_comm {  // Values are read or written by the debugger
 
 static struct flashapp_comm comm __attribute__((section (".flashapp_comm")));
 
+
+/**
+ * @param bank - Must be 1 or 2.
+ * @param offset - Must be a multiple of 8192
+ * @param bytes_remaining - Must be a multiple of 8192
+ */
+uint32_t erase_intflash(uint8_t bank, uint32_t offset, uint32_t size){
+    static FLASH_EraseInitTypeDef EraseInitStruct;
+    uint32_t PAGEError;
+
+    assert(bank == 1 || bank == 2);
+    assert((offset & 0x1fff) == 0);
+    assert((size & 0x1fff) == 0);
+
+    HAL_FLASH_Unlock();
+
+    EraseInitStruct.TypeErase = FLASH_TYPEERASE_SECTORS;
+    EraseInitStruct.Banks = bank;  // Must be 1 or 2
+    EraseInitStruct.Sector = offset >> 13;
+    EraseInitStruct.NbSectors = size >> 13;
+
+    if (HAL_FLASHEx_Erase(&EraseInitStruct, &PAGEError) != HAL_OK) {
+        Error_Handler();
+    }
+
+    HAL_FLASH_Lock();
+
+    return 0;
+}
+
 static void flashapp_run(void)
 {
     static flashapp_state_t state = FLASHAPP_IDLE;
@@ -144,23 +174,25 @@ static void flashapp_run(void)
                 program_bytes_remaining = context->size;
                 if(context->erase){
                     comm.status = FLASHAPP_STATUS_ERASE;
-                    erase_offset = context->offset;
-                    erase_bytes_left = context->erase_bytes;
+                    if(context->bank == 0){
+                        erase_offset = context->offset;
+                        erase_bytes_left = context->erase_bytes;
 
-                    // Start a non-blocking flash erase to run in the background
-                    uint32_t smallest_erase = OSPI_GetSmallestEraseSize();
-                    if (erase_offset & (smallest_erase - 1)) {
-                        // Address not aligned to smallest erase size
-                        comm.status = FLASHAPP_STATUS_NOT_ALIGNED;
-                        state = FLASHAPP_ERROR;
-                        break;
+                        // Start a non-blocking flash erase to run in the background
+                        uint32_t smallest_erase = OSPI_GetSmallestEraseSize();
+                        if (erase_offset & (smallest_erase - 1)) {
+                            // Address not aligned to smallest erase size
+                            comm.status = FLASHAPP_STATUS_NOT_ALIGNED;
+                            state = FLASHAPP_ERROR;
+                            break;
+                        }
+                        // Round size up to nearest erase size if needed ?
+                        if ((erase_bytes_left & (smallest_erase - 1)) != 0) {
+                            erase_bytes_left += smallest_erase - (erase_bytes_left & (smallest_erase - 1));
+                        }
+                        OSPI_DisableMemoryMappedMode();
+                        OSPI_Erase(&erase_offset, &erase_bytes_left, false);
                     }
-                    // Round size up to nearest erase size if needed ?
-                    if ((erase_bytes_left & (smallest_erase - 1)) != 0) {
-                        erase_bytes_left += smallest_erase - (erase_bytes_left & (smallest_erase - 1));
-                    }
-                    OSPI_DisableMemoryMappedMode();
-                    OSPI_Erase(&erase_offset, &erase_bytes_left, false);
                 }
                 state++;
                 break;
@@ -184,17 +216,15 @@ static void flashapp_run(void)
         }
         else{
             //The data came in NOT compressed
-            memcpy((void *)comm.decompress_buffer, (void *)context->buffer, 256 << 10);
+            memcpy((void *)comm.decompress_buffer, (void *)context->buffer, context->size);
         }
         context->buffer = comm.decompress_buffer;
         // We can now early release the context
         memset((void *)&comm.contexts[comm.active_context_index], 0, sizeof(work_context_t));
-
         state++;
         break;
     case FLASHAPP_CHECK_HASH_RAM:
         // Calculate sha256 hash of the RAM first
-#if PERFORM_HASH_CHECK
         sha256(program_calculated_sha256, (const BYTE*) context->buffer, context->size);
 
         if (memcmp((const void *)program_calculated_sha256, (const void *)context->expected_sha256, 32) != 0) {
@@ -203,7 +233,6 @@ static void flashapp_run(void)
             state = FLASHAPP_ERROR;
             break;
         }
-#endif
         state++;
         break;
     case FLASHAPP_ERASE:
@@ -213,16 +242,26 @@ static void flashapp_run(void)
         }
         comm.status = FLASHAPP_STATUS_ERASE;
 
-        OSPI_DisableMemoryMappedMode();
-        if (context->erase_bytes == 0) {
-            OSPI_NOR_WriteEnable();
-            OSPI_ChipErase();
-            state++;
-        } else {
-            // Returns true when all erasing has been complete.
-            if (OSPI_Erase(&erase_offset, &erase_bytes_left, true)) {
+        if(context->bank == 0){
+            OSPI_DisableMemoryMappedMode();
+            if (context->erase_bytes == 0) {
+                OSPI_NOR_WriteEnable();
+                OSPI_ChipErase();
                 state++;
+            } else {
+                // Returns true when all erasing has been complete.
+                if (OSPI_Erase(&erase_offset, &erase_bytes_left, true)) {
+                    state++;
+                }
             }
+        }
+        else{
+            // Erase a bank
+            if (context->erase_bytes == 0) {
+                context->erase_bytes = 256 << 10;
+            }
+            erase_intflash(context->bank, context->offset, context->erase_bytes);
+            state++;
         }
         break;
     case FLASHAPP_PROGRAM:
@@ -242,7 +281,6 @@ static void flashapp_run(void)
         break;
     case FLASHAPP_CHECK_HASH_FLASH:
         OSPI_EnableMemoryMappedMode();
-#if PERFORM_HASH_CHECK
         // Calculate sha256 hash of the FLASH.
         sha256(program_calculated_sha256, (const BYTE*) (0x90000000 + context->offset), context->size);
 
@@ -252,7 +290,6 @@ static void flashapp_run(void)
             state = FLASHAPP_ERROR;
             break;
         }
-#endif
         // Hash OK in FLASH
         state = FLASHAPP_IDLE;
         break;
@@ -280,7 +317,6 @@ void flashapp_main(void)
     // Draw LCD silvery background once.
     odroid_overlay_draw_fill_rect(0, 0, 320, 240, FLASHAPP_BACKGROUND_COLOR);
 
-    uint32_t prev_tick = HAL_GetTick();
     while (true) {
         uint32_t frame_counter = lcd_get_frame_counter();
         if(comm.status_override){
@@ -288,7 +324,11 @@ void flashapp_main(void)
         }
         flashapp_gui_draw(&gui);
         do{
+            flashapp_status_t old_status = comm.status;
             flashapp_run();
+            if(comm.status != old_status){
+                break;  // Force a redraw
+            }
         }while(frame_counter == lcd_get_frame_counter());
     }
 }
