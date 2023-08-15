@@ -15,5 +15,6 @@ void lcd_init(SPI_HandleTypeDef *spi, LTDC_HandleTypeDef *ltdc);
 void lcd_backlight_on();
 void lcd_backlight_off();
 void lcd_wait_for_vblank(void);
+uint32_t lcd_get_frame_counter(void);
 
 #endif

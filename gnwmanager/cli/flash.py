@@ -8,7 +8,8 @@ from tqdm import tqdm
 from typer import Argument, Option
 from typing_extensions import Annotated
 
-from gnwmanager.cli._start_gnwmanager import start_gnwmanager
+from gnwmanager.cli._parsers import int_parser
+from gnwmanager.status import flashapp_status_str_to_enum
 from gnwmanager.target import contexts
 from gnwmanager.validation import validate_extflash_offset
 
@@ -37,6 +38,7 @@ def ext(
         int,
         Option(
             min=0,
+            parser=int_parser,
             help="Offset into external flash.",
         ),
     ] = 0,
@@ -53,11 +55,9 @@ def ext(
 ):
     from .main import session
 
-    validate_extflash_offset(offset)
-    start_gnwmanager()
-    breakpoint()
-
     target = session.target
+
+    validate_extflash_offset(offset)
 
     data = file.read_bytes()
     data_time = file.stat().st_mtime
@@ -98,7 +98,7 @@ def ext(
                 progress_file.write_text(f"{data_time}\n{chunks_already_flashed}")
 
         target.wait_for_all_contexts_complete()
-        target.wait_for_idle()
+        target.wait_for_idle()  # Wait for the early-return context to complete.
 
     if progress_file and progress_file.exists():
         progress_file.unlink()
@@ -123,14 +123,19 @@ def bank1(
         Option(
             min=0,
             max=256 << 10,
+            parser=int_parser,
             help="Offset into bank.",
         ),
     ] = 0,
 ):
     from .main import session
 
+    target = session.target
+    target.write_int("status_override", flashapp_status_str_to_enum["ERASE"])
+
     programmer = FileProgrammer(session, progress=None, no_reset=False)
     programmer.program(str(file), base_address=0x0800_0000 + offset)
+    target.write_int("status_override", 0)
 
 
 @app.command()
@@ -152,11 +157,16 @@ def bank2(
         Option(
             min=0,
             max=256 << 10,
+            parser=int_parser,
             help="Offset into bank.",
         ),
     ] = 0,
 ):
     from .main import session
 
+    target = session.target
+    target.write_int("status_override", flashapp_status_str_to_enum["ERASE"])
+
     programmer = FileProgrammer(session, progress=None, no_reset=False)
     programmer.program(str(file), base_address=0x0810_0000 + offset)
+    target.write_int("status_override", 0)

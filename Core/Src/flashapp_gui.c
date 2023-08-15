@@ -1,5 +1,6 @@
 #include "odroid_overlay.h"
 #include "segments.h"
+#include "flashapp.h"
 #include "flashapp_gui.h"
 
 #define ACTIVE 0x0000
@@ -23,9 +24,9 @@
 #define DRAW(_x, _y, _img, _cond) odroid_overlay_draw_logo(_x, _y, _img, _cond ? ACTIVE : INACTIVE)
 
 void flashapp_gui_draw(flashapp_gui_t *gui){
-    DRAW(10, 16, &img_idle, true);
-    DRAW(54, 16, &img_prog, false);
-    DRAW(10, 37, &img_erase, false);
+    DRAW(10, 16, &img_idle, *gui->status == FLASHAPP_STATUS_IDLE);
+    DRAW(54, 16, &img_prog, *gui->status == FLASHAPP_STATUS_PROG);
+    DRAW(10, 37, &img_erase, *gui->status == FLASHAPP_STATUS_ERASE);
 
     DRAW(CLOCK_HOUR_ORIGIN_X, CLOCK_ORIGIN_Y, &img_clock_8, true);
     DRAW(CLOCK_HOUR_ORIGIN_X + CLOCK_DIGIT_SPACE, CLOCK_ORIGIN_Y, &img_clock_8, true);
@@ -39,7 +40,7 @@ void flashapp_gui_draw(flashapp_gui_t *gui){
     DRAW(227, 26, &img_z_1, true);
     DRAW(221, 12, &img_z_2, true);
 
-    DRAW(ERROR1_ORIGIN_X, ERROR1_ORIGIN_Y, &img_error, false);
+    DRAW(ERROR1_ORIGIN_X, ERROR1_ORIGIN_Y, &img_error, (*gui->status & 0xFFFF0000) == 0xbad00000);
     DRAW(ERROR1_ORIGIN_X + 65, ERROR1_ORIGIN_Y, &img_hash, false);
     DRAW(ERROR1_ORIGIN_X + 65 + 54, ERROR1_ORIGIN_Y, &img_mismatch, false);
 

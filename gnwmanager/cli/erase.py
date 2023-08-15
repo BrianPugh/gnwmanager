@@ -1,8 +1,8 @@
 from enum import Enum
+
 from pyocd.flash.eraser import FlashEraser
 from typer import Argument
 from typing_extensions import Annotated
-from gnwmanager.cli._start_gnwmanager import start_gnwmanager
 
 
 class EraseLocation(str, Enum):
@@ -12,19 +12,14 @@ class EraseLocation(str, Enum):
     all = "all"
 
 
-def erase(
-    location: Annotated[
-        EraseLocation,
-        Argument(case_sensitive=False)
-    ]
-):
+def erase(location: Annotated[EraseLocation, Argument(case_sensitive=False)]):
     from .main import session
+
     target = session.target
 
     location = location.value
 
     if location in ("ext", "all"):
-        start_gnwmanager()
         # Just setting an artibrarily long timeout
         # TODO: maybe add visualization callback
         target.erase_ext(0, 0, whole_chip=True, timeout=10_000)
@@ -38,4 +33,3 @@ def erase(
     if addresses:
         eraser = FlashEraser(session, FlashEraser.Mode.SECTOR)
         eraser.erase(addresses)
-

@@ -29,9 +29,8 @@ def start_gnwmanager(force=False):
         firmware = f.read_bytes()
         target.write_memory_block8(addr, firmware)
 
-    target.write_int("program_status", 0)
-    target.write_int("program_chunk_idx", 1)  # Can be overwritten later
-    target.write_int("program_chunk_count", 100)  # Can be overwritten later
+    target.write_int("status", 0)  # To be 100% sure there's nothing residual in RAM.
+    target.write_int("status_override", 0)  # To be 100% sure there's nothing residual in RAM.
 
     msp = int.from_bytes(firmware[:4], byteorder="little")
     pc = int.from_bytes(firmware[4:8], byteorder="little")

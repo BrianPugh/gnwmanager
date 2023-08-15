@@ -446,8 +446,6 @@ static void OSPI_WriteBytes(const flash_cmd_t *cmd,
 {
     OSPI_RegularCmdTypeDef ospi_cmd;
 
-    // DBG("WB %d 0x%08x 0x%08X %d\n", cmd->cmd, address, data, len);
-
     assert(flash.mem_mapped_enabled == false);
 
     set_ospi_cmd(&ospi_cmd,

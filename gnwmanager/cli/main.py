@@ -8,7 +8,8 @@ from typer import Option
 import gnwmanager
 from gnwmanager.target import GnWTargetMixin, mixin_object
 
-from . import flash, start, erase
+from . import erase, flash, start
+from ._start_gnwmanager import start_gnwmanager
 
 session: Session
 
@@ -65,5 +66,6 @@ def run_app():
         # Hack in our convenience methods
         mixin_object(session.target, GnWTargetMixin)
 
+        start_gnwmanager()
         for args in commands_args:
             app(args=args, standalone_mode=False)

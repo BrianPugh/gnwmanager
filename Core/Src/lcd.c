@@ -109,3 +109,7 @@ void lcd_wait_for_vblank(void)
     __asm("nop");
   }
 }
+
+uint32_t lcd_get_frame_counter(){
+  return frame_counter;
+}

@@ -20,7 +20,8 @@ contexts = [{} for i in range(2)]
 
 def _populate_comm():
     # Communication Variables; put in a function to prevent variable leakage.
-    _comm["program_status"] = last_variable = Variable(_comm["flashapp_comm"].address, 4)
+    _comm["status"] = last_variable = Variable(_comm["flashapp_comm"].address, 4)
+    _comm["status_override"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
     _comm["utc_timestamp"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
     _comm["program_chunk_idx"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
     _comm["program_chunk_count"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
@@ -30,7 +31,7 @@ def _populate_comm():
         struct_start = _comm["flashapp_comm"].address + ((i + 1) * 4096)
         contexts[i]["ready"] = last_variable = Variable(struct_start, 4)
         contexts[i]["size"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
-        contexts[i]["address"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
+        contexts[i]["offset"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
         contexts[i]["erase"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
         contexts[i]["erase_bytes"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
         contexts[i]["compressed_size"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
@@ -98,7 +99,7 @@ class GnWTargetMixin(Target):
         error_mask = 0xFFFF_0000
 
         while True:
-            status_enum = self.read_int("program_status")
+            status_enum = self.read_int("status")
             status_str = flashapp_status_enum_to_str.get(status_enum, "UNKNOWN")
             if status_str == "IDLE":
                 break
@@ -164,26 +165,33 @@ class GnWTargetMixin(Target):
         if len(data) > (256 << 10):
             raise ValueError("Too large of data for a single write.")
 
+        if compress:
+            compressed_data = compress_lzma(data)
+            # If we are unable to compress meaningfully, don't bother.
+            if len(compressed_data) > (0.9 * len(data)):
+                compress = False
+
         context = self.get_context()
 
         if blocking:
             self.wait_for_idle()
             self.halt()
 
-        self.write_int(context["address"], offset)
+        self.write_int(context["offset"], offset)
         self.write_int(context["size"], len(data))
 
         if erase:
-            self.write_int(context["erase"], 1)  # Perform an erase at `program_address`
+            self.write_int(context["erase"], 1)  # Perform an erase at `offset`
             self.write_int(context["erase_bytes"], len(data))
 
-        digest = sha256(data)
-        if compress:
-            data = compress_lzma(data)
-            self.write_int(context["compressed_size"], len(data))
+        self.write_mem(context["expected_sha256"], sha256(data))
 
-        self.write_mem(context["expected_sha256"], digest)
-        self.write_mem(context["buffer"], data)
+        if compress:
+            self.write_int(context["compressed_size"], len(compressed_data))
+            self.write_mem(context["buffer"], compressed_data)
+        else:
+            self.write_int(context["compressed_size"], 0)
+            self.write_mem(context["buffer"], data)
 
         self.write_int(context["ready"], self.context_counter)
         self.context_counter += 1
@@ -216,8 +224,8 @@ class GnWTargetMixin(Target):
 
         context = self.get_context()
 
-        self.write_int(context["address"], offset)
-        self.write_int(context["erase"], 1)  # Perform an erase at `program_address`
+        self.write_int(context["offset"], offset)
+        self.write_int(context["erase"], 1)  # Perform an erase at `offset`
         self.write_int(context["size"], 0)
 
         if whole_chip:

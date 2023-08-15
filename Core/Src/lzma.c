@@ -1,4 +1,5 @@
 #include "lzma.h"
+#include "LzmaDec.h"
 #include "assert.h"
 
 
@@ -29,8 +30,12 @@ size_t lzma_inflate(uint8_t *dst, size_t dst_size, const uint8_t *src, size_t sr
     dst_size++;  // I think there's an off-by-one error in LzmaDecode
     res = LzmaDecode(dst, &dst_size, src, &src_size, lzma_prop_data, 5, LZMA_FINISH_ANY, &status, &allocs);
 
-    assert(res == SZ_OK);
-    assert(status == LZMA_STATUS_FINISHED_WITH_MARK);
+    if (res != SZ_OK){
+        return 0;
+    }
+    if(res != LZMA_STATUS_FINISHED_WITH_MARK){
+        return 0;
+    }
 
     return dst_size;
 }
