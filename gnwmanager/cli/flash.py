@@ -20,6 +20,13 @@ def _chunk_bytes(data, chunk_size):
     return [data[i : i + chunk_size] for i in range(0, len(data), chunk_size)]
 
 
+def _pad_bytes(data):
+    pad_size = (8192 - len(data) % 8192) % 8192
+    if pad_size == 0:
+        return data
+    return data + (b"\xFF" * pad_size)
+
+
 @app.command()
 def ext(
     file: Annotated[
@@ -87,7 +94,7 @@ def ext(
             chunk_1_idx = previous_chunks_already_flashed + i + 1
             pbar.update(1)
             target.write_int("program_chunk_idx", chunk_1_idx)
-            target.write_ext(base_address + (i * chunk_size), chunk, blocking=False)
+            target.prog(0, base_address + (i * chunk_size), chunk, blocking=False)
 
             # Save current progress to a file in case progress is interrupted.
             if progress_file:
@@ -131,11 +138,8 @@ def bank1(
     from .main import session
 
     target = session.target
-    target.write_int("status_override", flashapp_status_str_to_enum["ERASE"])
-
-    programmer = FileProgrammer(session, progress=None, no_reset=False)
-    programmer.program(str(file), base_address=0x0800_0000 + offset)
-    target.write_int("status_override", 0)
+    data = _pad_bytes(file.read_bytes())
+    target.prog(1, offset, data)
 
 
 @app.command()
@@ -165,8 +169,5 @@ def bank2(
     from .main import session
 
     target = session.target
-    target.write_int("status_override", flashapp_status_str_to_enum["ERASE"])
-
-    programmer = FileProgrammer(session, progress=None, no_reset=False)
-    programmer.program(str(file), base_address=0x0810_0000 + offset)
-    target.write_int("status_override", 0)
+    data = _pad_bytes(file.read_bytes())
+    target.prog(2, offset, data)

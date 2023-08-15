@@ -172,6 +172,14 @@ static void flashapp_run(void)
 
                 program_offset = context->offset;
                 program_bytes_remaining = context->size;
+
+                if(context->bank){
+                    assert(context->bank == 1 || context->bank == 2);
+                    assert((context->offset & 0x1fff) == 0);
+                    assert((context->size & 0x1fff) == 0);
+                    program_offset += (context->bank == 1) ? 0x08000000 : 0x08100000;
+                }
+
                 if(context->erase){
                     comm.status = FLASHAPP_STATUS_ERASE;
                     if(context->bank == 0){
@@ -209,7 +217,7 @@ static void flashapp_run(void)
             uint32_t n_decomp_bytes;
             n_decomp_bytes = lzma_inflate(comm.decompress_buffer, sizeof(comm.decompress_buffer),
                                           (uint8_t *)context->buffer, context->compressed_size);
-            if(n_decomp_bytes == 0 || n_decomp_bytes == context->size){
+            if(n_decomp_bytes == 0 || n_decomp_bytes != context->size){
                 comm.status = FLASHAPP_STATUS_BAD_DECOMPRESS;
                 state = FLASHAPP_ERROR;
             }
@@ -266,8 +274,12 @@ static void flashapp_run(void)
         break;
     case FLASHAPP_PROGRAM:
         comm.status = FLASHAPP_STATUS_PROG;
-        OSPI_DisableMemoryMappedMode();
-        if (program_bytes_remaining > 0) {
+        if (program_bytes_remaining == 0) {
+            state++;
+            break;
+        }
+        if(context->bank == 0){
+            OSPI_DisableMemoryMappedMode();
             uint32_t dest_page = program_offset / 256;
             uint32_t bytes_to_write = program_bytes_remaining > 256 ? 256 : program_bytes_remaining;
             OSPI_NOR_WriteEnable();
@@ -275,14 +287,35 @@ static void flashapp_run(void)
             program_offset += bytes_to_write;
             context->buffer += bytes_to_write;
             program_bytes_remaining -= bytes_to_write;
-        } else {
+        }
+        else{
+            // Prog internal bank
+            HAL_FLASH_Unlock();
+            while(program_bytes_remaining){
+                if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, program_offset, context->buffer) != HAL_OK) {
+                    Error_Handler();
+                }
+                // A flash word is 128bits (16 bytes)
+                program_offset += 16;
+                context->buffer += 16;
+                program_bytes_remaining -= 16;
+            }
+            HAL_FLASH_Lock();
             state++;
         }
         break;
     case FLASHAPP_CHECK_HASH_FLASH:
         OSPI_EnableMemoryMappedMode();
         // Calculate sha256 hash of the FLASH.
-        sha256(program_calculated_sha256, (const BYTE*) (0x90000000 + context->offset), context->size);
+        if(context->bank == 0){
+            sha256(program_calculated_sha256, (const BYTE*) (0x90000000 + context->offset), context->size);
+        }
+        else if(context->bank == 1){
+            sha256(program_calculated_sha256, (const BYTE*) (0x08000000 + context->offset), context->size);
+        }
+        else if(context->bank == 2){
+            sha256(program_calculated_sha256, (const BYTE*) (0x08100000 + context->offset), context->size);
+        }
 
         if (memcmp((char *)program_calculated_sha256, (char *)context->expected_sha256, 32) != 0) {
             // Hashes don't match in FLASH, programming failed.

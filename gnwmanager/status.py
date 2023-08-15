@@ -1,7 +1,7 @@
 flashapp_status_enum_to_str = {
     0x00000000: "BOOTING",
     0xBAD00001: "BAD_HASH_RAM",
-    0xBAD00002: "BAD_HAS_FLASH",
+    0xBAD00002: "BAD_HASH_FLASH",
     0xBAD00003: "NOT_ALIGNED",
     0xBAD00004: "BAD_DECOMPRESS",
     0xCAFE0000: "IDLE",

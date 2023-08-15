@@ -2,6 +2,7 @@ from collections import namedtuple
 from math import ceil
 from time import sleep, time
 from types import MethodType
+from typing import Literal
 
 from pyocd.core.target import Target
 
@@ -139,8 +140,9 @@ class GnWTargetMixin(Target):
                     raise TimeoutError
             sleep(0.05)
 
-    def write_ext(
+    def prog(
         self,
+        bank: Literal[0, 1, 2],
         offset: int,
         data: bytes,
         erase: bool = True,
@@ -155,6 +157,10 @@ class GnWTargetMixin(Target):
 
         Parameters
         ----------
+        bank: int
+            0 - External Flash
+            1 - Internal Bank 1
+            2 - Internal Bank 2
         offset: int
             Offset into extflash to write.
         size: int
@@ -163,6 +169,9 @@ class GnWTargetMixin(Target):
             Erases flash prior to write.
             Defaults to ``True``.
         """
+        if bank not in (0, 1, 2):
+            raise ValueError
+
         validate_extflash_offset(offset)
         if not data:
             return
@@ -183,6 +192,7 @@ class GnWTargetMixin(Target):
 
         self.write_int(context["offset"], offset)
         self.write_int(context["size"], len(data))
+        self.write_int(context["bank"], bank)
 
         if erase:
             self.write_int(context["erase"], 1)  # Perform an erase at `offset`
@@ -203,6 +213,7 @@ class GnWTargetMixin(Target):
         if blocking:
             self.resume()
             self.wait_for_all_contexts_complete()
+            self.wait_for_idle()  # Wait for the early-return context to complete.
 
     def erase_ext(self, offset: int, size: int, whole_chip: bool = False, **kwargs) -> None:
         """Erase a range of data on extflash.
