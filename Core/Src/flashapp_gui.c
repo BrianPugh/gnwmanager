@@ -2,6 +2,10 @@
 #include "segments.h"
 #include "flashapp.h"
 #include "flashapp_gui.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include "rg_rtc.h"
+#include "main.h"
 
 #define ACTIVE 0x0000
 #define INACTIVE RGB24_TO_RGB565(0x5A, 0x5A, 0x5A)
@@ -23,17 +27,42 @@
 
 #define DRAW(_x, _y, _img, _cond) odroid_overlay_draw_logo(_x, _y, _img, _cond ? ACTIVE : INACTIVE)
 
+static void draw_clock_digit(uint8_t val, uint16_t x, uint16_t y){
+    static const retro_logo_image *CLOCK_DIGITS[] = {
+        &img_clock_0, &img_clock_1, &img_clock_2, &img_clock_3, &img_clock_4,
+        &img_clock_5, &img_clock_6, &img_clock_7, &img_clock_8, &img_clock_9
+    };
+    DRAW(x, y, &img_clock_8, false);  // Draw shadow first
+    DRAW(x, y, CLOCK_DIGITS[val], true);  // Draw active segments.
+}
+
+static void draw_clock(){
+    HAL_RTC_GetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN);
+    HAL_RTC_GetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN);
+
+    // Draw colon
+    DRAW(CLOCK_HOUR_ORIGIN_X + CLOCK_DIGIT_SPACE + img_clock_8.width + 4, CLOCK_ORIGIN_Y + 5, &img_colon, true);
+
+    // segments
+    uint8_t hours_tens_val = GW_currentTime.Hours / 10;
+    if(hours_tens_val){
+        draw_clock_digit(hours_tens_val, CLOCK_HOUR_ORIGIN_X, CLOCK_ORIGIN_Y);
+    }
+    else{
+        DRAW(CLOCK_HOUR_ORIGIN_X, CLOCK_ORIGIN_Y, &img_clock_8, false);
+    }
+
+    draw_clock_digit(GW_currentTime.Hours % 10,   CLOCK_HOUR_ORIGIN_X + CLOCK_DIGIT_SPACE, CLOCK_ORIGIN_Y);
+    draw_clock_digit(GW_currentTime.Minutes / 10, CLOCK_MINUTE_ORIGIN_X, CLOCK_ORIGIN_Y);
+    draw_clock_digit(GW_currentTime.Minutes % 10, CLOCK_MINUTE_ORIGIN_X + CLOCK_DIGIT_SPACE, CLOCK_ORIGIN_Y);
+}
+
 void flashapp_gui_draw(flashapp_gui_t *gui){
     DRAW(10, 16, &img_idle, *gui->status == FLASHAPP_STATUS_IDLE);
     DRAW(54, 16, &img_prog, *gui->status == FLASHAPP_STATUS_PROG);
     DRAW(10, 37, &img_erase, *gui->status == FLASHAPP_STATUS_ERASE);
 
-    DRAW(CLOCK_HOUR_ORIGIN_X, CLOCK_ORIGIN_Y, &img_clock_8, true);
-    DRAW(CLOCK_HOUR_ORIGIN_X + CLOCK_DIGIT_SPACE, CLOCK_ORIGIN_Y, &img_clock_8, true);
-    DRAW(CLOCK_HOUR_ORIGIN_X + CLOCK_DIGIT_SPACE + img_clock_8.width + 4, CLOCK_ORIGIN_Y + 5, &img_colon, true);
-    DRAW(CLOCK_MINUTE_ORIGIN_X, CLOCK_ORIGIN_Y, &img_clock_8, true);
-    DRAW(CLOCK_MINUTE_ORIGIN_X + CLOCK_DIGIT_SPACE, CLOCK_ORIGIN_Y, &img_clock_8, true);
-
+    draw_clock();
 
     DRAW(234, 26, &img_sleep, true);
     DRAW(232, 37, &img_z_0, true);

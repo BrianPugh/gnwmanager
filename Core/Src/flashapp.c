@@ -320,7 +320,7 @@ static void flashapp_run(void)
             // Prog internal bank
             HAL_FLASH_Unlock();
             while(program_bytes_remaining){
-                if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, program_offset, context->buffer) != HAL_OK) {
+                if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, program_offset, (uint32_t)context->buffer) != HAL_OK) {
                     Error_Handler();
                 }
                 // A flash word is 128bits (16 bytes)
