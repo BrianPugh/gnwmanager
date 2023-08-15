@@ -52,11 +52,11 @@ def write_pixels(prefix, fn, invert=False):
             bits_data, bits_count = 0, 0
 
         out.extend(hex_data)
-        out.extend(comment_graphic)
+        out.append("".join(comment_graphic).rstrip())
         out.append("\n")
 
     out.append("    }\n")
-    out.append("};\n\n")
+    out.append("};\n")
     return "".join(out), header
 
 
@@ -89,6 +89,7 @@ def main():
         "\n",
     ]
     for fn in sorted(args.dir.glob("*.png")):
+        output_cs.append("\n")
         c, h = write_pixels(args.prefix, fn, invert=args.invert)
         output_cs.append(c)
         output_hs.append(h)

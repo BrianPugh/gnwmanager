@@ -51,6 +51,7 @@ extern const retro_logo_image img_run_7;
 extern const retro_logo_image img_run_8;
 extern const retro_logo_image img_run_9;
 extern const retro_logo_image img_sleep;
+extern const retro_logo_image img_sleep_mouth;
 extern const retro_logo_image img_z_0;
 extern const retro_logo_image img_z_1;
 extern const retro_logo_image img_z_2;
