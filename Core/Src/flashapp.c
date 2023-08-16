@@ -81,15 +81,10 @@ struct flashapp_comm {  // Values are read or written by the debugger
             // Host-setable timestamp; if 0, RTC is not updated.
             uint32_t utc_timestamp;
 
-            // Current chunk index
-            uint32_t program_chunk_idx;
-
-            // Number of chunks
-            uint32_t program_chunk_count;
-
             uint32_t active_context_index;
 
-            /* You may add additional variables here and addresses will remain backwards compatible*/
+            //In range [0, 26]
+            uint32_t progress;
         };
         struct {
             // Force spacing, allowing for backward-compatible additional variables
@@ -366,6 +361,7 @@ void flashapp_main(void)
     flashapp_gui_t gui;
     memset((void *)&comm, 0, sizeof(comm));
     gui.status = &comm.status;
+    gui.progress = &comm.progress;
 
     // Draw LCD silvery background once.
     odroid_overlay_draw_fill_rect(0, 0, 320, 240, FLASHAPP_BACKGROUND_COLOR);

@@ -101,9 +101,6 @@ void flashapp_gui_draw(flashapp_gui_t *gui){
     };
 
     for(uint8_t i=0; i < 26; i++){
-        if(i < 13)
-            odroid_overlay_draw_logo(5 + i * 12, 200, progress[i % 10], true);
-        else
-            odroid_overlay_draw_logo(5 + i * 12, 200, progress[i % 10], false);
+        DRAW(5 + i * 12, 200, progress[i % 10], i <= *gui->progress);
     }
 }

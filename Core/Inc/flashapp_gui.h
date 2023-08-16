@@ -7,7 +7,7 @@
 
 typedef struct{
     volatile flashapp_status_t *status;
-    float percent_complete;
+    volatile uint32_t *progress;
 } flashapp_gui_t;
 
 void flashapp_gui_draw(flashapp_gui_t *);

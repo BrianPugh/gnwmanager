@@ -83,18 +83,15 @@ def ext(
             previous_chunks_already_flashed = progress_file_chunks_already_flashed
             print(f"Resuming previous session at {previous_chunks_already_flashed}/{total_n_chunks}")
 
-    # https://github.com/tqdm/tqdm/issues/1264
     chunks = chunks[previous_chunks_already_flashed:]
-
-    target.write_int("program_chunk_count", total_n_chunks)
 
     base_address = offset + (previous_chunks_already_flashed * chunk_size)
     with tqdm(initial=previous_chunks_already_flashed, total=total_n_chunks) as pbar:
         for i, chunk in enumerate(chunks):
             chunk_1_idx = previous_chunks_already_flashed + i + 1
             pbar.update(1)
-            target.write_int("program_chunk_idx", chunk_1_idx)
             target.prog(0, base_address + (i * chunk_size), chunk, blocking=False)
+            target.write_int("progress", int(26 * (i + 1) / len(chunks)))
 
             # Save current progress to a file in case progress is interrupted.
             if progress_file:

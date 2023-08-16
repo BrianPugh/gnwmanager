@@ -25,9 +25,8 @@ def _populate_comm():
     _comm["status"] = last_variable = Variable(_comm["flashapp_comm"].address, 4)
     _comm["status_override"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
     _comm["utc_timestamp"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
-    _comm["program_chunk_idx"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
-    _comm["program_chunk_count"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
     _comm["active_context_index"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
+    _comm["progress"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
 
     for i in range(2):
         struct_start = _comm["flashapp_comm"].address + ((i + 1) * 4096)
