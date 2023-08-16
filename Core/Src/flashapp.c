@@ -15,6 +15,7 @@
 #include "odroid_overlay.h"
 #include "flashapp.h"
 #include "flashapp_gui.h"
+#include "buttons.h"
 
 
 typedef enum {  // For the flashapp state machine
@@ -390,6 +391,10 @@ void flashapp_main(void)
     while (true) {
         flashapp_gui_draw(step);
         do{
+            if(buttons_get() & B_POWER){
+                NVIC_SystemReset();
+            }
+
             if(comm.status_override){
                 gui.status = &comm.status_override;
             }
