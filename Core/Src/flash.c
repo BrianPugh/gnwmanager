@@ -490,6 +490,12 @@ static void wait_for_status(uint8_t mask, uint8_t value, uint32_t timeout)
     } while (status != value);
 }
 
+bool OSPI_ChipIdle(void){ // Returns True once chip is ready for another cmd.
+    uint8_t status;
+    status = get_status(STATUS_WIP_Msk);
+    return status == 0;
+}
+
 void OSPI_EnableMemoryMappedMode(void)
 {
     OSPI_MemoryMappedTypeDef sMemMappedCfg;
@@ -545,11 +551,13 @@ static void _OSPI_Erase(const flash_cmd_t *cmd, uint32_t address)
     OSPI_WriteBytes(cmd, address, NULL, 0);
 }
 
-void OSPI_ChipErase(void)
+void OSPI_ChipErase(bool blocking)
 {
-    DBG("CE\n");
+    OSPI_NOR_WriteEnable();
     _OSPI_Erase(CMD(CE), 0); // Chip Erase
-    wait_for_status(STATUS_WIP_Msk, 0, 0);
+    if(blocking){
+        wait_for_status(STATUS_WIP_Msk, 0, 0);
+    }
 }
 
 bool OSPI_Erase(uint32_t *address, uint32_t *size, bool blocking)

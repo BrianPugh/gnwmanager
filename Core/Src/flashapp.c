@@ -23,6 +23,7 @@ typedef enum {  // For the flashapp state machine
     FLASHAPP_DECOMPRESSING          ,
     FLASHAPP_CHECK_HASH_RAM         ,
     FLASHAPP_ERASE                  ,
+    FLASHAPP_ERASE_FINISH           ,
     FLASHAPP_PROGRAM                ,
     FLASHAPP_CHECK_HASH_FLASH       ,
 
@@ -288,6 +289,7 @@ static void flashapp_run(void)
         state++;
         break;
     case FLASHAPP_ERASE:
+        OSPI_DisableMemoryMappedMode();
         if (!working_context->erase) {
             state = FLASHAPP_PROGRAM;
             break;
@@ -295,14 +297,13 @@ static void flashapp_run(void)
         set_status(FLASHAPP_STATUS_ERASE);
 
         if(working_context->bank == 0){
-            OSPI_DisableMemoryMappedMode();
+            // This body is usually called a few times
             if (working_context->erase_bytes == 0) {
-                OSPI_NOR_WriteEnable();
-                OSPI_ChipErase();
+                OSPI_ChipErase(false);
                 state++;
             } else {
                 // Returns true when all erasing has been complete.
-                if (OSPI_Erase(&erase_offset, &erase_bytes_left, true)) {
+                if (OSPI_Erase(&erase_offset, &erase_bytes_left, false)) {
                     state++;
                 }
             }
@@ -316,14 +317,20 @@ static void flashapp_run(void)
             state++;
         }
         break;
+    case FLASHAPP_ERASE_FINISH:
+        OSPI_DisableMemoryMappedMode();
+        if(OSPI_ChipIdle()){  // Stay in state until flashchip is idle.
+            state++;
+        }
+        break;
     case FLASHAPP_PROGRAM:
+        OSPI_DisableMemoryMappedMode();
         set_status(FLASHAPP_STATUS_PROG);
         if (program_bytes_remaining == 0) {
             state++;
             break;
         }
         if(working_context->bank == 0){
-            OSPI_DisableMemoryMappedMode();
             uint32_t dest_page = program_offset / 256;
             uint32_t bytes_to_write = program_bytes_remaining > 256 ? 256 : program_bytes_remaining;
             OSPI_NOR_WriteEnable();
@@ -385,11 +392,10 @@ void flashapp_main(void)
 
     // Draw LCD silvery background once.
     odroid_overlay_draw_fill_rect(0, 0, 320, 240, FLASHAPP_BACKGROUND_COLOR);
+    flashapp_gui_draw(false);
 
-    bool step = false;
     uint32_t last_tick = HAL_GetTick();  // Monotonically increasing millisecond counter
     while (true) {
-        flashapp_gui_draw(step);
         do{
             if(buttons_get() & B_POWER){
                 NVIC_SystemReset();
@@ -404,6 +410,6 @@ void flashapp_main(void)
             flashapp_run();
         }while(HAL_GetTick() - last_tick < 500);
         last_tick = HAL_GetTick();
-        step = true;
+        flashapp_gui_draw(true);
     }
 }

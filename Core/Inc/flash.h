@@ -8,7 +8,8 @@
 
 void OSPI_EnableMemoryMappedMode(void);
 void OSPI_DisableMemoryMappedMode(void);
-void OSPI_ChipErase(void);
+void OSPI_ChipErase(bool blocking);
+bool OSPI_ChipIdle();
 
 // Performs one erase command per call with the largest size possible.
 // Sets *address and *size to values that should be passed to
