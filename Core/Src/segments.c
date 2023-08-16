@@ -1552,19 +1552,6 @@ const retro_logo_image img_sleep = {
     }
 };
 
-const retro_logo_image img_sleep_mouth = {
-    .height = 6,
-    .width = 7,
-    .logo = {
-        0x3E,  //   #####
-        0x7E,  //  ######
-        0x7E,  //  ######
-        0xFC,  // ######
-        0xF0,  // ####
-        0x60,  //  ##
-    }
-};
-
 const retro_logo_image img_z_0 = {
     .height = 7,
     .width = 9,
