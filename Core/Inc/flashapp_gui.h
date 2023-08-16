@@ -10,10 +10,9 @@ typedef struct{
     volatile uint32_t *progress;
 
     uint8_t sleep_z_state;  // [0, 3]
-    uint8_t sleeping;
+    uint8_t counter_to_sleep;
 
     uint8_t run_state;  // [0, 9]
-    bool running;
 } flashapp_gui_t;
 
 extern flashapp_gui_t gui;

@@ -379,7 +379,6 @@ void flashapp_main(void)
     uint32_t last_tick = HAL_GetTick();  // Monotonically increasing millisecond counter
     while (true) {
         bool step = false;
-        gui.running = (get_context() != NULL) || comm.status != FLASHAPP_STATUS_IDLE;
         if(HAL_GetTick() - last_tick > 500){
             last_tick = HAL_GetTick();
             step = true;

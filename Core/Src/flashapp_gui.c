@@ -27,8 +27,9 @@
 
 #define DRAW(_x, _y, _img, _cond) odroid_overlay_draw_logo(_x, _y, _img, _cond ? ACTIVE : INACTIVE)
 
-#define SLEEPING_THRESH 6
-#define IS_SLEEPING (gui.sleeping == SLEEPING_THRESH)
+#define SLEEPING_THRESH 5
+#define IS_SLEEPING (gui.counter_to_sleep == SLEEPING_THRESH)
+#define IS_RUNNING (!IS_SLEEPING)
 
 flashapp_gui_t gui;
 
@@ -65,15 +66,15 @@ static void draw_clock(){
 
 void flashapp_gui_draw(bool step){
     if(*gui.status != FLASHAPP_STATUS_IDLE){
-        gui.sleeping = 0;
+        gui.counter_to_sleep = 0;
     }
 
     if(step){
         if(!IS_SLEEPING && *gui.status == FLASHAPP_STATUS_IDLE)
-            gui.sleeping++;
+            gui.counter_to_sleep++;
 
         gui.sleep_z_state = IS_SLEEPING ? (gui.sleep_z_state + 1) % 4 : 0;
-        gui.run_state = gui.running ? (gui.run_state + 1) % 10 : 0;
+        gui.run_state = IS_RUNNING ? (gui.run_state + 1) % 10 : 0;
     }
 
     DRAW(10, 16, &img_idle, *gui.status == FLASHAPP_STATUS_IDLE);
@@ -108,7 +109,7 @@ void flashapp_gui_draw(bool step){
     };
     for(uint8_t i=0; i<10; i++){
         DRAW(RUN_ORIGIN_X + i * RUN_SPACING, RUN_ORIGIN_Y, run[i],
-                (i == gui.run_state) && gui.running);
+                (i == gui.run_state) && IS_RUNNING);
     }
 
     const retro_logo_image* progress[] = {
