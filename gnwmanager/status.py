@@ -5,9 +5,8 @@ flashapp_status_enum_to_str = {
     0xBAD00003: "NOT_ALIGNED",
     0xBAD00004: "BAD_DECOMPRESS",
     0xCAFE0000: "IDLE",
-    0xCAFE0001: "DECOMPRESS",
-    0xCAFE0002: "ERASE",
-    0xCAFE0003: "PROG",
+    0xCAFE0001: "ERASE",
+    0xCAFE0002: "PROG",
 }
 
 flashapp_status_str_to_enum = {v: k for k, v in flashapp_status_enum_to_str.items()}

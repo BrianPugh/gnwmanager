@@ -311,7 +311,7 @@ static void MX_LTDC_Init(void)
   pLayerCfg.Alpha0 = 255;
   pLayerCfg.BlendingFactor1 = LTDC_BLENDING_FACTOR1_CA;
   pLayerCfg.BlendingFactor2 = LTDC_BLENDING_FACTOR2_CA;
-  pLayerCfg.FBStartAdress = 0x24000000;
+  pLayerCfg.FBStartAdress = 0x24000000;  // Does this matter?
   pLayerCfg.ImageWidth = 320;
   pLayerCfg.ImageHeight = 240;
   pLayerCfg.Backcolor.Blue = 0;

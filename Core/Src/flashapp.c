@@ -81,8 +81,6 @@ struct flashapp_comm {  // Values are read or written by the debugger
             // Host-setable timestamp; if 0, RTC is not updated.
             uint32_t utc_timestamp;
 
-            uint32_t active_context_index;
-
             //In range [0, 26]
             uint32_t progress;
         };
@@ -94,7 +92,7 @@ struct flashapp_comm {  // Values are read or written by the debugger
 
     volatile work_context_t contexts[2];
 
-    work_context_t active_context;
+    work_context_t active_context;  // Working copy of context we are working on.
 
     volatile unsigned char buffer[2][256 << 10];
 
@@ -148,18 +146,35 @@ static void sha256bank(uint8_t bank, uint8_t *digest, uint32_t offset, uint32_t 
     OSPI_DisableMemoryMappedMode();
 }
 
+static uint32_t context_counter = 1;
+
+
+static work_context_t *get_context(){
+    for(uint8_t i=0; i < 2; i++){
+        if(comm.contexts[i].ready == context_counter){
+            comm.contexts[i].buffer = comm.buffer[i];
+            return &comm.contexts[i];
+        }
+    }
+    return NULL;
+}
+
+static void release_context(work_context_t *context){
+    memset((void *)context, 0, sizeof(work_context_t));
+}
+
 static void flashapp_run(void)
 {
     static flashapp_state_t state = FLASHAPP_IDLE;
-    static uint32_t context_counter = 1;
     static uint32_t erase_offset = 0;  // Holds intermediate erase address.
                                         // Is it's own variable since context->offset is used by both
                                         // programming and erasing.
     static uint32_t erase_bytes_left = 0;
     static uint32_t program_offset = 0; // Current offset into extflash that needs to be programmed
     static uint32_t program_bytes_remaining = 0;
+    static work_context_t *source_context;
 
-    work_context_t *context = &comm.active_context;
+    work_context_t *working_context = &comm.active_context;
     uint8_t program_calculated_sha256[32];
 
     wdog_refresh();
@@ -174,91 +189,87 @@ static void flashapp_run(void)
             comm.utc_timestamp = 0;
         }
 
-        // Attempt to find the next ready context in queue
-        for(uint8_t i=0; i < 2; i++){
-            if(comm.contexts[i].ready != context_counter)
-                continue;
-
-            context_counter++;
-            comm.active_context_index = i;
-            memcpy((void *)context, (void *)&comm.contexts[i], sizeof(work_context_t));
-            context->buffer = comm.buffer[i];
-
-            program_offset = context->offset;
-            program_bytes_remaining = context->size;
-
-            if(context->bank){
-                assert(context->bank == 1 || context->bank == 2);
-                assert((context->offset & 0x1fff) == 0);
-                assert((context->size & 0x1fff) == 0);
-                program_offset += (context->bank == 1) ? 0x08000000 : 0x08100000;
-            }
-
-            // Compute the hash to see if we can just skip this data packet.
-            if(context->size){
-                sha256bank(context->bank, program_calculated_sha256, context->offset, context->size);
-                if (memcmp((char *)program_calculated_sha256, (char *)context->expected_sha256, 32) == 0) {
-                    // Skip this chunk; release the context
-                    memset((void *)&comm.contexts[comm.active_context_index], 0, sizeof(work_context_t));
-                    continue;
-                }
-            }
-
-            if(context->erase){
-                comm.status = FLASHAPP_STATUS_ERASE;
-                if(context->bank == 0){
-                    erase_offset = context->offset;
-                    erase_bytes_left = context->erase_bytes;
-
-                    // Start a non-blocking flash erase to run in the background
-                    uint32_t smallest_erase = OSPI_GetSmallestEraseSize();
-                    if (erase_offset & (smallest_erase - 1)) {
-                        // Address not aligned to smallest erase size
-                        comm.status = FLASHAPP_STATUS_NOT_ALIGNED;
-                        state = FLASHAPP_ERROR;
-                        break;
-                    }
-                    // Round size up to nearest erase size if needed ?
-                    if ((erase_bytes_left & (smallest_erase - 1)) != 0) {
-                        erase_bytes_left += smallest_erase - (erase_bytes_left & (smallest_erase - 1));
-                    }
-                    OSPI_DisableMemoryMappedMode();
-                    OSPI_Erase(&erase_offset, &erase_bytes_left, false);
-                }
-            }
-            state++;
+        // Attempt to find the next ready working_context in queue
+        if((source_context = get_context()) == NULL){
+            comm.status = FLASHAPP_STATUS_IDLE;
             break;
         }
-        if(state == FLASHAPP_IDLE) {
-            comm.status = FLASHAPP_STATUS_IDLE;
+
+        context_counter++;
+        // Copy the context data into the active working_context
+        memcpy((void *)working_context, (void *)source_context, sizeof(work_context_t));
+
+        program_offset = working_context->offset;
+        program_bytes_remaining = working_context->size;
+
+        if(working_context->bank){
+            assert(working_context->bank == 1 || working_context->bank == 2);
+            assert((working_context->offset & 0x1fff) == 0);
+            assert((working_context->size & 0x1fff) == 0);
+            program_offset += (working_context->bank == 1) ? 0x08000000 : 0x08100000;
         }
+
+        // Compute the hash to see if we can just skip this data packet.
+        if(working_context->size){
+            comm.status = FLASHAPP_STATUS_HASH;
+            flashapp_gui_draw(false);  // force a redraw
+            sha256bank(working_context->bank, program_calculated_sha256, working_context->offset, working_context->size);
+            if (memcmp((char *)program_calculated_sha256, (char *)working_context->expected_sha256, 32) == 0) {
+                // Contents of this chunk didn't change. Skip & release working_context.
+                release_context(source_context);
+                break;
+            }
+        }
+
+        if(working_context->erase){
+            comm.status = FLASHAPP_STATUS_ERASE;
+            if(working_context->bank == 0){
+                // Start a non-blocking flash erase to run in the background
+                erase_offset = working_context->offset;
+                erase_bytes_left = working_context->erase_bytes;
+
+                uint32_t smallest_erase = OSPI_GetSmallestEraseSize();
+                if (erase_offset & (smallest_erase - 1)) {
+                    // Address not aligned to smallest erase size
+                    comm.status = FLASHAPP_STATUS_NOT_ALIGNED;
+                    state = FLASHAPP_ERROR;
+                    break;
+                }
+                // Round size up to nearest erase size if needed ?
+                if ((erase_bytes_left & (smallest_erase - 1)) != 0) {
+                    erase_bytes_left += smallest_erase - (erase_bytes_left & (smallest_erase - 1));
+                }
+                OSPI_DisableMemoryMappedMode();
+                OSPI_Erase(&erase_offset, &erase_bytes_left, false);
+            }
+        }
+        state++;
         break;
     case FLASHAPP_DECOMPRESSING:
-        comm.status = FLASHAPP_STATUS_DECOMPRESS;
-        if(context->compressed_size){
+        if(working_context->compressed_size){
             // Decompress the data; nothing after this state should reference decompression.
             uint32_t n_decomp_bytes;
             n_decomp_bytes = lzma_inflate(comm.decompress_buffer, sizeof(comm.decompress_buffer),
-                                          (uint8_t *)context->buffer, context->compressed_size);
-            if(n_decomp_bytes == 0 || n_decomp_bytes != context->size){
+                                          (uint8_t *)working_context->buffer, working_context->compressed_size);
+            if(n_decomp_bytes == 0 || n_decomp_bytes != working_context->size){
                 comm.status = FLASHAPP_STATUS_BAD_DECOMPRESS;
                 state = FLASHAPP_ERROR;
             }
         }
         else{
             //The data came in NOT compressed
-            memcpy((void *)comm.decompress_buffer, (void *)context->buffer, context->size);
+            memcpy((void *)comm.decompress_buffer, (void *)working_context->buffer, working_context->size);
         }
-        context->buffer = comm.decompress_buffer;
-        // We can now early release the context
-        memset((void *)&comm.contexts[comm.active_context_index], 0, sizeof(work_context_t));
+        working_context->buffer = comm.decompress_buffer;
+        // We can now early release the working_context
+        release_context(source_context);
         state++;
         break;
     case FLASHAPP_CHECK_HASH_RAM:
         // Calculate sha256 hash of the RAM first
-        sha256(program_calculated_sha256, (const BYTE*) context->buffer, context->size);
+        sha256(program_calculated_sha256, (const BYTE*) working_context->buffer, working_context->size);
 
-        if (memcmp((const void *)program_calculated_sha256, (const void *)context->expected_sha256, 32) != 0) {
+        if (memcmp((const void *)program_calculated_sha256, (const void *)working_context->expected_sha256, 32) != 0) {
             // Hashes don't match even in RAM, openocd loading failed.
             comm.status = FLASHAPP_STATUS_BAD_HASH_RAM;
             state = FLASHAPP_ERROR;
@@ -267,15 +278,15 @@ static void flashapp_run(void)
         state++;
         break;
     case FLASHAPP_ERASE:
-        if (!context->erase) {
+        if (!working_context->erase) {
             state = FLASHAPP_PROGRAM;
             break;
         }
         comm.status = FLASHAPP_STATUS_ERASE;
 
-        if(context->bank == 0){
+        if(working_context->bank == 0){
             OSPI_DisableMemoryMappedMode();
-            if (context->erase_bytes == 0) {
+            if (working_context->erase_bytes == 0) {
                 OSPI_NOR_WriteEnable();
                 OSPI_ChipErase();
                 state++;
@@ -287,11 +298,11 @@ static void flashapp_run(void)
             }
         }
         else{
-            // Erase a bank
-            if (context->erase_bytes == 0) {
-                context->erase_bytes = 256 << 10;
+            // Erase an internal bank
+            if (working_context->erase_bytes == 0) {
+                working_context->erase_bytes = 256 << 10;
             }
-            erase_intflash(context->bank, context->offset, context->erase_bytes);
+            erase_intflash(working_context->bank, working_context->offset, working_context->erase_bytes);
             state++;
         }
         break;
@@ -301,26 +312,26 @@ static void flashapp_run(void)
             state++;
             break;
         }
-        if(context->bank == 0){
+        if(working_context->bank == 0){
             OSPI_DisableMemoryMappedMode();
             uint32_t dest_page = program_offset / 256;
             uint32_t bytes_to_write = program_bytes_remaining > 256 ? 256 : program_bytes_remaining;
             OSPI_NOR_WriteEnable();
-            OSPI_PageProgram(dest_page * 256, (uint8_t *)context->buffer, bytes_to_write);
+            OSPI_PageProgram(dest_page * 256, (uint8_t *)working_context->buffer, bytes_to_write);
             program_offset += bytes_to_write;
-            context->buffer += bytes_to_write;
+            working_context->buffer += bytes_to_write;
             program_bytes_remaining -= bytes_to_write;
         }
         else{
             // Prog internal bank
             HAL_FLASH_Unlock();
             while(program_bytes_remaining){
-                if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, program_offset, (uint32_t)context->buffer) != HAL_OK) {
+                if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, program_offset, (uint32_t)working_context->buffer) != HAL_OK) {
                     Error_Handler();
                 }
                 // A flash word is 128bits (16 bytes)
                 program_offset += 16;
-                context->buffer += 16;
+                working_context->buffer += 16;
                 program_bytes_remaining -= 16;
             }
             HAL_FLASH_Lock();
@@ -330,9 +341,9 @@ static void flashapp_run(void)
     case FLASHAPP_CHECK_HASH_FLASH:
         OSPI_EnableMemoryMappedMode();
         // Calculate sha256 hash of the FLASH.
-        sha256bank(context->bank, program_calculated_sha256, context->offset, context->size);
+        sha256bank(working_context->bank, program_calculated_sha256, working_context->offset, working_context->size);
 
-        if (memcmp((char *)program_calculated_sha256, (char *)context->expected_sha256, 32) != 0) {
+        if (memcmp((char *)program_calculated_sha256, (char *)working_context->expected_sha256, 32) != 0) {
             // Hashes don't match in FLASH, programming failed.
             comm.status = FLASHAPP_STATUS_BAD_HAS_FLASH;
             state = FLASHAPP_ERROR;
@@ -358,7 +369,6 @@ void find_littlefs(){
 
 void flashapp_main(void)
 {
-    flashapp_gui_t gui;
     memset((void *)&comm, 0, sizeof(comm));
     gui.status = &comm.status;
     gui.progress = &comm.progress;
@@ -366,12 +376,20 @@ void flashapp_main(void)
     // Draw LCD silvery background once.
     odroid_overlay_draw_fill_rect(0, 0, 320, 240, FLASHAPP_BACKGROUND_COLOR);
 
+    uint32_t last_tick = HAL_GetTick();  // Monotonically increasing millisecond counter
     while (true) {
+        bool step = false;
+        gui.running = (get_context() != NULL) || comm.status != FLASHAPP_STATUS_IDLE;
+        if(HAL_GetTick() - last_tick > 500){
+            last_tick = HAL_GetTick();
+            step = true;
+        }
+
         uint32_t frame_counter = lcd_get_frame_counter();
         if(comm.status_override){
             comm.status = comm.status_override;
         }
-        flashapp_gui_draw(&gui);
+        flashapp_gui_draw(step);
         do{
             flashapp_status_t old_status = comm.status;
             flashapp_run();

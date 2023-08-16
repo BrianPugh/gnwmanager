@@ -10,9 +10,9 @@ enum flashapp_status { // For signaling program status to computer
     FLASHAPP_STATUS_BAD_DECOMPRESS  = 0xbad00004,
 
     FLASHAPP_STATUS_IDLE            = 0xcafe0000,
-    FLASHAPP_STATUS_DECOMPRESS,
     FLASHAPP_STATUS_ERASE     ,
     FLASHAPP_STATUS_PROG      ,
+    FLASHAPP_STATUS_HASH      ,
 };
 typedef uint32_t flashapp_status_t;  // All computer interactions are uint32_t for simplicity.
                                     // No need to be stingy about RAM.

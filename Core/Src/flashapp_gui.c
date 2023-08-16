@@ -8,7 +8,7 @@
 #include "main.h"
 
 #define ACTIVE 0x0000
-#define INACTIVE RGB24_TO_RGB565(0x5A, 0x5A, 0x5A)
+#define INACTIVE RGB24_TO_RGB565(0x60, 0x60, 0x60)
 
 #define CLOCK_DIGIT_SPACE 22
 #define CLOCK_ORIGIN_Y 21
@@ -27,8 +27,14 @@
 
 #define DRAW(_x, _y, _img, _cond) odroid_overlay_draw_logo(_x, _y, _img, _cond ? ACTIVE : INACTIVE)
 
+#define SLEEPING_THRESH 6
+#define IS_SLEEPING (gui.sleeping == SLEEPING_THRESH)
+
+flashapp_gui_t gui;
+
+
 static void draw_clock_digit(uint8_t val, uint16_t x, uint16_t y){
-    static const retro_logo_image *CLOCK_DIGITS[] = {
+    const retro_logo_image *CLOCK_DIGITS[] = {
         &img_clock_0, &img_clock_1, &img_clock_2, &img_clock_3, &img_clock_4,
         &img_clock_5, &img_clock_6, &img_clock_7, &img_clock_8, &img_clock_9
     };
@@ -57,35 +63,53 @@ static void draw_clock(){
     draw_clock_digit(GW_currentTime.Minutes % 10, CLOCK_MINUTE_ORIGIN_X + CLOCK_DIGIT_SPACE, CLOCK_ORIGIN_Y);
 }
 
-void flashapp_gui_draw(flashapp_gui_t *gui){
-    DRAW(10, 16, &img_idle, *gui->status == FLASHAPP_STATUS_IDLE);
-    DRAW(54, 16, &img_prog, *gui->status == FLASHAPP_STATUS_PROG);
-    DRAW(10, 37, &img_erase, *gui->status == FLASHAPP_STATUS_ERASE);
+void flashapp_gui_draw(bool step){
+    if(*gui.status != FLASHAPP_STATUS_IDLE){
+        gui.sleeping = 0;
+    }
+
+    if(step){
+        if(!IS_SLEEPING && *gui.status == FLASHAPP_STATUS_IDLE)
+            gui.sleeping++;
+
+        gui.sleep_z_state = IS_SLEEPING ? (gui.sleep_z_state + 1) % 4 : 0;
+        gui.run_state = gui.running ? (gui.run_state + 1) % 10 : 0;
+    }
+
+    DRAW(10, 16, &img_idle, *gui.status == FLASHAPP_STATUS_IDLE);
+    DRAW(54, 16, &img_prog, *gui.status == FLASHAPP_STATUS_PROG);
+    DRAW(10, 37, &img_erase, *gui.status == FLASHAPP_STATUS_ERASE);
 
     draw_clock();
 
-    DRAW(234, 26, &img_sleep, true);
-    DRAW(232, 37, &img_z_0, true);
-    DRAW(227, 26, &img_z_1, true);
-    DRAW(221, 12, &img_z_2, true);
+    DRAW(234, 26, &img_sleep, IS_SLEEPING);
+    DRAW(232, 37, &img_z_0, IS_SLEEPING && gui.sleep_z_state > 0);
+    DRAW(227, 26, &img_z_1, IS_SLEEPING && gui.sleep_z_state > 1);
+    DRAW(221, 12, &img_z_2, IS_SLEEPING && gui.sleep_z_state > 2);
 
-    DRAW(ERROR1_ORIGIN_X, ERROR1_ORIGIN_Y, &img_error, (*gui->status & 0xFFFF0000) == 0xbad00000);
-    DRAW(ERROR1_ORIGIN_X + 65, ERROR1_ORIGIN_Y, &img_hash, false);
+    DRAW(ERROR1_ORIGIN_X, ERROR1_ORIGIN_Y, &img_error, (*gui.status & 0xFFFF0000) == 0xbad00000);
+    DRAW(ERROR1_ORIGIN_X + 65, ERROR1_ORIGIN_Y, &img_hash, (*gui.status == FLASHAPP_STATUS_HASH));
     DRAW(ERROR1_ORIGIN_X + 65 + 54, ERROR1_ORIGIN_Y, &img_mismatch, false);
 
     DRAW(ERROR2_ORIGIN_X, ERROR2_ORIGIN_Y, &img_flash, false);
     DRAW(ERROR2_ORIGIN_X + 65, ERROR2_ORIGIN_Y, &img_ram, false);
 
-    DRAW(RUN_ORIGIN_X + 0 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_0, false);
-    DRAW(RUN_ORIGIN_X + 1 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_1, false);
-    DRAW(RUN_ORIGIN_X + 2 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_2, false);
-    DRAW(RUN_ORIGIN_X + 3 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_3, true);
-    DRAW(RUN_ORIGIN_X + 4 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_4, false);
-    DRAW(RUN_ORIGIN_X + 5 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_5, false);
-    DRAW(RUN_ORIGIN_X + 6 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_6, false);
-    DRAW(RUN_ORIGIN_X + 7 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_7, false);
-    DRAW(RUN_ORIGIN_X + 8 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_8, false);
-    DRAW(RUN_ORIGIN_X + 9 * RUN_SPACING, RUN_ORIGIN_Y, &img_run_9, false);
+    const retro_logo_image* run[] = {
+        &img_run_0,
+        &img_run_1,
+        &img_run_2,
+        &img_run_3,
+        &img_run_4,
+        &img_run_5,
+        &img_run_6,
+        &img_run_7,
+        &img_run_8,
+        &img_run_9,
+    };
+    for(uint8_t i=0; i<10; i++){
+        DRAW(RUN_ORIGIN_X + i * RUN_SPACING, RUN_ORIGIN_Y, run[i],
+                (i == gui.run_state) && gui.running);
+    }
 
     const retro_logo_image* progress[] = {
         &img_progress_0,
@@ -101,6 +125,6 @@ void flashapp_gui_draw(flashapp_gui_t *gui){
     };
 
     for(uint8_t i=0; i < 26; i++){
-        DRAW(5 + i * 12, 200, progress[i % 10], i <= *gui->progress);
+        DRAW(5 + i * 12, 200, progress[i % 10], i <= *gui.progress);
     }
 }
