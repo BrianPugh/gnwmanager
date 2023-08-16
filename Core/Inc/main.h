@@ -65,6 +65,8 @@ void wdog_refresh(void);
 #define BTN_PAUSE_GPIO_Port GPIOC
 #define BTN_GAME_Pin GPIO_PIN_1
 #define BTN_GAME_GPIO_Port GPIOC
+#define BTN_PWR_Pin GPIO_PIN_0
+#define BTN_PWR_GPIO_Port GPIOA
 #define BTN_TIME_Pin GPIO_PIN_5
 #define BTN_TIME_GPIO_Port GPIOC
 #define BTN_A_Pin GPIO_PIN_9
@@ -79,6 +81,13 @@ void wdog_refresh(void);
 #define BTN_Up_GPIO_Port GPIOD
 #define BTN_B_Pin GPIO_PIN_5
 #define BTN_B_GPIO_Port GPIOD
+
+// Zelda only buttons; they are not connected on mario.
+#define BTN_START_Pin GPIO_PIN_11
+#define BTN_START_GPIO_Port GPIOC
+#define BTN_SELECT_Pin GPIO_PIN_12
+#define BTN_SELECT_GPIO_Port GPIOC
+
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
