@@ -425,13 +425,13 @@ files = [
 
 [[package]]
 name = "exceptiongroup"
-version = "1.1.2"
+version = "1.1.3"
 description = "Backport of PEP 654 (exception groups)"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "exceptiongroup-1.1.2-py3-none-any.whl", hash = "sha256:e346e69d186172ca7cf029c8c1d16235aa0e04035e5750b4b95039e65204328f"},
-    {file = "exceptiongroup-1.1.2.tar.gz", hash = "sha256:12c3e887d6485d16943a309616de20ae5582633e0a2eda17f4e10fd61c1e8af5"},
+    {file = "exceptiongroup-1.1.3-py3-none-any.whl", hash = "sha256:343280667a4585d195ca1cf9cef84a4e178c4b6cf2274caef9859782b567d5e3"},
+    {file = "exceptiongroup-1.1.3.tar.gz", hash = "sha256:097acd85d473d75af5bb98e41b61ff7fe35efe6675e4f9370ec6ec5126d160e9"},
 ]
 
 [package.extras]
@@ -1368,7 +1368,7 @@ six = "*"
 
 [[package]]
 name = "pyocd"
-version = "0.1.dev2751"
+version = "0.1.dev2755"
 description = "Cortex-M debugger for Python"
 optional = false
 python-versions = ">=3.7.0"
@@ -1403,7 +1403,7 @@ test = ["coverage", "flake8", "pylint", "pytest (>=6.2)", "pytest-cov", "tox"]
 type = "git"
 url = "https://github.com/BrianPugh/pyOCD.git"
 reference = "stm32h7b0-256k"
-resolved_reference = "28b5e577e290a807083dec343ccceb818e7776ec"
+resolved_reference = "034d542189f86a3bc8cfaaad1ffa307353fdbc05"
 
 [[package]]
 name = "pytest"
@@ -1556,18 +1556,18 @@ use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 
 [[package]]
 name = "setuptools"
-version = "68.0.0"
+version = "68.1.0"
 description = "Easily download, build, install, upgrade, and uninstall Python packages"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 files = [
-    {file = "setuptools-68.0.0-py3-none-any.whl", hash = "sha256:11e52c67415a381d10d6b462ced9cfb97066179f0e871399e006c4ab101fc85f"},
-    {file = "setuptools-68.0.0.tar.gz", hash = "sha256:baf1fdb41c6da4cd2eae722e135500da913332ab3f2f5c7d33af9b492acb5235"},
+    {file = "setuptools-68.1.0-py3-none-any.whl", hash = "sha256:e13e1b0bc760e9b0127eda042845999b2f913e12437046e663b833aa96d89715"},
+    {file = "setuptools-68.1.0.tar.gz", hash = "sha256:d59c97e7b774979a5ccb96388efc9eb65518004537e85d52e81eaee89ab6dd91"},
 ]
 
 [package.extras]
-docs = ["furo", "jaraco.packaging (>=9)", "jaraco.tidelift (>=1.4)", "pygments-github-lexers (==0.0.5)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-favicon", "sphinx-hoverxref (<2)", "sphinx-inline-tabs", "sphinx-lint", "sphinx-notfound-page (==0.8.3)", "sphinx-reredirects", "sphinxcontrib-towncrier"]
-testing = ["build[virtualenv]", "filelock (>=3.4.0)", "flake8-2020", "ini2toml[lite] (>=0.9)", "jaraco.envs (>=2.2)", "jaraco.path (>=3.2.0)", "pip (>=19.1)", "pip-run (>=8.8)", "pytest (>=6)", "pytest-black (>=0.3.7)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=1.3)", "pytest-mypy (>=0.9.1)", "pytest-perf", "pytest-ruff", "pytest-timeout", "pytest-xdist", "tomli-w (>=1.0.0)", "virtualenv (>=13.0.0)", "wheel"]
+docs = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "pygments-github-lexers (==0.0.5)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-favicon", "sphinx-hoverxref (<2)", "sphinx-inline-tabs", "sphinx-lint", "sphinx-notfound-page (==0.8.3)", "sphinx-reredirects", "sphinxcontrib-towncrier"]
+testing = ["build[virtualenv]", "filelock (>=3.4.0)", "flake8-2020", "ini2toml[lite] (>=0.9)", "jaraco.develop (>=7.21)", "jaraco.envs (>=2.2)", "jaraco.path (>=3.2.0)", "pip (>=19.1)", "pytest (>=6)", "pytest-black (>=0.3.7)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-mypy (>=0.9.1)", "pytest-perf", "pytest-ruff", "pytest-timeout", "pytest-xdist", "tomli-w (>=1.0.0)", "virtualenv (>=13.0.0)", "wheel"]
 testing-integration = ["build[virtualenv]", "filelock (>=3.4.0)", "jaraco.envs (>=2.2)", "jaraco.path (>=3.2.0)", "pytest", "pytest-enabler", "pytest-xdist", "tomli", "virtualenv (>=13.0.0)", "wheel"]
 
 [[package]]
@@ -1809,6 +1809,67 @@ pure-eval = "*"
 tests = ["cython", "littleutils", "pygments", "pytest", "typeguard"]
 
 [[package]]
+name = "tamp"
+version = "1.1.6"
+description = ""
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "tamp-1.1.6-cp310-cp310-macosx_12_0_arm64.whl", hash = "sha256:295f8c1f90ad198f29530835cb8be82a8d813d58988902babbc471934112f22c"},
+    {file = "tamp-1.1.6-cp310-cp310-macosx_12_0_x86_64.whl", hash = "sha256:63f24862c7658895cea24aa80b3914076572d543e22b551866cbad16dc4ee8f6"},
+    {file = "tamp-1.1.6-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:7b5adcd3fb016bd6938d995ccd4895c8c00c9291fdd53fd14690cd30c3c2a8c3"},
+    {file = "tamp-1.1.6-cp310-cp310-manylinux_2_17_i686.manylinux_2_5_i686.manylinux1_i686.manylinux2014_i686.whl", hash = "sha256:c68c86f474a848b2525e08e730d233e764c3cd714ccc945cd4deccd0ab799e71"},
+    {file = "tamp-1.1.6-cp310-cp310-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:db868d95784a57264145305cc0a14f262d37e00c2d82d7dce8b3c9729401faea"},
+    {file = "tamp-1.1.6-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:799a5a398b87de4c5291253cf5bd593f528f3151bb19b8eb52e19e91ec8dbcc7"},
+    {file = "tamp-1.1.6-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:e775298e89d67b6220027342fceda122d0fef16e386a5afc237aeb912350bdaf"},
+    {file = "tamp-1.1.6-cp310-cp310-musllinux_1_1_i686.whl", hash = "sha256:935a601ea62df154c618d19211b3b30e17637bc2e90140de0b5bf02e354b4495"},
+    {file = "tamp-1.1.6-cp310-cp310-musllinux_1_1_ppc64le.whl", hash = "sha256:13eaf8be8becd5c827301dbc0dee7703662d402ef9fcfc8fd07d95a87d9675b5"},
+    {file = "tamp-1.1.6-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:e386ae52fe18ed36b0db90bd0fad24a2fcd0e93af5a20ccd867c2295029f591f"},
+    {file = "tamp-1.1.6-cp310-cp310-win32.whl", hash = "sha256:ab7e7b282d027764b7827dde6cb9a92fa1f9d98c22a3fdb0d88225d69421003f"},
+    {file = "tamp-1.1.6-cp310-cp310-win_amd64.whl", hash = "sha256:afe1ca4fddbe1dc9325477d1a100a946fd8cd61ebcc6717efc8250a78065f075"},
+    {file = "tamp-1.1.6-cp311-cp311-macosx_12_0_arm64.whl", hash = "sha256:6b7a6bae3267a1c850b5ed8062f3abe36846048ab5cbecb2c7b1fb89f0d43bda"},
+    {file = "tamp-1.1.6-cp311-cp311-macosx_12_0_x86_64.whl", hash = "sha256:57ccd8b0399b5791cfc205502c545bbe3db7b8ecc6506403e67ebcecec9fb7ce"},
+    {file = "tamp-1.1.6-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ba96347773ed44be9a92eb06a0ec9bd494c98d0464a7cc0d16c6611b7516ba36"},
+    {file = "tamp-1.1.6-cp311-cp311-manylinux_2_17_i686.manylinux_2_5_i686.manylinux1_i686.manylinux2014_i686.whl", hash = "sha256:9b9ab9899fc79a807cd20dc387202d575334c15e5950bfcfa52d5e1a7f7cb967"},
+    {file = "tamp-1.1.6-cp311-cp311-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:1c0b216bf6321456409dbccc24c33789bc95f1e4aa14d413a5d60f0c240fb0d4"},
+    {file = "tamp-1.1.6-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:af7f2207678e3b3b0947a2d1582fca99da8af6daeed8a35aa4235865ff56b6fb"},
+    {file = "tamp-1.1.6-cp311-cp311-musllinux_1_1_aarch64.whl", hash = "sha256:f2cec0810dc06a360ac91a0b972da8c50e2d38563758d3b9edf5ed77ba22bead"},
+    {file = "tamp-1.1.6-cp311-cp311-musllinux_1_1_i686.whl", hash = "sha256:03fb7b98ed340bb1fda7ecea56a611087102259aa3e20095907bb5f345d28e52"},
+    {file = "tamp-1.1.6-cp311-cp311-musllinux_1_1_ppc64le.whl", hash = "sha256:0c8035ca217aad9eaf65e0c779fb43fbd176bc2cf51c118bd0cfe5f56917ae84"},
+    {file = "tamp-1.1.6-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:92745b7971800f413de789a8471a6a875e27a8c2417662b7763b50c99326e9a2"},
+    {file = "tamp-1.1.6-cp311-cp311-win32.whl", hash = "sha256:ec50b02f6deef41fb39ff122bcb3fd4a6f26048b4c091f016e87c2fea53b399f"},
+    {file = "tamp-1.1.6-cp311-cp311-win_amd64.whl", hash = "sha256:e73ab30fe681e22440c84d18b0e5ac4ecd6efe6926250f80d4ec43b7c86a292c"},
+    {file = "tamp-1.1.6-cp38-cp38-macosx_12_0_arm64.whl", hash = "sha256:f38833b53d29c5f334c9f752d54b635975efe37ba11e0b419b2fadbf37db431e"},
+    {file = "tamp-1.1.6-cp38-cp38-macosx_12_0_x86_64.whl", hash = "sha256:d65d96ebe24fa72e795aef5b85a8d3b76a90a99a0cc1f75b49f614657102a4f5"},
+    {file = "tamp-1.1.6-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:8cde3302b3bd9d267e7e3fbc43c129b815c51e74ca44d36816adda23b61612ab"},
+    {file = "tamp-1.1.6-cp38-cp38-manylinux_2_17_i686.manylinux_2_5_i686.manylinux1_i686.manylinux2014_i686.whl", hash = "sha256:b2879e402a1233454f64f2c0a19baf5079aa7ec9840f12e29ce0f7ab32b07576"},
+    {file = "tamp-1.1.6-cp38-cp38-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:87f231ec146952329db96df5a849c1794004d105766adea4c85668dffdc5180f"},
+    {file = "tamp-1.1.6-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e119aabe63c52da5976f9f7803cad99b6c66ca7c555e409df25ba9ea5b1a6d69"},
+    {file = "tamp-1.1.6-cp38-cp38-musllinux_1_1_aarch64.whl", hash = "sha256:83590eeb655f6fb7ca96552086fb74233310aaa38771faea860a2aecfa8e4f61"},
+    {file = "tamp-1.1.6-cp38-cp38-musllinux_1_1_i686.whl", hash = "sha256:1e88f90d2071bbd60aeab2440b5069d6cf2177e7de7ebd3c92de17838a39270e"},
+    {file = "tamp-1.1.6-cp38-cp38-musllinux_1_1_ppc64le.whl", hash = "sha256:38eb6c2d99d1bad1ce80c5ccd1f0aeb4658d6d462d76b5e616326bbbbaf5efd9"},
+    {file = "tamp-1.1.6-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:f3cbb0680f3ce0c306e04028d9a5cad1da0f15f36fb3ad70282ef2bdd6498a12"},
+    {file = "tamp-1.1.6-cp38-cp38-win32.whl", hash = "sha256:35274189ed953caa0884b2b9600d72109ae1b47fd30453134e09b97d72e81453"},
+    {file = "tamp-1.1.6-cp38-cp38-win_amd64.whl", hash = "sha256:99b34bb813e8efe0a82880603fecd8d21d4b9265c81c4ad18b082e3beb3bc124"},
+    {file = "tamp-1.1.6-cp39-cp39-macosx_12_0_arm64.whl", hash = "sha256:ad4076e62b74d012503d892b4f36cb07b802b7715747bcc1dcb1e86048c1db4f"},
+    {file = "tamp-1.1.6-cp39-cp39-macosx_12_0_x86_64.whl", hash = "sha256:3ba515de06b01f684cf29a0fe830569b2365f59d27dfedab298c232ed731da4f"},
+    {file = "tamp-1.1.6-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:1e8f69f72f37017cfd3b4e4ed687fe2708b77097482d62293099ee765f390902"},
+    {file = "tamp-1.1.6-cp39-cp39-manylinux_2_17_i686.manylinux_2_5_i686.manylinux1_i686.manylinux2014_i686.whl", hash = "sha256:385f51f52d8f7ff132629ba22579a4a213c9f05be0ee7b5085e62ddd9697ca72"},
+    {file = "tamp-1.1.6-cp39-cp39-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:9f0f7f9b2838f654f499766b7847ea94e942ed11c67fa921ea80b28185932e96"},
+    {file = "tamp-1.1.6-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:66605e59d993e37e9b0944dd2cbd755da0e41d929d4695eb24efd9e679678a31"},
+    {file = "tamp-1.1.6-cp39-cp39-musllinux_1_1_aarch64.whl", hash = "sha256:bd3fa7cbeca51b83b1d41136ccd1aef3f657c07e657cae783047f851c6e5f7e8"},
+    {file = "tamp-1.1.6-cp39-cp39-musllinux_1_1_i686.whl", hash = "sha256:ccfabda9ebf3e5aaa4c01c040a1c09f8fda2d78ef4c5035630507c05826c96b0"},
+    {file = "tamp-1.1.6-cp39-cp39-musllinux_1_1_ppc64le.whl", hash = "sha256:43e5bfdbddc28274e904afbd09c24eb99ddb5650b69f92088ef85c6b89271b74"},
+    {file = "tamp-1.1.6-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:e5b11ee2453e1d21d6fa058763c8e41753429c4cbfdcda589f19a8af2e62fc11"},
+    {file = "tamp-1.1.6-cp39-cp39-win32.whl", hash = "sha256:73c47da19aec66abb8294c1ad6f3a8cb34999dc045be2d15f49339d038dcc627"},
+    {file = "tamp-1.1.6-cp39-cp39-win_amd64.whl", hash = "sha256:d706b9526d832755c22b5a623232c52ccd5de2c46ea27b9d7289c763d76c378c"},
+    {file = "tamp-1.1.6.tar.gz", hash = "sha256:dcd061d74429c6d55e46779209629fc3b1221fbab647f756011c02078e68dc19"},
+]
+
+[package.dependencies]
+typer = ">=0.6.0"
+
+[[package]]
 name = "tomli"
 version = "2.0.1"
 description = "A lil' TOML parser"
@@ -1952,4 +2013,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8"
-content-hash = "f349f40343edc0b77805825e80a1b0472712572b6238e447f021fb3de156d32e"
+content-hash = "762632ab81b4875de5f3dc3c1bee409ec283d7dd0c5f56a659954a4875a4617a"
