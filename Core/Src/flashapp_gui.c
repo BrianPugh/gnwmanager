@@ -27,9 +27,10 @@
 
 #define DRAW(_x, _y, _img, _cond) odroid_overlay_draw_logo(_x, _y, _img, _cond ? ACTIVE : INACTIVE)
 
+#define IS_ERROR_STATUS ((*gui.status & 0xFFFF0000) == 0xbad00000)
 #define SLEEPING_THRESH 5
 #define IS_SLEEPING (gui.counter_to_sleep == SLEEPING_THRESH)
-#define IS_RUNNING (!IS_SLEEPING)
+#define IS_RUNNING (!IS_SLEEPING && !IS_ERROR_STATUS)
 
 flashapp_gui_t gui;
 
@@ -88,12 +89,23 @@ void flashapp_gui_draw(bool step){
     DRAW(227, 26, &img_z_1, IS_SLEEPING && gui.sleep_z_state > 1);
     DRAW(221, 12, &img_z_2, IS_SLEEPING && gui.sleep_z_state > 2);
 
-    DRAW(ERROR1_ORIGIN_X, ERROR1_ORIGIN_Y, &img_error, (*gui.status & 0xFFFF0000) == 0xbad00000);
-    DRAW(ERROR1_ORIGIN_X + 65, ERROR1_ORIGIN_Y, &img_hash, (*gui.status == FLASHAPP_STATUS_HASH));
-    DRAW(ERROR1_ORIGIN_X + 65 + 54, ERROR1_ORIGIN_Y, &img_mismatch, false);
+    DRAW(ERROR1_ORIGIN_X, ERROR1_ORIGIN_Y, &img_error, IS_ERROR_STATUS);
+    DRAW(ERROR1_ORIGIN_X + 65, ERROR1_ORIGIN_Y, &img_hash,
+            (*gui.status == FLASHAPP_STATUS_HASH)
+            || *gui.status == FLASHAPP_STATUS_BAD_HASH_FLASH
+            || *gui.status == FLASHAPP_STATUS_BAD_HASH_RAM
+    );
+    DRAW(ERROR1_ORIGIN_X + 65 + 54, ERROR1_ORIGIN_Y, &img_mismatch,
+            *gui.status == FLASHAPP_STATUS_BAD_HASH_FLASH
+            || *gui.status == FLASHAPP_STATUS_BAD_HASH_RAM
+    );
 
-    DRAW(ERROR2_ORIGIN_X, ERROR2_ORIGIN_Y, &img_flash, false);
-    DRAW(ERROR2_ORIGIN_X + 65, ERROR2_ORIGIN_Y, &img_ram, false);
+    DRAW(ERROR2_ORIGIN_X, ERROR2_ORIGIN_Y, &img_flash,
+            *gui.status == FLASHAPP_STATUS_BAD_HASH_FLASH
+    );
+    DRAW(ERROR2_ORIGIN_X + 65, ERROR2_ORIGIN_Y, &img_ram,
+            *gui.status == FLASHAPP_STATUS_BAD_HASH_RAM
+    );
 
     const retro_logo_image* run[] = {
         &img_run_0,

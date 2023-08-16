@@ -362,7 +362,7 @@ static void flashapp_run(void)
 
         if (memcmp((char *)program_calculated_sha256, (char *)working_context->expected_sha256, 32) != 0) {
             // Hashes don't match in FLASH, programming failed.
-            set_status(FLASHAPP_STATUS_BAD_HAS_FLASH);
+            set_status(FLASHAPP_STATUS_BAD_HASH_FLASH);
             state = FLASHAPP_ERROR;
             break;
         }
