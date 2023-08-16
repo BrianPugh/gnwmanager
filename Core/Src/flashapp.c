@@ -163,6 +163,15 @@ static void release_context(work_context_t *context){
     memset((void *)context, 0, sizeof(work_context_t));
 }
 
+static void set_status(flashapp_status_t status){
+    static flashapp_status_t prev_status = 0;
+    comm.status = status;
+    if(status != prev_status){
+        flashapp_gui_draw(false);
+    }
+    prev_status = status;
+}
+
 static void flashapp_run(void)
 {
     static flashapp_state_t state = FLASHAPP_IDLE;
@@ -191,7 +200,7 @@ static void flashapp_run(void)
 
         // Attempt to find the next ready working_context in queue
         if((source_context = get_context()) == NULL){
-            comm.status = FLASHAPP_STATUS_IDLE;
+            set_status(FLASHAPP_STATUS_IDLE);
             break;
         }
 
@@ -211,7 +220,7 @@ static void flashapp_run(void)
 
         // Compute the hash to see if we can just skip this data packet.
         if(working_context->size){
-            comm.status = FLASHAPP_STATUS_HASH;
+            set_status(FLASHAPP_STATUS_HASH);
             flashapp_gui_draw(false);  // force a redraw
             sha256bank(working_context->bank, program_calculated_sha256, working_context->offset, working_context->size);
             if (memcmp((char *)program_calculated_sha256, (char *)working_context->expected_sha256, 32) == 0) {
@@ -222,7 +231,7 @@ static void flashapp_run(void)
         }
 
         if(working_context->erase){
-            comm.status = FLASHAPP_STATUS_ERASE;
+            set_status(FLASHAPP_STATUS_ERASE);
             if(working_context->bank == 0){
                 // Start a non-blocking flash erase to run in the background
                 erase_offset = working_context->offset;
@@ -231,7 +240,7 @@ static void flashapp_run(void)
                 uint32_t smallest_erase = OSPI_GetSmallestEraseSize();
                 if (erase_offset & (smallest_erase - 1)) {
                     // Address not aligned to smallest erase size
-                    comm.status = FLASHAPP_STATUS_NOT_ALIGNED;
+                    set_status(FLASHAPP_STATUS_NOT_ALIGNED);
                     state = FLASHAPP_ERROR;
                     break;
                 }
@@ -252,7 +261,7 @@ static void flashapp_run(void)
             n_decomp_bytes = lzma_inflate(comm.decompress_buffer, sizeof(comm.decompress_buffer),
                                           (uint8_t *)working_context->buffer, working_context->compressed_size);
             if(n_decomp_bytes == 0 || n_decomp_bytes != working_context->size){
-                comm.status = FLASHAPP_STATUS_BAD_DECOMPRESS;
+                set_status(FLASHAPP_STATUS_BAD_DECOMPRESS);
                 state = FLASHAPP_ERROR;
             }
         }
@@ -271,7 +280,7 @@ static void flashapp_run(void)
 
         if (memcmp((const void *)program_calculated_sha256, (const void *)working_context->expected_sha256, 32) != 0) {
             // Hashes don't match even in RAM, openocd loading failed.
-            comm.status = FLASHAPP_STATUS_BAD_HASH_RAM;
+            set_status(FLASHAPP_STATUS_BAD_HASH_RAM);
             state = FLASHAPP_ERROR;
             break;
         }
@@ -282,7 +291,7 @@ static void flashapp_run(void)
             state = FLASHAPP_PROGRAM;
             break;
         }
-        comm.status = FLASHAPP_STATUS_ERASE;
+        set_status(FLASHAPP_STATUS_ERASE);
 
         if(working_context->bank == 0){
             OSPI_DisableMemoryMappedMode();
@@ -307,7 +316,7 @@ static void flashapp_run(void)
         }
         break;
     case FLASHAPP_PROGRAM:
-        comm.status = FLASHAPP_STATUS_PROG;
+        set_status(FLASHAPP_STATUS_PROG);
         if (program_bytes_remaining == 0) {
             state++;
             break;
@@ -345,7 +354,7 @@ static void flashapp_run(void)
 
         if (memcmp((char *)program_calculated_sha256, (char *)working_context->expected_sha256, 32) != 0) {
             // Hashes don't match in FLASH, programming failed.
-            comm.status = FLASHAPP_STATUS_BAD_HAS_FLASH;
+            set_status(FLASHAPP_STATUS_BAD_HAS_FLASH);
             state = FLASHAPP_ERROR;
             break;
         }
@@ -376,25 +385,20 @@ void flashapp_main(void)
     // Draw LCD silvery background once.
     odroid_overlay_draw_fill_rect(0, 0, 320, 240, FLASHAPP_BACKGROUND_COLOR);
 
+    bool step = false;
     uint32_t last_tick = HAL_GetTick();  // Monotonically increasing millisecond counter
     while (true) {
-        bool step = false;
-        if(HAL_GetTick() - last_tick > 500){
-            last_tick = HAL_GetTick();
-            step = true;
-        }
-
-        uint32_t frame_counter = lcd_get_frame_counter();
-        if(comm.status_override){
-            comm.status = comm.status_override;
-        }
         flashapp_gui_draw(step);
         do{
-            flashapp_status_t old_status = comm.status;
-            flashapp_run();
-            if(comm.status != old_status){
-                break;  // Force a redraw
+            if(comm.status_override){
+                gui.status = &comm.status_override;
             }
-        }while(frame_counter == lcd_get_frame_counter());
+            else{
+                gui.status = &comm.status;
+            }
+            flashapp_run();
+        }while(HAL_GetTick() - last_tick < 500);
+        last_tick = HAL_GetTick();
+        step = true;
     }
 }

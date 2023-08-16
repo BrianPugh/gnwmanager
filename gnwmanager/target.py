@@ -99,7 +99,7 @@ class GnWTargetMixin(Target):
 
         self.write_memory_block8(addr, val)
 
-    def wait_for_idle(self, timeout=10):
+    def wait_for_idle(self, timeout=20):
         """Block until the on-device status is IDLE."""
         time()
         t_deadline = time() + timeout
@@ -116,7 +116,7 @@ class GnWTargetMixin(Target):
                 raise TimeoutError
             sleep(0.05)
 
-    def wait_for_all_contexts_complete(self, timeout=10):
+    def wait_for_all_contexts_complete(self, timeout=20):
         time()
         t_deadline = time() + timeout
         for context in contexts:
@@ -126,7 +126,7 @@ class GnWTargetMixin(Target):
                 sleep(0.05)
         self.wait_for_idle(timeout=t_deadline - time())
 
-    def get_context(self, timeout=10):
+    def get_context(self, timeout=20):
         if not hasattr(self, "context_counter"):
             self.context_counter = 1
 
