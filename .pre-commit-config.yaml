@@ -1,4 +1,4 @@
-exclude: ^(poetry.lock|.idea/)
+exclude: ^(poetry.lock|.idea/|Drivers/)
 repos:
   - repo: https://github.com/charliermarsh/ruff-pre-commit
     rev: "v0.0.284"
