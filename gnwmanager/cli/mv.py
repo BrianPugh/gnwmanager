@@ -7,11 +7,17 @@ from gnwmanager.cli._parsers import int_parser
 from gnwmanager.filesystem import get_filesystem
 
 
-def mkdir(
-    path: Annotated[
+def mv(
+    src: Annotated[
         Path,
         Argument(
-            help="Directory to create.",
+            help="Source file or directory.",
+        ),
+    ],
+    dst: Annotated[
+        Path,
+        Argument(
+            help="Destination file or directory.",
         ),
     ],
     offset: Annotated[
@@ -29,4 +35,4 @@ def mkdir(
     target = session.target
     fs = get_filesystem(target, offset=offset)
 
-    fs.makedirs(path.as_posix(), exist_ok=True)
+    fs.rename(src.as_posix(), dst.as_posix())
