@@ -13,7 +13,7 @@ def pull(
     gnw_path: Annotated[
         Path,
         Argument(
-            help="On-device folder path to list. Defaults to root",
+            help="Game-and-watch file or folder to copy to computer.",
         ),
     ],
     local_path: Annotated[

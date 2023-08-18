@@ -1,8 +1,11 @@
 from functools import lru_cache
+from pathlib import Path
+from typing import Union
 
-from littlefs import LittleFS
+from littlefs import LittleFS, LittleFSError
 from littlefs.lfs import LFSConfig
 
+from gnwmanager.utils import sha256
 from gnwmanager.validation import validate_extflash_offset
 
 
@@ -73,3 +76,33 @@ def get_filesystem(target, offset: int = 0):
     )
     fs.mount()
     return fs
+
+
+def is_existing_gnw_dir(fs: LittleFS, path: Union[str, Path]):
+    if isinstance(path, Path):
+        path = path.as_posix()
+
+    try:
+        stat = fs.stat(path)
+    except LittleFSError as e:
+        if e.code == -2:  # LFS_ERR_NOENT
+            return False
+        raise
+    return stat.type == 2
+
+
+def gnw_sha256(fs, path: Union[str, Path]):
+    if isinstance(path, Path):
+        path = path.as_posix()
+
+    try:
+        with fs.open(path, "rb") as f:
+            data = f.read()
+    except FileNotFoundError:
+        return bytes(32)
+    except LittleFSError as e:
+        if e.code == -20:
+            return bytes(32)
+        raise
+
+    return sha256(data)
