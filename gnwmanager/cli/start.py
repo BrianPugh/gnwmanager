@@ -12,6 +12,7 @@ def start(
         Option(min=0, help="Offset into location."),
     ] = 0,
 ):
+    """Start firmware at location."""
     from .main import session
 
     target = session.target

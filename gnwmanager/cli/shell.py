@@ -18,6 +18,7 @@ def shell(
         ),
     ] = 0,
 ):
+    """Launch an interactive shell to browse device filesystem."""
     from .main import app, session
 
     target = session.target

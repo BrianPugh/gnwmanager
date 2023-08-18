@@ -35,6 +35,7 @@ typing-extensions = "^4.7.1"
 tqdm = "^4.66.1"
 pillow = "^10.0.0"
 tamp = "^1.1.6"
+rich = "^13.5.2"
 
 [tool.poetry.group.docs.dependencies]
 sphinx = "~6.2.1"

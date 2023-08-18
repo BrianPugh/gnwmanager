@@ -31,6 +31,7 @@ def pull(
         ),
     ] = 0,
 ):
+    """Pull a file or folder from device."""
     from .main import session
 
     target = session.target

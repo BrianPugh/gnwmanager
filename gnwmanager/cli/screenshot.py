@@ -31,6 +31,7 @@ def screenshot(
         ),
     ] = 0,
 ):
+    """Pull and decode a screenshot from device."""
     from .main import session
 
     target = session.target

@@ -13,7 +13,9 @@ from gnwmanager.target import contexts
 from gnwmanager.utils import sha256
 from gnwmanager.validation import validate_extflash_offset
 
-app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False, add_completion=False)
+app = typer.Typer(
+    no_args_is_help=True, pretty_exceptions_enable=False, add_completion=False, help="Flash firmware to device."
+)
 
 
 def _chunk_bytes(data, chunk_size):
@@ -50,6 +52,7 @@ def ext(
         ),
     ] = 0,
 ):
+    """Flash to external flash."""
     from .main import session
 
     target = session.target
@@ -105,6 +108,7 @@ def bank1(
         ),
     ] = 0,
 ):
+    """Flash to internal flash bank 1."""
     from .main import session
 
     target = session.target
@@ -136,6 +140,7 @@ def bank2(
         ),
     ] = 0,
 ):
+    """Flash to internal flash bank 2."""
     from .main import session
 
     target = session.target

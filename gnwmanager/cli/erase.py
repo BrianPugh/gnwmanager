@@ -12,7 +12,10 @@ class EraseLocation(str, Enum):
     all = "all"
 
 
-def erase(location: Annotated[EraseLocation, Argument(case_sensitive=False)]):
+def erase(
+    location: Annotated[EraseLocation, Argument(case_sensitive=False, help="Section to erase.")],
+):
+    """Erase a section of flash."""
     from .main import session
 
     target = session.target

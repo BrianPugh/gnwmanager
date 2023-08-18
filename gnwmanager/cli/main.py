@@ -8,7 +8,7 @@ from typer import Option
 import gnwmanager
 from gnwmanager.target import GnWTargetMixin, mixin_object
 
-from . import debug, erase, flash, ls, pull, push, screenshot, shell, start
+from . import debug, disable_debug, erase, flash, ls, pull, push, screenshot, shell, start
 from ._start_gnwmanager import start_gnwmanager
 
 session: Session
@@ -23,6 +23,7 @@ app.command()(shell.shell)
 app.command()(screenshot.screenshot)
 app.command()(pull.pull)
 app.command()(push.push)
+app.command()(disable_debug.disable_debug)
 
 
 def version_callback(value: bool):
@@ -66,6 +67,11 @@ def run_app():
         else:
             current_command_args.append(arg)
     commands_args.append(current_command_args)
+
+    # Early help and version print
+    for args in commands_args:
+        if not args or "--help" in args or "--version" in args:
+            app(args=args)
 
     global session
     with ConnectHelper.session_with_chosen_probe(options=options) as session:

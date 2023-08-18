@@ -34,6 +34,7 @@ def push(
         ),
     ] = 0,
 ):
+    """Push file(s) and folder(s) to device."""
     from .main import session
 
     target = session.target

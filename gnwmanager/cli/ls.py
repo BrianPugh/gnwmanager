@@ -49,6 +49,7 @@ def ls(
         ),
     ] = 0,
 ):
+    """List contents of device directory."""
     from .main import session
 
     target = session.target
