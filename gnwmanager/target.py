@@ -26,6 +26,8 @@ def _populate_comm():
     _comm["status_override"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
     _comm["utc_timestamp"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
     _comm["progress"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
+    _comm["flash_size"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
+    _comm["min_erase_size"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
 
     for i in range(2):
         struct_start = _comm["flashapp_comm"].address + ((i + 1) * 4096)
@@ -172,7 +174,11 @@ class GnWTargetMixin(Target):
         if bank not in (0, 1, 2):
             raise ValueError
 
-        validate_extflash_offset(offset)
+        if bank == 0:
+            validate_extflash_offset(offset)
+        else:
+            validate_intflash_offset(offset)
+
         if not data:
             return
         if len(data) > (256 << 10):

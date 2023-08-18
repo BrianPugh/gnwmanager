@@ -897,7 +897,7 @@ tests-strict = ["IPython (==7.14.0)", "IPython (==7.18.0)", "IPython (==8.12.2)"
 
 [[package]]
 name = "littlefs-python"
-version = "0.1.dev89+g083720a"
+version = "0.1.dev96+g43319b1"
 description = "A python wrapper for littlefs"
 optional = false
 python-versions = "*"
@@ -908,7 +908,7 @@ develop = false
 type = "git"
 url = "https://github.com/BrianPugh/littlefs-python.git"
 reference = "develop"
-resolved_reference = "083720a87c22d0ce60e800f204e44b91b65627b8"
+resolved_reference = "43319b1124cf4b8d20da8f08da66e52d376e7afc"
 
 [[package]]
 name = "markupsafe"

@@ -74,17 +74,23 @@ struct flashapp_comm {  // Values are read or written by the debugger
                         // so that addresses don't change.
     union {
         volatile struct{
-            // Status register
+            // output: Status register
             uint32_t status;
 
-            // Status register
+            // input: override status (only impacts GUI)
             uint32_t status_override;
 
-            // Host-setable timestamp; if 0, RTC is not updated.
+            // input: if 0, RTC is not updated.
             uint32_t utc_timestamp;
 
-            //In range [0, 26]
+            // input: In range [0, 26]
             uint32_t progress;
+
+            // output: external flash size in bytes
+            uint32_t flash_size;
+
+            // output: minimum external flash erase size in bytes
+            uint32_t min_erase_size;
         };
         struct {
             // Force spacing, allowing for backward-compatible additional variables
@@ -375,13 +381,6 @@ static void flashapp_run(void)
     }
 }
 
-#define FS_MAGIC = "littlefs"
-void find_littlefs(){
-    uint32_t erase_size = OSPI_GetSmallestEraseSize();
-    uint32_t flash_size = OSPI_GetSize();
-    assert(0);  // Not implemented yet
-}
-
 #define FLASHAPP_BACKGROUND_COLOR RGB24_TO_RGB565(0x72, 0x73, 0x51)
 
 void flashapp_main(void)
@@ -389,6 +388,9 @@ void flashapp_main(void)
     memset((void *)&comm, 0, sizeof(comm));
     gui.status = &comm.status;
     gui.progress = &comm.progress;
+
+    comm.flash_size = OSPI_GetSize();
+    comm.min_erase_size = OSPI_GetSmallestEraseSize();
 
     // Draw LCD silvery background once.
     odroid_overlay_draw_fill_rect(0, 0, 320, 240, FLASHAPP_BACKGROUND_COLOR);
