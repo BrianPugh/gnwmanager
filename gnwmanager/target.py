@@ -97,8 +97,22 @@ class GnWTargetMixin(Target):
         addr = _key_to_address(key)
         self.write32(addr, val)
 
-    def read_mem(self, key, size):
-        addr = _key_to_address(key)
+    def read_mem(self, key, size=None):
+        if isinstance(key, str):
+            if size is not None:
+                raise ValueError
+            addr, size = _comm[key].address, _comm[key].size
+        elif isinstance(key, int):
+            if size is None:
+                raise ValueError
+            addr = key
+        elif isinstance(key, Variable):
+            if size is not None:
+                raise ValueError
+            addr, size = key.address, key.size
+        else:
+            raise TypeError
+
         return bytes(self.read_memory_block8(addr, size))
 
     def write_mem(self, key, val):

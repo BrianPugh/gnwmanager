@@ -8,13 +8,14 @@ from typer import Option
 import gnwmanager
 from gnwmanager.target import GnWTargetMixin, mixin_object
 
-from . import erase, flash, ls, screenshot, shell, start
+from . import debug, erase, flash, ls, screenshot, shell, start
 from ._start_gnwmanager import start_gnwmanager
 
 session: Session
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False, add_completion=False)
 app.add_typer(flash.app, name="flash")
+app.add_typer(debug.app, name="debug")
 app.command()(start.start)
 app.command()(erase.erase)
 app.command()(ls.ls)

@@ -437,7 +437,7 @@ static void flashapp_run(void)
     }
 }
 
-#define FLASHAPP_BACKGROUND_COLOR RGB24_TO_RGB565(0x72, 0x73, 0x51)
+#define FLASHAPP_BACKGROUND_COLOR RGB24_TO_RGB565(0x71, 0x71, 0x71)
 
 void flashapp_main(void)
 {
