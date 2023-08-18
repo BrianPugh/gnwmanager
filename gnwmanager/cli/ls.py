@@ -5,6 +5,7 @@ from littlefs import LittleFS, LittleFSError
 from typer import Argument, Option
 from typing_extensions import Annotated
 
+from gnwmanager.cli._parsers import int_parser
 from gnwmanager.filesystem import get_filesystem
 
 
@@ -33,8 +34,20 @@ def _ls(fs: LittleFS, path: str):
 
 
 def ls(
-    path: Annotated[Path, Argument(help="On-device folder path to list. Defaults to root")] = Path(),
-    offset: Annotated[int, Option(help="Distance in bytes from the END of the filesystem, to the END of flash.")] = 0,
+    path: Annotated[
+        Path,
+        Argument(
+            help="On-device folder path to list. Defaults to root",
+        ),
+    ] = Path(),
+    offset: Annotated[
+        int,
+        Option(
+            min=0,
+            parser=int_parser,
+            help="Distance in bytes from the END of the filesystem, to the END of flash.",
+        ),
+    ] = 0,
 ):
     from .main import session
 

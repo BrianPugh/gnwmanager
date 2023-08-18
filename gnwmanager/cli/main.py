@@ -8,7 +8,7 @@ from typer import Option
 import gnwmanager
 from gnwmanager.target import GnWTargetMixin, mixin_object
 
-from . import erase, flash, ls, start
+from . import erase, flash, ls, shell, start
 from ._start_gnwmanager import start_gnwmanager
 
 session: Session
@@ -18,6 +18,7 @@ app.add_typer(flash.app, name="flash")
 app.command()(start.start)
 app.command()(erase.erase)
 app.command()(ls.ls)
+app.command()(shell.shell)
 
 
 def version_callback(value: bool):
@@ -42,7 +43,7 @@ def common(
 
 
 def run_app():
-    global session
+    global app, session
     options = {
         "frequency": 5_000_000,
         "connect_mode": "attach",
