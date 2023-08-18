@@ -3,13 +3,11 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-from pyocd.flash.file_programmer import FileProgrammer
 from tqdm import tqdm
 from typer import Argument, Option
 from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import int_parser
-from gnwmanager.status import flashapp_status_str_to_enum
 from gnwmanager.target import contexts
 from gnwmanager.validation import validate_extflash_offset
 
