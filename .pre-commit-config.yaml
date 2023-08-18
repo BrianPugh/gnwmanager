@@ -53,16 +53,6 @@ repos:
         args: [--markdown-linebreak-ext=md]
         exclude: \.(html|svg)$
 
-  - repo: https://github.com/fredrikaverpil/creosote.git
-    rev: v2.6.3
-    hooks:
-      - id: creosote
-        args:
-          - "--venv=.venv"
-          - "--paths=gnwmanager"
-          - "--deps-file=pyproject.toml"
-          - "--sections=tool.poetry.dependencies"
-
   - repo: https://github.com/codespell-project/codespell
     rev: v2.2.5
     additional_dependencies:
