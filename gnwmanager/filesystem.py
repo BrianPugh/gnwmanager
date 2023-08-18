@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Union
+from typing import Tuple, Union
 
 from littlefs import LittleFS, LittleFSError
 from littlefs.lfs import LFSConfig
@@ -8,14 +8,16 @@ from littlefs.lfs import LFSConfig
 from gnwmanager.utils import sha256
 from gnwmanager.validation import validate_extflash_offset
 
+_gnw_cache = {}
+
 
 class LfsDriverContext:
-    def __init__(self, target, filesystem_end) -> None:
+    def __init__(self, target, filesystem_end: int, cache: dict = None) -> None:
         validate_extflash_offset(filesystem_end)
 
         self.target = target
         self.filesystem_end = filesystem_end
-        self.cache = {}
+        self.cache = _gnw_cache if cache is None else cache
 
     def read(self, cfg: LFSConfig, block: int, off: int, size: int) -> bytes:
         try:
@@ -51,26 +53,34 @@ class LfsDriverContext:
 
 
 @lru_cache
-def get_filesystem(target, offset: int = 0):
+def get_flash_params(target) -> Tuple[int, int]:
+    flash_size = target.read_int("flash_size")
+    block_size = target.read_int("min_erase_size")
+
+    return flash_size, block_size
+
+
+def get_filesystem(target, offset: int = 0, block_count=0):
     """Get LittleFS filesystem handle.
 
     Parameters
     ----------
     target
-    offset:int
+    offset: int
         Distance in bytes from the END of the filesystem, to the END of flash.
         Defaults to 0.
+    block_count: int
+        Number of blocks in filesystem.
+        Defaults to ``0`` (infer from existing filesystem).
     """
-    flash_size = target.read_int("flash_size")
-    block_size = target.read_int("min_erase_size")
-
+    flash_size, block_size = get_flash_params(target)
     filesystem_end = flash_size - offset
-
     lfs_context = LfsDriverContext(target, filesystem_end)
+
     fs = LittleFS(
         lfs_context,
         block_size=block_size,
-        block_count=0,  # Autodetect filesystem size
+        block_count=block_count,
         block_cycles=500,
         mount=False,  # Separately mount to not trigger a format-on-corruption
     )

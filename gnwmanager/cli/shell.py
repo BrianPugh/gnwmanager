@@ -21,9 +21,6 @@ def shell(
     """Launch an interactive shell to browse device filesystem."""
     from .main import app, session
 
-    target = session.target
-    get_filesystem(target, offset=offset)
-
     print("Interactive shell. Press Ctrl-D to exit.")
 
     while True:
