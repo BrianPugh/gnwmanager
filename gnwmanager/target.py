@@ -2,7 +2,7 @@ from collections import namedtuple
 from math import ceil
 from time import sleep, time
 from types import MethodType
-from typing import Literal
+from typing import List, Literal
 
 from pyocd.core.target import Target
 
@@ -12,6 +12,12 @@ from gnwmanager.utils import EMPTY_HASH_DIGEST, compress_lzma, sha256
 from gnwmanager.validation import validate_extflash_offset, validate_intflash_offset
 
 Variable = namedtuple("Variable", ["address", "size"])
+
+actions = {
+    "ERASE_AND_FLASH": 0,
+    "HASH": 1,
+}
+
 
 _comm = {
     "framebuffer": Variable(0x2400_0000, 320 * 240 * 2),
@@ -32,8 +38,7 @@ def _populate_comm():
     for i in range(2):
         struct_start = _comm["flashapp_comm"].address + ((i + 1) * 4096)
 
-        # Don't ever directly use this, just here for alignment purposes
-        contexts[i]["__buffer_ptr"] = last_variable = Variable(struct_start, 4)
+        contexts[i]["return_buffer_ptr"] = last_variable = Variable(struct_start, 4)
 
         contexts[i]["size"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
         contexts[i]["offset"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
@@ -42,6 +47,8 @@ def _populate_comm():
         contexts[i]["compressed_size"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
         contexts[i]["expected_sha256"] = last_variable = Variable(last_variable.address + last_variable.size, 32)
         contexts[i]["bank"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
+        contexts[i]["action"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
+        contexts[i]["response_ready"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
 
         contexts[i]["ready"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
 
@@ -55,8 +62,12 @@ def _populate_comm():
 _populate_comm()
 
 
-def round_up(value, mod):
+def _round_up(value, mod) -> int:
     return int(ceil(value / mod) * mod)
+
+
+def _chunk_bytes(data: bytes, chunk_size: int) -> List[bytes]:
+    return [data[i : i + chunk_size] for i in range(0, len(data), chunk_size)]
 
 
 def mixin_object(obj, cls):
@@ -65,40 +76,33 @@ def mixin_object(obj, cls):
             setattr(obj, name, MethodType(method, obj))
 
 
+def _key_to_address(key) -> int:
+    if isinstance(key, str):
+        addr = _comm[key].address
+    elif isinstance(key, int):
+        addr = key
+    elif isinstance(key, Variable):
+        addr = key.address
+    else:
+        raise TypeError
+    return addr
+
+
 class GnWTargetMixin(Target):
     def read_int(self, key) -> int:
-        if isinstance(key, str):
-            addr = _comm[key].address
-        elif isinstance(key, int):
-            addr = key
-        elif isinstance(key, Variable):
-            addr = key.address
-        else:
-            raise TypeError
+        addr = _key_to_address(key)
         return self.read32(addr)
 
     def write_int(self, key, val):
-        if isinstance(key, str):
-            addr = _comm[key].address
-        elif isinstance(key, int):
-            addr = key
-        elif isinstance(key, Variable):
-            addr = key.address
-        else:
-            raise TypeError
-
+        addr = _key_to_address(key)
         self.write32(addr, val)
 
-    def write_mem(self, key, val):
-        if isinstance(key, str):
-            addr = _comm[key].address
-        elif isinstance(key, int):
-            addr = key
-        elif isinstance(key, Variable):
-            addr = key.address
-        else:
-            raise TypeError
+    def read_mem(self, key, size):
+        addr = _key_to_address(key)
+        return bytes(self.read_memory_block8(addr, size))
 
+    def write_mem(self, key, val):
+        addr = _key_to_address(key)
         self.write_memory_block8(addr, val)
 
     def wait_for_idle(self, timeout=20):
@@ -141,6 +145,37 @@ class GnWTargetMixin(Target):
                 if time() > t_deadline:
                     raise TimeoutError
             sleep(0.05)
+
+    def wait_for_context_response(self, context, timeout=20):
+        time()
+        t_deadline = time() + timeout
+        while not self.read_int(context["response_ready"]):
+            if time() > t_deadline:
+                raise TimeoutError
+
+            sleep(0.05)
+
+    def read_hashes(self, offset, size) -> List[bytes]:
+        validate_extflash_offset(offset)
+        n_chunks = int(ceil(size / (256 << 10)))
+
+        context = self.get_context()
+
+        self.write_int(context["response_ready"], 0)
+        self.write_int(context["action"], actions["HASH"])
+        self.write_int(context["offset"], offset)
+        self.write_int(context["size"], size)
+        self.write_int(context["ready"], self.context_counter)
+        self.context_counter += 1
+
+        self.wait_for_context_response(context)
+
+        hashes = self.read_mem(context["buffer"], n_chunks * 32)
+
+        # Free the context
+        self.write_int(context["ready"], 0)
+
+        return _chunk_bytes(hashes, 32)
 
     def prog(
         self,
@@ -196,6 +231,7 @@ class GnWTargetMixin(Target):
             self.wait_for_idle()
             self.halt()
 
+        self.write_int(context["action"], actions["ERASE_AND_FLASH"])
         self.write_int(context["offset"], offset)
         self.write_int(context["size"], len(data))
         self.write_int(context["bank"], bank)
@@ -203,6 +239,8 @@ class GnWTargetMixin(Target):
         if erase:
             self.write_int(context["erase"], 1)  # Perform an erase at `offset`
             self.write_int(context["erase_bytes"], len(data))
+        else:
+            self.write_int(context["erase"], 0)
 
         self.write_mem(context["expected_sha256"], sha256(data))
 
@@ -244,6 +282,7 @@ class GnWTargetMixin(Target):
 
         context = self.get_context()
 
+        self.write_int(context["action"], actions["ERASE_AND_FLASH"])
         self.write_int(context["offset"], offset)
         self.write_int(context["erase"], 1)  # Perform an erase at `offset`
         self.write_int(context["size"], 0)
@@ -268,13 +307,14 @@ class GnWTargetMixin(Target):
         if size <= 0:
             raise ValueError
 
-        size = round_up(size, 8192)
+        size = _round_up(size, 8192)
 
         if bank not in (1, 2):
             raise ValueError
 
         context = self.get_context()
 
+        self.write_int(context["action"], actions["ERASE_AND_FLASH"])
         self.write_int(context["offset"], offset)
         self.write_int(context["erase"], 1)  # Perform an erase at `offset`
         self.write_int(context["size"], 0)

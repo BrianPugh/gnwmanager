@@ -31,10 +31,16 @@ typedef enum {  // For the flashapp state machine
 } flashapp_state_t;
 
 
+enum flashapp_action {
+    FLASHAPP_ACTION_ERASE_AND_FLASH = 0,
+    FLASHAPP_ACTION_HASH = 1,
+};
+
+
 typedef struct {
     union{
         struct{
-            volatile unsigned char *buffer;  // For internal use.
+            volatile unsigned char *buffer;  // Computer <-> GnW data buffer
 
             // Number of bytes to program in the flash
             uint32_t size;
@@ -57,6 +63,14 @@ typedef struct {
 
             // 0 - ext; 1 - bank1; 2 - bank2
             uint32_t bank;
+
+            // see enum flashapp_action
+            uint32_t action;
+
+            // Action was performed, computer should read back buffer now.
+            uint32_t response_ready;
+
+            /* Add future variables here */
 
             // This work context is ready for the on-device flashapp to process.
             // Place "ready" at the end of the struct so it's the last to be erased
@@ -180,6 +194,23 @@ static void set_status(flashapp_status_t status){
     prev_status = status;
 }
 
+/**
+ * Compute sha256 hashes of 256KB chunks.
+ */
+static void flashapp_action_hash(work_context_t *context){
+    OSPI_EnableMemoryMappedMode();
+    const uint32_t chunk_size = 256 << 10;
+    uint8_t *response_buffer = (uint8_t *) context->buffer;
+    uint32_t offset_end = context->offset + context->size;
+    for(uint32_t offset=context->offset; offset < offset_end; offset += chunk_size){
+        uint32_t remaining_bytes = (offset_end - offset);
+        uint32_t size = chunk_size < remaining_bytes ? chunk_size : remaining_bytes;
+        sha256bank(0, response_buffer, offset, size);
+        response_buffer += 32;
+    }
+    context->response_ready = 1;
+}
+
 static void flashapp_run(void)
 {
     static flashapp_state_t state = FLASHAPP_IDLE;
@@ -211,8 +242,18 @@ static void flashapp_run(void)
             set_status(FLASHAPP_STATUS_IDLE);
             break;
         }
-
         context_counter++;
+
+        switch(source_context->action){
+            case FLASHAPP_ACTION_ERASE_AND_FLASH:
+                // The rest of this function
+                break;
+            case FLASHAPP_ACTION_HASH:
+                set_status(FLASHAPP_STATUS_HASH);
+                flashapp_action_hash(source_context);
+                return;
+        }
+
         // Copy the context data into the active working_context
         memcpy((void *)working_context, (void *)source_context, sizeof(work_context_t));
 

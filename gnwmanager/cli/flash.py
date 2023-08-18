@@ -1,3 +1,4 @@
+from collections import namedtuple
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -9,6 +10,7 @@ from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import int_parser
 from gnwmanager.target import contexts
+from gnwmanager.utils import sha256
 from gnwmanager.validation import validate_extflash_offset
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False, add_completion=False)
@@ -47,16 +49,6 @@ def ext(
             help="Offset into external flash.",
         ),
     ] = 0,
-    progress_file: Annotated[
-        Optional[Path],
-        Argument(
-            file_okay=True,
-            dir_okay=False,
-            writable=True,
-            resolve_path=True,
-            help="Save/Load progress from a file; allows resuming a interrupted extflash operation.",
-        ),
-    ] = None,
 ):
     from .main import session
 
@@ -68,42 +60,25 @@ def ext(
     data_time = file.stat().st_mtime
     data_time = datetime.fromtimestamp(data_time).strftime("%Y-%m-%d %H:%M:%S:%f")
 
+    device_hashes = target.read_hashes(offset, len(data))
+
     chunk_size = contexts[0]["buffer"].size  # Assumes all contexts have same size buffer
     chunks = _chunk_bytes(data, chunk_size)
-    total_n_chunks = len(chunks)
+    len(chunks)
+    [sha256(chunk) for chunk in chunks]
 
-    previous_chunks_already_flashed = 0
-    # Attempt to resume a previous session.
-    if progress_file and progress_file.exists():
-        progress_file_time, progress_file_chunks_already_flashed = progress_file.read_text().split("\n")
-        progress_file_chunks_already_flashed = int(progress_file_chunks_already_flashed)
-        if progress_file_time == data_time:
-            previous_chunks_already_flashed = progress_file_chunks_already_flashed
-            print(f"Resuming previous session at {previous_chunks_already_flashed}/{total_n_chunks}")
+    Packet = namedtuple("Packet", ["addr", "data"])
+    packets = [Packet(offset + i * chunk_size, chunk) for i, chunk in enumerate(chunks)]
 
-    chunks = chunks[previous_chunks_already_flashed:]
+    # Remove packets where the hash already matches
+    packets = [packet for packet, device_hash in zip(packets, device_hashes) if sha256(packet.data) != device_hash]
 
-    base_address = offset + (previous_chunks_already_flashed * chunk_size)
-    with tqdm(initial=previous_chunks_already_flashed, total=total_n_chunks) as pbar:
-        for i, chunk in enumerate(chunks):
-            chunk_1_idx = previous_chunks_already_flashed + i + 1
-            pbar.update(1)
-            target.prog(0, base_address + (i * chunk_size), chunk, blocking=False)
-            target.write_int("progress", int(26 * (i + 1) / len(chunks)))
+    for i, packet in enumerate(tqdm(packets)):
+        target.prog(0, packet.addr, packet.data, blocking=False)
+        target.write_int("progress", int(26 * (i + 1) / len(packets)))
 
-            # Save current progress to a file in case progress is interrupted.
-            if progress_file:
-                # Up to 3 chunks may have been sent to device that may have NOT been written to disk.
-                # This is the most conservative estimate of what has been written to disk.
-                chunks_already_flashed = max(previous_chunks_already_flashed, chunk_1_idx - 3)
-                progress_file.parent.mkdir(exist_ok=True, parents=True)
-                progress_file.write_text(f"{data_time}\n{chunks_already_flashed}")
-
-        target.wait_for_all_contexts_complete()
-        target.wait_for_idle()  # Wait for the early-return context to complete.
-
-    if progress_file and progress_file.exists():
-        progress_file.unlink()
+    target.wait_for_all_contexts_complete()
+    target.wait_for_idle()  # Wait for the early-return context to complete.
 
 
 @app.command()
