@@ -8,7 +8,7 @@ from typer import Option
 import gnwmanager
 from gnwmanager.target import GnWTargetMixin, mixin_object
 
-from . import erase, flash, ls, shell, start
+from . import erase, flash, ls, screenshot, shell, start
 from ._start_gnwmanager import start_gnwmanager
 
 session: Session
@@ -19,6 +19,7 @@ app.command()(start.start)
 app.command()(erase.erase)
 app.command()(ls.ls)
 app.command()(shell.shell)
+app.command()(screenshot.screenshot)
 
 
 def version_callback(value: bool):
