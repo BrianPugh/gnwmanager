@@ -211,6 +211,17 @@ static void flashapp_action_hash(work_context_t *context){
     context->response_ready = 1;
 }
 
+static bool ext_is_erased(uint32_t offset, uint32_t size){
+    OSPI_EnableMemoryMappedMode();
+    uint32_t *end = (uint32_t *)(0x90000000 + offset + size);
+    for(uint32_t *ptr = (uint32_t *)(0x90000000 + offset); ptr < end; ptr++){
+        if(*ptr != 0xFFFFFFFF){
+            return false;
+        }
+    }
+    return true;
+}
+
 static void flashapp_run(void)
 {
     static flashapp_state_t state = FLASHAPP_IDLE;
@@ -267,16 +278,20 @@ static void flashapp_run(void)
             program_offset += (working_context->bank == 1) ? 0x08000000 : 0x08100000;
         }
 
-        // Compute the hash to see if we can just skip this data packet.
+        // Compute the hash to see if the programming operation would result in anything.
         if(working_context->size){
             set_status(FLASHAPP_STATUS_HASH);
-            flashapp_gui_draw(false);  // force a redraw
             sha256bank(working_context->bank, program_calculated_sha256, working_context->offset, working_context->size);
             if (memcmp((char *)program_calculated_sha256, (char *)working_context->expected_sha256, 32) == 0) {
                 // Contents of this chunk didn't change. Skip & release working_context.
                 release_context(source_context);
                 break;
             }
+        }
+
+        // If we're erasing, check if we actually need to erase (skip if performing whole-chip erase)
+        if(working_context->bank == 0 && working_context->erase_bytes && ext_is_erased(working_context->offset, working_context->erase_bytes)){
+            working_context->erase = 0;
         }
 
         if(working_context->erase){
@@ -319,7 +334,7 @@ static void flashapp_run(void)
             memcpy((void *)comm.decompress_buffer, (void *)working_context->buffer, working_context->size);
         }
         working_context->buffer = comm.decompress_buffer;
-        // We can now early release the working_context
+        // We can now early release the source_context
         release_context(source_context);
         state++;
         break;
