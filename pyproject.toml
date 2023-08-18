@@ -30,7 +30,7 @@ gnwmanager = "gnwmanager.cli.main:run_app"
 python = ">=3.8"
 typer = ">=0.7.0"
 pyocd = { git = "https://github.com/BrianPugh/pyOCD.git", branch = "stm32h7b0-256k" }
-littlefs-python = ">=0.6.0"
+littlefs-python = { git = "https://github.com/BrianPugh/littlefs-python.git", branch = "develop"}
 typing-extensions = "^4.7.1"
 tqdm = "^4.66.1"
 pillow = "^10.0.0"
