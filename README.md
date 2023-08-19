@@ -3,8 +3,10 @@
 </div>
 
 <div align="center">
+  
 ![Python compat](https://img.shields.io/badge/>=python-3.8-blue.svg)
 ![PyPi](https://img.shields.io/pypi/v/gnwmanager.svg)
+
 </div>
 
 # GNWManager
