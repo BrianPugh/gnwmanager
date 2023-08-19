@@ -12,7 +12,6 @@
 #include "lzma.h"
 #include "sha256.h"
 #include "rg_rtc.h"
-#include "odroid_overlay.h"
 #include "gnwmanager.h"
 #include "gnwmanager_gui.h"
 #include "buttons.h"

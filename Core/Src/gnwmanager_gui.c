@@ -1,4 +1,3 @@
-#include "odroid_overlay.h"
 #include "segments.h"
 #include "gnwmanager.h"
 #include "gnwmanager_gui.h"
@@ -18,30 +17,30 @@ void gui_fill(pixel_t color){
     }
 }
 
-void gui_draw_glyph(uint16_t x_pos, uint16_t y_pos, const retro_logo_image *logo, pixel_t color)
+void gui_draw_glyph(uint16_t x_pos, uint16_t y_pos, const glyph_t *glyph, pixel_t color)
 {
     pixel_t *dst_img = framebuffer;
-    int w = (logo->width + 7) / 8;
+    int w = (glyph->width + 7) / 8;
     for (int i = 0; i < w; i++)
-        for (int y = 0; y < logo->height; y++)
+        for (int y = 0; y < glyph->height; y++)
         {
-            const char glyph = logo->logo[y * w + i];
+            const char elem = glyph->data[y * w + i];
             //for (int x = 0; x < 8; x++)
-            if (glyph & 0x80)
+            if (elem & 0x80)
                 dst_img[(y + y_pos) * 320 + i * 8 + 0 + x_pos] = color;
-            if (glyph & 0x40)
+            if (elem & 0x40)
                 dst_img[(y + y_pos) * 320 + i * 8 + 1 + x_pos] = color;
-            if (glyph & 0x20)
+            if (elem & 0x20)
                 dst_img[(y + y_pos) * 320 + i * 8 + 2 + x_pos] = color;
-            if (glyph & 0x10)
+            if (elem & 0x10)
                 dst_img[(y + y_pos) * 320 + i * 8 + 3 + x_pos] = color;
-            if (glyph & 0x08)
+            if (elem & 0x08)
                 dst_img[(y + y_pos) * 320 + i * 8 + 4 + x_pos] = color;
-            if (glyph & 0x04)
+            if (elem & 0x04)
                 dst_img[(y + y_pos) * 320 + i * 8 + 5 + x_pos] = color;
-            if (glyph & 0x02)
+            if (elem & 0x02)
                 dst_img[(y + y_pos) * 320 + i * 8 + 6 + x_pos] = color;
-            if (glyph & 0x01)
+            if (elem & 0x01)
                 dst_img[(y + y_pos) * 320 + i * 8 + 7 + x_pos] = color;
         }
 };
@@ -73,7 +72,7 @@ gnwmanager_gui_t gui;
 
 
 static void draw_clock_digit(uint8_t val, uint16_t x, uint16_t y){
-    const retro_logo_image *CLOCK_DIGITS[] = {
+    const glyph_t *CLOCK_DIGITS[] = {
         &img_clock_0, &img_clock_1, &img_clock_2, &img_clock_3, &img_clock_4,
         &img_clock_5, &img_clock_6, &img_clock_7, &img_clock_8, &img_clock_9
     };
@@ -144,7 +143,7 @@ void gnwmanager_gui_draw(bool step){
             *gui.status == GNWMANAGER_STATUS_BAD_HASH_RAM
     );
 
-    const retro_logo_image* run[] = {
+    const glyph_t* run[] = {
         &img_run_0,
         &img_run_1,
         &img_run_2,
@@ -161,7 +160,7 @@ void gnwmanager_gui_draw(bool step){
                 (i == gui.run_state) && IS_RUNNING);
     }
 
-    const retro_logo_image* progress[] = {
+    const glyph_t* progress[] = {
         &img_progress_0,
         &img_progress_1,
         &img_progress_2,

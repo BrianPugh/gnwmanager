@@ -8,12 +8,12 @@ from PIL import Image
 def write_pixels(prefix, fn, invert=False):
     img = Image.open(fn).convert(mode="RGB")
     out = [
-        f"const retro_logo_image {prefix}{fn.stem} = {{\n",
+        f"const glyph_t {prefix}{fn.stem} = {{\n",
         f"    .height = {img.height},\n",
         f"    .width = {img.width},\n",
-        "    .logo = {\n",
+        "    .data = {\n",
     ]
-    header = f"extern const retro_logo_image {prefix}{fn.stem};\n"
+    header = f"extern const glyph_t {prefix}{fn.stem};\n"
 
     for y in range(img.height):
         bits_data = 0
@@ -84,8 +84,8 @@ def main():
         "typedef struct {\n",
         "    uint16_t width;\n",
         "    uint16_t height;\n",
-        "    const char logo[];\n",
-        "} retro_logo_image;\n",
+        "    const char data[];\n",
+        "} glyph_t;\n",
         "\n",
     ]
     for fn in sorted(args.dir.glob("*.png")):

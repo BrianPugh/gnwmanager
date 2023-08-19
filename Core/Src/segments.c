@@ -3,10 +3,10 @@
 #include "segments.h"
 
 
-const retro_logo_image img_clock_0 = {
+const glyph_t img_clock_0 = {
     .height = 29,
     .width = 15,
-    .logo = {
+    .data = {
         0x03, 0xF8,  //       #######
         0x07, 0xF8,  //      ########
         0x13, 0xF0,  //    #  ######
@@ -39,10 +39,10 @@ const retro_logo_image img_clock_0 = {
     }
 };
 
-const retro_logo_image img_clock_1 = {
+const glyph_t img_clock_1 = {
     .height = 29,
     .width = 15,
-    .logo = {
+    .data = {
         0x00, 0x00,  //
         0x00, 0x00,  //
         0x00, 0x00,  //
@@ -75,10 +75,10 @@ const retro_logo_image img_clock_1 = {
     }
 };
 
-const retro_logo_image img_clock_2 = {
+const glyph_t img_clock_2 = {
     .height = 29,
     .width = 15,
-    .logo = {
+    .data = {
         0x03, 0xF8,  //       #######
         0x07, 0xF8,  //      ########
         0x03, 0xF0,  //       ######
@@ -111,10 +111,10 @@ const retro_logo_image img_clock_2 = {
     }
 };
 
-const retro_logo_image img_clock_3 = {
+const glyph_t img_clock_3 = {
     .height = 29,
     .width = 15,
-    .logo = {
+    .data = {
         0x03, 0xF8,  //       #######
         0x07, 0xF8,  //      ########
         0x03, 0xF0,  //       ######
@@ -147,10 +147,10 @@ const retro_logo_image img_clock_3 = {
     }
 };
 
-const retro_logo_image img_clock_4 = {
+const glyph_t img_clock_4 = {
     .height = 29,
     .width = 15,
-    .logo = {
+    .data = {
         0x00, 0x00,  //
         0x00, 0x00,  //
         0x10, 0x00,  //    #
@@ -183,10 +183,10 @@ const retro_logo_image img_clock_4 = {
     }
 };
 
-const retro_logo_image img_clock_5 = {
+const glyph_t img_clock_5 = {
     .height = 29,
     .width = 15,
-    .logo = {
+    .data = {
         0x03, 0xF8,  //       #######
         0x07, 0xF8,  //      ########
         0x13, 0xF0,  //    #  ######
@@ -219,10 +219,10 @@ const retro_logo_image img_clock_5 = {
     }
 };
 
-const retro_logo_image img_clock_6 = {
+const glyph_t img_clock_6 = {
     .height = 29,
     .width = 15,
-    .logo = {
+    .data = {
         0x03, 0xF8,  //       #######
         0x07, 0xF8,  //      ########
         0x13, 0xF0,  //    #  ######
@@ -255,10 +255,10 @@ const retro_logo_image img_clock_6 = {
     }
 };
 
-const retro_logo_image img_clock_7 = {
+const glyph_t img_clock_7 = {
     .height = 29,
     .width = 15,
-    .logo = {
+    .data = {
         0x03, 0xF8,  //       #######
         0x07, 0xF8,  //      ########
         0x03, 0xF0,  //       ######
@@ -291,10 +291,10 @@ const retro_logo_image img_clock_7 = {
     }
 };
 
-const retro_logo_image img_clock_8 = {
+const glyph_t img_clock_8 = {
     .height = 29,
     .width = 15,
-    .logo = {
+    .data = {
         0x03, 0xF8,  //       #######
         0x07, 0xF8,  //      ########
         0x13, 0xF0,  //    #  ######
@@ -327,10 +327,10 @@ const retro_logo_image img_clock_8 = {
     }
 };
 
-const retro_logo_image img_clock_9 = {
+const glyph_t img_clock_9 = {
     .height = 29,
     .width = 15,
-    .logo = {
+    .data = {
         0x03, 0xF8,  //       #######
         0x07, 0xF8,  //      ########
         0x13, 0xF0,  //    #  ######
@@ -363,10 +363,10 @@ const retro_logo_image img_clock_9 = {
     }
 };
 
-const retro_logo_image img_colon = {
+const glyph_t img_colon = {
     .height = 20,
     .width = 7,
-    .logo = {
+    .data = {
         0x00,  //
         0x1C,  //    ###
         0x1C,  //    ###
@@ -390,10 +390,10 @@ const retro_logo_image img_colon = {
     }
 };
 
-const retro_logo_image img_erase = {
+const glyph_t img_erase = {
     .height = 20,
     .width = 56,
-    .logo = {
+    .data = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  //
         0x00, 0x0F, 0x80, 0x18, 0x00, 0x00, 0x00,  //             #####          ##
         0x1F, 0x9F, 0xC0, 0x3C, 0x00, 0x03, 0xF0,  //    ######  #######        ####                ######
@@ -417,10 +417,10 @@ const retro_logo_image img_erase = {
     }
 };
 
-const retro_logo_image img_error = {
+const glyph_t img_error = {
     .height = 20,
     .width = 56,
-    .logo = {
+    .data = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  //
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  //
         0x0E, 0x1F, 0x83, 0xF0, 0x00, 0x03, 0xF0,  //     ###    ######     ######                  ######
@@ -444,10 +444,10 @@ const retro_logo_image img_error = {
     }
 };
 
-const retro_logo_image img_flash = {
+const glyph_t img_flash = {
     .height = 20,
     .width = 53,
-    .logo = {
+    .data = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  //
         0x00, 0x00, 0x00, 0xC0, 0x00, 0x00, 0x00,  //                         ##
         0x00, 0x10, 0x00, 0xE0, 0x00, 0x30, 0xE0,  //            #            ###               ##    ###
@@ -471,10 +471,10 @@ const retro_logo_image img_flash = {
     }
 };
 
-const retro_logo_image img_hash = {
+const glyph_t img_hash = {
     .height = 20,
     .width = 45,
-    .logo = {
+    .data = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  //
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  //
         0x00, 0x00, 0x60, 0x00, 0x00, 0x00,  //                  ##
@@ -498,10 +498,10 @@ const retro_logo_image img_hash = {
     }
 };
 
-const retro_logo_image img_idle = {
+const glyph_t img_idle = {
     .height = 20,
     .width = 40,
-    .logo = {
+    .data = {
         0x00, 0x00, 0x00, 0x00, 0x00,  //
         0x00, 0x00, 0x00, 0x00, 0x00,  //
         0x00, 0x70, 0x00, 0x00, 0x00,  //          ###
@@ -525,10 +525,10 @@ const retro_logo_image img_idle = {
     }
 };
 
-const retro_logo_image img_mismatch = {
+const glyph_t img_mismatch = {
     .height = 20,
     .width = 80,
-    .logo = {
+    .data = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  //
         0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x3F, 0xF8, 0x00, 0x00,  //                                             #     ###########
         0x00, 0x00, 0x00, 0x00, 0x00, 0x1C, 0x7F, 0xFC, 0x00, 0x00,  //                                            ###   #############
@@ -552,10 +552,10 @@ const retro_logo_image img_mismatch = {
     }
 };
 
-const retro_logo_image img_prog = {
+const glyph_t img_prog = {
     .height = 20,
     .width = 48,
-    .logo = {
+    .data = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  //
         0x3C, 0x00, 0x00, 0x00, 0x00, 0x00,  //   ####
         0xFF, 0x07, 0xC0, 0x00, 0x00, 0x00,  // ########     #####
@@ -579,10 +579,10 @@ const retro_logo_image img_prog = {
     }
 };
 
-const retro_logo_image img_progress_0 = {
+const glyph_t img_progress_0 = {
     .height = 38,
     .width = 8,
-    .logo = {
+    .data = {
         0x00,  //
         0x00,  //
         0x08,  //     #
@@ -624,10 +624,10 @@ const retro_logo_image img_progress_0 = {
     }
 };
 
-const retro_logo_image img_progress_1 = {
+const glyph_t img_progress_1 = {
     .height = 38,
     .width = 8,
-    .logo = {
+    .data = {
         0x00,  //
         0x00,  //
         0x00,  //
@@ -669,10 +669,10 @@ const retro_logo_image img_progress_1 = {
     }
 };
 
-const retro_logo_image img_progress_10 = {
+const glyph_t img_progress_10 = {
     .height = 38,
     .width = 8,
-    .logo = {
+    .data = {
         0x00,  //
         0x00,  //
         0x00,  //
@@ -714,10 +714,10 @@ const retro_logo_image img_progress_10 = {
     }
 };
 
-const retro_logo_image img_progress_2 = {
+const glyph_t img_progress_2 = {
     .height = 38,
     .width = 8,
-    .logo = {
+    .data = {
         0x00,  //
         0x0C,  //     ##
         0x3F,  //   ######
@@ -759,10 +759,10 @@ const retro_logo_image img_progress_2 = {
     }
 };
 
-const retro_logo_image img_progress_3 = {
+const glyph_t img_progress_3 = {
     .height = 38,
     .width = 8,
-    .logo = {
+    .data = {
         0x00,  //
         0x00,  //
         0x00,  //
@@ -804,10 +804,10 @@ const retro_logo_image img_progress_3 = {
     }
 };
 
-const retro_logo_image img_progress_4 = {
+const glyph_t img_progress_4 = {
     .height = 38,
     .width = 8,
-    .logo = {
+    .data = {
         0x00,  //
         0x00,  //
         0x00,  //
@@ -849,10 +849,10 @@ const retro_logo_image img_progress_4 = {
     }
 };
 
-const retro_logo_image img_progress_5 = {
+const glyph_t img_progress_5 = {
     .height = 38,
     .width = 8,
-    .logo = {
+    .data = {
         0x00,  //
         0x3C,  //   ####
         0x7E,  //  ######
@@ -894,10 +894,10 @@ const retro_logo_image img_progress_5 = {
     }
 };
 
-const retro_logo_image img_progress_6 = {
+const glyph_t img_progress_6 = {
     .height = 38,
     .width = 8,
-    .logo = {
+    .data = {
         0x00,  //
         0x00,  //
         0x00,  //
@@ -939,10 +939,10 @@ const retro_logo_image img_progress_6 = {
     }
 };
 
-const retro_logo_image img_progress_7 = {
+const glyph_t img_progress_7 = {
     .height = 38,
     .width = 8,
-    .logo = {
+    .data = {
         0x00,  //
         0x00,  //
         0x30,  //   ##
@@ -984,10 +984,10 @@ const retro_logo_image img_progress_7 = {
     }
 };
 
-const retro_logo_image img_progress_8 = {
+const glyph_t img_progress_8 = {
     .height = 38,
     .width = 8,
-    .logo = {
+    .data = {
         0x00,  //
         0x00,  //
         0x3C,  //   ####
@@ -1029,10 +1029,10 @@ const retro_logo_image img_progress_8 = {
     }
 };
 
-const retro_logo_image img_progress_9 = {
+const glyph_t img_progress_9 = {
     .height = 38,
     .width = 8,
-    .logo = {
+    .data = {
         0x00,  //
         0x00,  //
         0x00,  //
@@ -1074,10 +1074,10 @@ const retro_logo_image img_progress_9 = {
     }
 };
 
-const retro_logo_image img_ram = {
+const glyph_t img_ram = {
     .height = 20,
     .width = 37,
-    .logo = {
+    .data = {
         0x00, 0x00, 0x00, 0x00, 0x00,  //
         0x00, 0x00, 0x00, 0x00, 0x00,  //
         0x3E, 0x00, 0xE0, 0x00, 0x00,  //   #####         ###
@@ -1101,10 +1101,10 @@ const retro_logo_image img_ram = {
     }
 };
 
-const retro_logo_image img_run_0 = {
+const glyph_t img_run_0 = {
     .height = 34,
     .width = 32,
-    .logo = {
+    .data = {
         0x00, 0x07, 0xC0, 0x00,  //              #####
         0x00, 0x1F, 0xE0, 0x00,  //            ########
         0x00, 0x3F, 0xF0, 0x00,  //           ##########
@@ -1142,10 +1142,10 @@ const retro_logo_image img_run_0 = {
     }
 };
 
-const retro_logo_image img_run_1 = {
+const glyph_t img_run_1 = {
     .height = 34,
     .width = 32,
-    .logo = {
+    .data = {
         0x00, 0x0F, 0xE0, 0x00,  //             #######
         0x00, 0x1F, 0xF0, 0x00,  //            #########
         0x00, 0x3F, 0xF8, 0x00,  //           ###########
@@ -1183,10 +1183,10 @@ const retro_logo_image img_run_1 = {
     }
 };
 
-const retro_logo_image img_run_2 = {
+const glyph_t img_run_2 = {
     .height = 34,
     .width = 32,
-    .logo = {
+    .data = {
         0x00, 0x00, 0x78, 0x00,  //                  ####
         0x00, 0x01, 0xFE, 0x00,  //                ########
         0x00, 0x03, 0xFF, 0x00,  //               ##########
@@ -1224,10 +1224,10 @@ const retro_logo_image img_run_2 = {
     }
 };
 
-const retro_logo_image img_run_3 = {
+const glyph_t img_run_3 = {
     .height = 34,
     .width = 32,
-    .logo = {
+    .data = {
         0x00, 0x03, 0x80, 0x00,  //               ###
         0x00, 0x0F, 0xE0, 0x00,  //             #######
         0x00, 0x1F, 0xF0, 0x00,  //            #########
@@ -1265,10 +1265,10 @@ const retro_logo_image img_run_3 = {
     }
 };
 
-const retro_logo_image img_run_4 = {
+const glyph_t img_run_4 = {
     .height = 34,
     .width = 32,
-    .logo = {
+    .data = {
         0x00, 0x00, 0x00, 0x00,  //
         0x00, 0x0F, 0x00, 0x00,  //             ####
         0x00, 0x3F, 0xC0, 0x00,  //           ########
@@ -1306,10 +1306,10 @@ const retro_logo_image img_run_4 = {
     }
 };
 
-const retro_logo_image img_run_5 = {
+const glyph_t img_run_5 = {
     .height = 34,
     .width = 32,
-    .logo = {
+    .data = {
         0x00, 0x00, 0x00, 0x00,  //
         0x00, 0x00, 0xFE, 0x00,  //                 #######
         0x00, 0x01, 0xFF, 0x00,  //                #########
@@ -1347,10 +1347,10 @@ const retro_logo_image img_run_5 = {
     }
 };
 
-const retro_logo_image img_run_6 = {
+const glyph_t img_run_6 = {
     .height = 34,
     .width = 32,
-    .logo = {
+    .data = {
         0x00, 0x07, 0xC0, 0x00,  //              #####
         0x00, 0x1F, 0xF0, 0x00,  //            #########
         0x00, 0x1F, 0xFF, 0x00,  //            #############
@@ -1388,10 +1388,10 @@ const retro_logo_image img_run_6 = {
     }
 };
 
-const retro_logo_image img_run_7 = {
+const glyph_t img_run_7 = {
     .height = 34,
     .width = 32,
-    .logo = {
+    .data = {
         0x00, 0x00, 0xF0, 0x00,  //                 ####
         0x00, 0x03, 0xFC, 0x00,  //               ########
         0x00, 0x07, 0xFE, 0x00,  //              ##########
@@ -1429,10 +1429,10 @@ const retro_logo_image img_run_7 = {
     }
 };
 
-const retro_logo_image img_run_8 = {
+const glyph_t img_run_8 = {
     .height = 34,
     .width = 32,
-    .logo = {
+    .data = {
         0x00, 0x3F, 0x80, 0x00,  //           #######
         0x00, 0x7F, 0xC0, 0x00,  //          #########
         0x00, 0xFF, 0xFC, 0x00,  //         ##############
@@ -1470,10 +1470,10 @@ const retro_logo_image img_run_8 = {
     }
 };
 
-const retro_logo_image img_run_9 = {
+const glyph_t img_run_9 = {
     .height = 34,
     .width = 32,
-    .logo = {
+    .data = {
         0x00, 0x00, 0xFC, 0x00,  //                 ######
         0x00, 0x01, 0xFE, 0x00,  //                ########
         0x00, 0x03, 0xFF, 0x00,  //               ##########
@@ -1511,10 +1511,10 @@ const retro_logo_image img_run_9 = {
     }
 };
 
-const retro_logo_image img_sleep = {
+const glyph_t img_sleep = {
     .height = 34,
     .width = 80,
-    .logo = {
+    .data = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0xE0, 0x00,  //                                                              ######
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0F, 0xF0, 0x00,  //                                                             ########
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1F, 0xF8, 0x00,  //                                                            ##########
@@ -1552,10 +1552,10 @@ const retro_logo_image img_sleep = {
     }
 };
 
-const retro_logo_image img_z_0 = {
+const glyph_t img_z_0 = {
     .height = 7,
     .width = 9,
-    .logo = {
+    .data = {
         0x38, 0x00,  //   ###
         0x78, 0x00,  //  ####
         0xD9, 0x80,  // ## ##  ##
@@ -1566,10 +1566,10 @@ const retro_logo_image img_z_0 = {
     }
 };
 
-const retro_logo_image img_z_1 = {
+const glyph_t img_z_1 = {
     .height = 10,
     .width = 11,
-    .logo = {
+    .data = {
         0x0C, 0x00,  //     ##
         0x3E, 0x00,  //   #####
         0xFE, 0x00,  // #######
@@ -1583,10 +1583,10 @@ const retro_logo_image img_z_1 = {
     }
 };
 
-const retro_logo_image img_z_2 = {
+const glyph_t img_z_2 = {
     .height = 12,
     .width = 14,
-    .logo = {
+    .data = {
         0x01, 0x80,  //        ##
         0xFF, 0xC0,  // ##########
         0xFF, 0xC0,  // ##########

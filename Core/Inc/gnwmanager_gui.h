@@ -1,8 +1,10 @@
 #pragma once
 
 #include "gnwmanager.h"
-#include <float.h>
 #include "lcd.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include "segments.h"
 
 #define RED_COMPONENT(c)     (((c) & 0xF800) >> 11)
 #define GREEN_COMPONENT(c)   (((c) & 0x07E0) >> 5)
@@ -30,6 +32,6 @@ typedef struct{
 extern gnwmanager_gui_t gui;
 
 void gui_fill(pixel_t color);
-void gui_draw_glyph(uint16_t x_pos, uint16_t y_pos, const retro_logo_image *logo, uint16_t color);
+void gui_draw_glyph(uint16_t x_pos, uint16_t y_pos, const glyph_t *glyph, uint16_t color);
 
 void gnwmanager_gui_draw(bool step);
