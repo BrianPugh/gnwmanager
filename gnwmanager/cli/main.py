@@ -8,7 +8,7 @@ from typer import Option
 import gnwmanager
 from gnwmanager.target import GnWTargetMixin, mixin_object
 
-from . import debug, disable_debug, erase, flash, format, ls, mkdir, mv, pull, push, screenshot, shell, start
+from . import debug, disable_debug, erase, flash, format, ls, mkdir, monitor, mv, pull, push, screenshot, shell, start
 from ._start_gnwmanager import start_gnwmanager
 
 session: Session
@@ -27,6 +27,7 @@ app.command()(disable_debug.disable_debug)
 app.command()(mkdir.mkdir)
 app.command()(mv.mv)
 app.command()(format.format)
+app.command()(monitor.monitor)
 
 
 def version_callback(value: bool):
@@ -71,16 +72,26 @@ def run_app():
             current_command_args.append(arg)
     commands_args.append(current_command_args)
 
-    # Early help and version print
-    for args in commands_args:
+    for i, args in enumerate(commands_args):
+        is_last = i == (len(commands_args) - 1)
         if not args or "--help" in args or "--version" in args:
+            # Early help and version print without having to launch device
             app(args=args)
+
+        command = args[0]
+        if command in ("shell", "monitor") and not is_last:
+            raise ValueError(f'Command "{command}" must be the final chained command.')
 
     global session
     with ConnectHelper.session_with_chosen_probe(options=options) as session:
         # Hack in our convenience methods
         mixin_object(session.target, GnWTargetMixin)
 
-        start_gnwmanager()
+        if len(commands_args) == 1 and commands_args[0][0] == "monitor":
+            # The "monitor" command does NOT start the flashapp
+            pass
+        else:
+            start_gnwmanager()
+
         for args in commands_args:
             app(args=args, standalone_mode=False)
