@@ -251,3 +251,4 @@ poetry.toml
 # GnW Manager
 gnwmanager/firmware.bin
 /screenshot.png
+/.mxproject
