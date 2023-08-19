@@ -1,5 +1,6 @@
 name: Build package and push to PyPi
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*.*.*"
