@@ -1,9 +1,6 @@
 ![Logo](assets/screenshot.png)
 
 ![Python compat](https://img.shields.io/badge/>=python-3.8-blue.svg)
-[![GHA tests](https://github.com/BrianPugh/gnwmanager/workflows/tests/badge.svg)](https://github.com/BrianPugh/gnwmanager/actions?query=workflow%3Atests)
-[![Codecov report](https://codecov.io/github/BrianPugh/gnwmanager/coverage.svg?branch=main)](https://codecov.io/github/BrianPugh/gnwmanager?branch=main)
-[![readthedocs](https://readthedocs.org/projects/gnwmanager/badge/?version=latest)](https://gnwmanager.readthedocs.io/en/latest/?badge=latest)
 ![PyPi](https://img.shields.io/pypi/v/gnwmanager.svg)
 
 
