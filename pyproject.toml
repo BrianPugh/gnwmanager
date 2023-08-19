@@ -15,7 +15,7 @@ repository = "https://github.com/BrianPugh/gnwmanager"
 license = "Apache-2.0"
 description = ""
 authors = ["Brian Pugh"]
-readme = "README.rst"
+readme = "README.md"
 packages = [{include = "gnwmanager"}]
 include = ["gnwmanager/firmware.bin"]
 
