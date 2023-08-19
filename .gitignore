@@ -248,7 +248,10 @@ gnwmanager/*.html
 # Poetry
 poetry.toml
 
+# STM32MxCube
+/.mxproject
+/MXTmpFiles
+
 # GnW Manager
 gnwmanager/firmware.bin
 /screenshot.png
-/.mxproject
