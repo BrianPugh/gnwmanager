@@ -3,7 +3,7 @@
 </div>
 
 <div align="center">
-  
+
 ![Python compat](https://img.shields.io/badge/>=python-3.8-blue.svg)
 ![PyPi](https://img.shields.io/pypi/v/gnwmanager.svg)
 
@@ -11,7 +11,8 @@
 
 # GNWManager
 
-GNWManager is THE game-and-watch device manager.
+GNWManager is THE game-and-watch device manager. GNWManager is responsible for getting firmware
+onto your device, managing the filesystem, and other device administrative tasks.
 
 ## Features
 
@@ -19,12 +20,15 @@ GNWManager is THE game-and-watch device manager.
     * No more installing many different tools with various patches!
 * Fast internal and external flash firmware flashing.
     * Only syncs changed data.
+    * Minimizes flash erases and writes, extending flash lifespan.
     * Double buffered, asynchronous transfers for maximum speed.
 * Complete filesystem management.
     * Backup and restore files.
     * Interactive filesystem explorer.
+* Automatic Real-Time-Clock (RTC) configuration.
 * Developer tools:
     * Easily monitor device ``printf`` statements and launch GDB sessions.
+    * Capture screenshots, regardless of the running firmware.
 
 ## Installation
 
