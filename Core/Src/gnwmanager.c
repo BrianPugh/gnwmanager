@@ -77,7 +77,7 @@ typedef struct {
         };
         struct{
             // Force spacing, allowing for backward-compatible additional variables
-            char padding[4096];
+            char padding[1024];
         };
     };
 } volatile work_context_t;
@@ -107,7 +107,7 @@ struct gnwmanager_comm {  // Values are read or written by the debugger
         };
         struct {
             // Force spacing, allowing for backward-compatible additional variables
-            char padding[4096];
+            char padding[1024];
         };
     };
 
