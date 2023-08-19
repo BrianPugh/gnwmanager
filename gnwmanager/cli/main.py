@@ -14,6 +14,7 @@ from . import (
     erase,
     flash,
     format,
+    gdb,
     gdbserver,
     ls,
     mkdir,
@@ -32,19 +33,20 @@ session: Session
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False, add_completion=False)
 app.add_typer(flash.app, name="flash")
 app.add_typer(debug.app, name="debug")
-app.command()(start.start)
+app.command()(disable_debug.disable_debug)
 app.command()(erase.erase)
+app.command()(format.format)
+app.command()(gdb.gdb)
+app.command()(gdbserver.gdbserver)
 app.command()(ls.ls)
-app.command()(shell.shell)
-app.command()(screenshot.screenshot)
+app.command()(mkdir.mkdir)
+app.command()(monitor.monitor)
+app.command()(mv.mv)
 app.command()(pull.pull)
 app.command()(push.push)
-app.command()(disable_debug.disable_debug)
-app.command()(mkdir.mkdir)
-app.command()(mv.mv)
-app.command()(format.format)
-app.command()(monitor.monitor)
-app.command()(gdbserver.gdbserver)
+app.command()(screenshot.screenshot)
+app.command()(shell.shell)
+app.command()(start.start)
 
 
 def version_callback(value: bool):
@@ -74,6 +76,7 @@ def run_app():
         "frequency": 5_000_000,
         "connect_mode": "attach",
         "warning.cortex_m_default": False,
+        "persist": True,
         "target_override": "STM32H7B0xx",
     }
 
@@ -96,7 +99,7 @@ def run_app():
             app(args=args)
 
         command = args[0]
-        if command in ("shell", "monitor", "gdbserver") and not is_last:
+        if command in ("shell", "gdb", "monitor", "gdbserver") and not is_last:
             raise ValueError(f'Command "{command}" must be the final chained command.')
 
     global session
@@ -104,7 +107,7 @@ def run_app():
         # Hack in our convenience methods
         mixin_object(session.target, GnWTargetMixin)
 
-        if len(commands_args) == 1 and commands_args[0][0] in ("monitor", "gdbserver"):
+        if len(commands_args) == 1 and commands_args[0][0] in ("monitor", "gdb", "gdbserver"):
             # Do NOT start the on-device app
             pass
         else:

@@ -8,6 +8,8 @@ from pyocd.core.exceptions import ProbeError, TransferFaultError, TransferTimeou
 from typer import Option
 from typing_extensions import Annotated
 
+from gnwmanager.utils import find_elf
+
 
 def monitor(
     elf: Annotated[
@@ -16,15 +18,11 @@ def monitor(
     buffer: Annotated[str, Option(help="Log buffer variable name.")] = "logbuf",
     index: Annotated[str, Option(help="Log buffer index variable name.")] = "log_idx",
 ):
+    """Monitor the device's stdout logging buffer."""
     from .main import session
 
     if elf is None:
-        candidate_elf_files = list(Path("build/").glob("*.elf"))
-        if not candidate_elf_files:
-            raise FileNotFoundError("No ELF files found!")
-        if len(candidate_elf_files) > 1:
-            raise FileNotFoundError(f"Found {len(candidate_elf_files)} ELF files. Please specify one via --elf.")
-        elf = candidate_elf_files[0]
+        elf = find_elf()
 
     with elf.open("rb") as f:
         elffile = ELFFile(f)
