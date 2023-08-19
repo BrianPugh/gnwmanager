@@ -119,18 +119,24 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+    // Sanity check, sometimes this is triggered
+    uint32_t add = 0x90000000;
+    uint32_t* ptr = (uint32_t*)add;
+    if(*ptr == 0x88888888) {
+      Error_Handler();
+    }
 
-  // Sanity check, sometimes this is triggered
-  uint32_t add = 0x90000000;
-  uint32_t* ptr = (uint32_t*)add;
-  if(*ptr == 0x88888888) {
-    Error_Handler();
+    SCB_InvalidateICache();
+    SCB_EnableICache();
+
+    gnwmanager_main();
   }
+    /* USER CODE END WHILE */
 
-  SCB_InvalidateICache();
-  SCB_EnableICache();
-
-  gnwmanager_main();
+    /* USER CODE BEGIN 3 */
+  }
   /* USER CODE END 3 */
 }
 
