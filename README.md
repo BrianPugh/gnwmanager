@@ -2,9 +2,10 @@
   <img src="https://github.com/BrianPugh/gnwmanager/blob/main/assets/screenshot.png">
 </div>
 
-![Python compat](https://img.shields.io/badge/>=python-3.8-blue.svg)
-![PyPi](https://img.shields.io/pypi/v/gnwmanager.svg)
-
+<div align="center">
+  <a href="">![Python compat]((https://img.shields.io/badge/>=python-3.8-blue.svg)</a>
+  <a href="">![PyPi](https://img.shields.io/pypi/v/gnwmanager.svg)</a>
+</div>
 
 # GNWManager
 
