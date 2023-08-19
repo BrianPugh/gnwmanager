@@ -42,7 +42,18 @@ extern "C" {
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
+extern ADC_HandleTypeDef hadc1;
+extern DAC_HandleTypeDef hdac1;
+extern DAC_HandleTypeDef hdac2;
+extern LTDC_HandleTypeDef hltdc;
+extern OSPI_HandleTypeDef hospi1;
 extern RTC_HandleTypeDef hrtc;
+extern SAI_HandleTypeDef hsai_BlockA1;
+extern DMA_HandleTypeDef hdma_sai1_a;
+extern SPI_HandleTypeDef hspi2;
+extern TIM_HandleTypeDef htim1;
+extern WWDG_HandleTypeDef hwwdg1;
+
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/
@@ -66,8 +77,16 @@ void wdog_refresh(void);
 #define BTN_GAME_GPIO_Port GPIOC
 #define BTN_PWR_Pin GPIO_PIN_0
 #define BTN_PWR_GPIO_Port GPIOA
+#define BACKLIGHT_RIGHT_Pin GPIO_PIN_4
+#define BACKLIGHT_RIGHT_GPIO_Port GPIOA
+#define BACKLIGHT_MIDDLE_Pin GPIO_PIN_5
+#define BACKLIGHT_MIDDLE_GPIO_Port GPIOA
+#define BACKLIGHT_LEFT_Pin GPIO_PIN_6
+#define BACKLIGHT_LEFT_GPIO_Port GPIOA
 #define BTN_TIME_Pin GPIO_PIN_5
 #define BTN_TIME_GPIO_Port GPIOC
+#define BATMAN_CE_Pin GPIO_PIN_8
+#define BATMAN_CE_GPIO_Port GPIOE
 #define LCD_Reset_Pin GPIO_PIN_8
 #define LCD_Reset_GPIO_Port GPIOD
 #define BTN_A_Pin GPIO_PIN_9

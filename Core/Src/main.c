@@ -137,8 +137,23 @@ int main(void)
   /* Initialize interrupts */
   MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
+  //lcd_init(&hspi2, &hltdc);
+  //memset(framebuffer, 0xff, sizeof(framebuffer));
+
+  lcd_deinit(&hspi2);
+
+  // Keep this
+  // at least 8 frames at the end of power down (lcd_deinit())
+  // 4 x 50 ms => 200ms
+  for (int i = 0; i < 4; i++) {
+    wdog_refresh();
+    HAL_Delay(50);
+  }
+
+  /* Power on LCD and external Flash */
   lcd_init(&hspi2, &hltdc);
-  memset(framebuffer, 0xff, sizeof(framebuffer));
+
+  lcd_backlight_on();
 
   OSPI_Init(&hospi1);
   /* USER CODE END 2 */
@@ -817,7 +832,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIO_Speaker_enable_GPIO_Port, GPIO_Speaker_enable_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_8, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(BATMAN_CE_GPIO_Port, BATMAN_CE_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
@@ -828,8 +843,8 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(VAUX_Enable_GPIO_Port, VAUX_Enable_Pin, GPIO_PIN_SET);
 
-  /*Configure GPIO pins : GPIO_Speaker_enable_Pin PE8 */
-  GPIO_InitStruct.Pin = GPIO_Speaker_enable_Pin|GPIO_PIN_8;
+  /*Configure GPIO pins : GPIO_Speaker_enable_Pin BATMAN_CE_Pin */
+  GPIO_InitStruct.Pin = GPIO_Speaker_enable_Pin|BATMAN_CE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
