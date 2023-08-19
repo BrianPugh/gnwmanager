@@ -6,9 +6,46 @@
 #include <stdbool.h>
 #include "rg_rtc.h"
 #include "main.h"
+#include "lcd.h"
 
-#define ACTIVE 0x0000
-#define INACTIVE RGB24_TO_RGB565(0x60, 0x60, 0x60)
+
+void gui_fill(pixel_t color){
+    pixel_t *dst = framebuffer;
+    for (int x = 0; x < GW_LCD_WIDTH; x++) {
+        for (int y = 0; y < GW_LCD_HEIGHT; y++) {
+            dst[y * GW_LCD_WIDTH + x] = color;
+        }
+    }
+}
+
+void gui_draw_glyph(uint16_t x_pos, uint16_t y_pos, const retro_logo_image *logo, pixel_t color)
+{
+    pixel_t *dst_img = framebuffer;
+    int w = (logo->width + 7) / 8;
+    for (int i = 0; i < w; i++)
+        for (int y = 0; y < logo->height; y++)
+        {
+            const char glyph = logo->logo[y * w + i];
+            //for (int x = 0; x < 8; x++)
+            if (glyph & 0x80)
+                dst_img[(y + y_pos) * 320 + i * 8 + 0 + x_pos] = color;
+            if (glyph & 0x40)
+                dst_img[(y + y_pos) * 320 + i * 8 + 1 + x_pos] = color;
+            if (glyph & 0x20)
+                dst_img[(y + y_pos) * 320 + i * 8 + 2 + x_pos] = color;
+            if (glyph & 0x10)
+                dst_img[(y + y_pos) * 320 + i * 8 + 3 + x_pos] = color;
+            if (glyph & 0x08)
+                dst_img[(y + y_pos) * 320 + i * 8 + 4 + x_pos] = color;
+            if (glyph & 0x04)
+                dst_img[(y + y_pos) * 320 + i * 8 + 5 + x_pos] = color;
+            if (glyph & 0x02)
+                dst_img[(y + y_pos) * 320 + i * 8 + 6 + x_pos] = color;
+            if (glyph & 0x01)
+                dst_img[(y + y_pos) * 320 + i * 8 + 7 + x_pos] = color;
+        }
+};
+
 
 #define CLOCK_DIGIT_SPACE 22
 #define CLOCK_ORIGIN_Y 24
@@ -25,7 +62,7 @@
 #define RUN_ORIGIN_X 2
 #define RUN_SPACING 31
 
-#define DRAW(_x, _y, _img, _cond) odroid_overlay_draw_logo(_x, _y, _img, _cond ? ACTIVE : INACTIVE)
+#define DRAW(_x, _y, _img, _cond) gui_draw_glyph(_x, _y, _img, _cond ? GUI_SEGMENT_ACTIVE_COLOR : GUI_SEGMENT_INACTIVE_COLOR)
 
 #define IS_ERROR_STATUS ((*gui.status & 0xFFFF0000) == 0xbad00000)
 #define SLEEPING_THRESH 5

@@ -437,7 +437,6 @@ static void gnwmanager_run(void)
     }
 }
 
-#define FLASHAPP_BACKGROUND_COLOR RGB24_TO_RGB565(0x71, 0x71, 0x71)
 
 void gnwmanager_main(void)
 {
@@ -449,7 +448,7 @@ void gnwmanager_main(void)
     comm.min_erase_size = OSPI_GetSmallestEraseSize();
 
     // Draw LCD silvery background once.
-    odroid_overlay_draw_fill_rect(0, 0, 320, 240, FLASHAPP_BACKGROUND_COLOR);
+    gui_fill(GUI_BACKGROUND_COLOR);
     gnwmanager_gui_draw(false);
 
     uint32_t last_tick = HAL_GetTick();  // Monotonically increasing millisecond counter

@@ -112,7 +112,7 @@ int main(void)
 
   /* USER CODE BEGIN 2 */
   lcd_init(&hspi2, &hltdc);
-  memset(framebuffer, 0xff, 320*240*2);
+  memset(framebuffer, 0xff, sizeof(framebuffer));
 
   OSPI_Init(&hospi1);
   /* USER CODE END 2 */

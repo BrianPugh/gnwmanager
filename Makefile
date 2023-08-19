@@ -40,7 +40,6 @@ Core/Src/flash.c \
 Core/Src/lcd.c \
 Core/Src/buttons.c \
 Core/Src/main.c \
-Core/Src/odroid_overlay.c \
 Core/Src/gnwmanager.c \
 Core/Src/gnwmanager_gui.c \
 Core/Src/sha256.c \
@@ -227,7 +226,8 @@ gdb: $(BUILD_DIR)/$(TARGET).elf
 # clean up
 #######################################
 clean:
-	-rm -fR $(BUILD_DIR)
+	-rm -fR $(BUILD_DIR) gnwmanager/firmware.bin
+
 
 #######################################
 # dependencies
