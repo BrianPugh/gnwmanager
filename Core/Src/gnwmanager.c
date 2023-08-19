@@ -19,21 +19,21 @@
 
 
 typedef enum {  // For the gnwmanager state machine
-    FLASHAPP_IDLE                   ,
-    FLASHAPP_DECOMPRESSING          ,
-    FLASHAPP_CHECK_HASH_RAM         ,
-    FLASHAPP_ERASE                  ,
-    FLASHAPP_ERASE_FINISH           ,
-    FLASHAPP_PROGRAM                ,
-    FLASHAPP_CHECK_HASH_FLASH       ,
+    GNWMANAGER_IDLE                   ,
+    GNWMANAGER_DECOMPRESSING          ,
+    GNWMANAGER_CHECK_HASH_RAM         ,
+    GNWMANAGER_ERASE                  ,
+    GNWMANAGER_ERASE_FINISH           ,
+    GNWMANAGER_PROGRAM                ,
+    GNWMANAGER_CHECK_HASH_FLASH       ,
 
-    FLASHAPP_ERROR = 0xF000,
+    GNWMANAGER_ERROR = 0xF000,
 } gnwmanager_state_t;
 
 
 enum gnwmanager_action {
-    FLASHAPP_ACTION_ERASE_AND_FLASH = 0,
-    FLASHAPP_ACTION_HASH = 1,
+    GNWMANAGER_ACTION_ERASE_AND_FLASH = 0,
+    GNWMANAGER_ACTION_HASH = 1,
 };
 
 
@@ -224,7 +224,7 @@ static bool ext_is_erased(uint32_t offset, uint32_t size){
 
 static void gnwmanager_run(void)
 {
-    static gnwmanager_state_t state = FLASHAPP_IDLE;
+    static gnwmanager_state_t state = GNWMANAGER_IDLE;
     static uint32_t erase_offset = 0;  // Holds intermediate erase address.
                                         // Is it's own variable since context->offset is used by both
                                         // programming and erasing.
@@ -239,7 +239,7 @@ static void gnwmanager_run(void)
     wdog_refresh();
 
     switch (state) {
-    case FLASHAPP_IDLE:
+    case GNWMANAGER_IDLE:
         OSPI_EnableMemoryMappedMode();
 
         if(comm.utc_timestamp){
@@ -250,17 +250,17 @@ static void gnwmanager_run(void)
 
         // Attempt to find the next ready working_context in queue
         if((source_context = get_context()) == NULL){
-            set_status(FLASHAPP_STATUS_IDLE);
+            set_status(GNWMANAGER_STATUS_IDLE);
             break;
         }
         context_counter++;
 
         switch(source_context->action){
-            case FLASHAPP_ACTION_ERASE_AND_FLASH:
+            case GNWMANAGER_ACTION_ERASE_AND_FLASH:
                 // The rest of this function
                 break;
-            case FLASHAPP_ACTION_HASH:
-                set_status(FLASHAPP_STATUS_HASH);
+            case GNWMANAGER_ACTION_HASH:
+                set_status(GNWMANAGER_STATUS_HASH);
                 gnwmanager_action_hash(source_context);
                 return;
         }
@@ -280,7 +280,7 @@ static void gnwmanager_run(void)
 
         // Compute the hash to see if the programming operation would result in anything.
         if(working_context->size){
-            set_status(FLASHAPP_STATUS_HASH);
+            set_status(GNWMANAGER_STATUS_HASH);
             sha256bank(working_context->bank, program_calculated_sha256, working_context->offset, working_context->size);
             if (memcmp((char *)program_calculated_sha256, (char *)working_context->expected_sha256, 32) == 0) {
                 // Contents of this chunk didn't change. Skip & release working_context.
@@ -295,7 +295,7 @@ static void gnwmanager_run(void)
         }
 
         if(working_context->erase){
-            set_status(FLASHAPP_STATUS_ERASE);
+            set_status(GNWMANAGER_STATUS_ERASE);
             if(working_context->bank == 0){
                 // Start a non-blocking flash erase to run in the background
                 erase_offset = working_context->offset;
@@ -304,8 +304,8 @@ static void gnwmanager_run(void)
                 uint32_t smallest_erase = OSPI_GetSmallestEraseSize();
                 if (erase_offset & (smallest_erase - 1)) {
                     // Address not aligned to smallest erase size
-                    set_status(FLASHAPP_STATUS_NOT_ALIGNED);
-                    state = FLASHAPP_ERROR;
+                    set_status(GNWMANAGER_STATUS_NOT_ALIGNED);
+                    state = GNWMANAGER_ERROR;
                     break;
                 }
                 // Round size up to nearest erase size if needed ?
@@ -318,15 +318,15 @@ static void gnwmanager_run(void)
         }
         state++;
         break;
-    case FLASHAPP_DECOMPRESSING:
+    case GNWMANAGER_DECOMPRESSING:
         if(working_context->compressed_size){
             // Decompress the data; nothing after this state should reference decompression.
             uint32_t n_decomp_bytes;
             n_decomp_bytes = lzma_inflate(comm.decompress_buffer, sizeof(comm.decompress_buffer),
                                           (uint8_t *)working_context->buffer, working_context->compressed_size);
             if(n_decomp_bytes == 0 || n_decomp_bytes != working_context->size){
-                set_status(FLASHAPP_STATUS_BAD_DECOMPRESS);
-                state = FLASHAPP_ERROR;
+                set_status(GNWMANAGER_STATUS_BAD_DECOMPRESS);
+                state = GNWMANAGER_ERROR;
             }
         }
         else{
@@ -338,25 +338,25 @@ static void gnwmanager_run(void)
         release_context(source_context);
         state++;
         break;
-    case FLASHAPP_CHECK_HASH_RAM:
+    case GNWMANAGER_CHECK_HASH_RAM:
         // Calculate sha256 hash of the RAM first
         sha256(program_calculated_sha256, (const BYTE*) working_context->buffer, working_context->size);
 
         if (memcmp((const void *)program_calculated_sha256, (const void *)working_context->expected_sha256, 32) != 0) {
             // Hashes don't match even in RAM, openocd loading failed.
-            set_status(FLASHAPP_STATUS_BAD_HASH_RAM);
-            state = FLASHAPP_ERROR;
+            set_status(GNWMANAGER_STATUS_BAD_HASH_RAM);
+            state = GNWMANAGER_ERROR;
             break;
         }
         state++;
         break;
-    case FLASHAPP_ERASE:
+    case GNWMANAGER_ERASE:
         OSPI_DisableMemoryMappedMode();
         if (!working_context->erase) {
-            state = FLASHAPP_PROGRAM;
+            state = GNWMANAGER_PROGRAM;
             break;
         }
-        set_status(FLASHAPP_STATUS_ERASE);
+        set_status(GNWMANAGER_STATUS_ERASE);
 
         if(working_context->bank == 0){
             // This body is usually called a few times
@@ -379,15 +379,15 @@ static void gnwmanager_run(void)
             state++;
         }
         break;
-    case FLASHAPP_ERASE_FINISH:
+    case GNWMANAGER_ERASE_FINISH:
         OSPI_DisableMemoryMappedMode();
         if(OSPI_ChipIdle()){  // Stay in state until flashchip is idle.
             state++;
         }
         break;
-    case FLASHAPP_PROGRAM:
+    case GNWMANAGER_PROGRAM:
         OSPI_DisableMemoryMappedMode();
-        set_status(FLASHAPP_STATUS_PROG);
+        set_status(GNWMANAGER_STATUS_PROG);
         if (program_bytes_remaining == 0) {
             state++;
             break;
@@ -417,21 +417,21 @@ static void gnwmanager_run(void)
             state++;
         }
         break;
-    case FLASHAPP_CHECK_HASH_FLASH:
+    case GNWMANAGER_CHECK_HASH_FLASH:
         OSPI_EnableMemoryMappedMode();
         // Calculate sha256 hash of the FLASH.
         sha256bank(working_context->bank, program_calculated_sha256, working_context->offset, working_context->size);
 
         if (memcmp((char *)program_calculated_sha256, (char *)working_context->expected_sha256, 32) != 0) {
             // Hashes don't match in FLASH, programming failed.
-            set_status(FLASHAPP_STATUS_BAD_HASH_FLASH);
-            state = FLASHAPP_ERROR;
+            set_status(GNWMANAGER_STATUS_BAD_HASH_FLASH);
+            state = GNWMANAGER_ERROR;
             break;
         }
         // Hash OK in FLASH
-        state = FLASHAPP_IDLE;
+        state = GNWMANAGER_IDLE;
         break;
-    case FLASHAPP_ERROR:
+    case GNWMANAGER_ERROR:
         // Stay in state until reset.
         break;
     }

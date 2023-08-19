@@ -2,17 +2,17 @@
 #include <stdint.h>
 
 enum gnwmanager_status { // For signaling program status to computer
-    FLASHAPP_BOOTING = 0,
+    GNWMANAGER_BOOTING = 0,
 
-    FLASHAPP_STATUS_BAD_HASH_RAM    = 0xbad00001,
-    FLASHAPP_STATUS_BAD_HASH_FLASH   = 0xbad00002,
-    FLASHAPP_STATUS_NOT_ALIGNED     = 0xbad00003,
-    FLASHAPP_STATUS_BAD_DECOMPRESS  = 0xbad00004,
+    GNWMANAGER_STATUS_BAD_HASH_RAM    = 0xbad00001,
+    GNWMANAGER_STATUS_BAD_HASH_FLASH   = 0xbad00002,
+    GNWMANAGER_STATUS_NOT_ALIGNED     = 0xbad00003,
+    GNWMANAGER_STATUS_BAD_DECOMPRESS  = 0xbad00004,
 
-    FLASHAPP_STATUS_IDLE            = 0xcafe0000,
-    FLASHAPP_STATUS_ERASE     ,
-    FLASHAPP_STATUS_PROG      ,
-    FLASHAPP_STATUS_HASH      ,
+    GNWMANAGER_STATUS_IDLE            = 0xcafe0000,
+    GNWMANAGER_STATUS_ERASE     ,
+    GNWMANAGER_STATUS_PROG      ,
+    GNWMANAGER_STATUS_HASH      ,
 };
 typedef uint32_t gnwmanager_status_t;  // All computer interactions are uint32_t for simplicity.
                                     // No need to be stingy about RAM.

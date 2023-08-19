@@ -103,21 +103,21 @@ static void draw_clock(){
 }
 
 void gnwmanager_gui_draw(bool step){
-    if(*gui.status != FLASHAPP_STATUS_IDLE){
+    if(*gui.status != GNWMANAGER_STATUS_IDLE){
         gui.counter_to_sleep = 0;
     }
 
     if(step){
-        if(!IS_SLEEPING && *gui.status == FLASHAPP_STATUS_IDLE)
+        if(!IS_SLEEPING && *gui.status == GNWMANAGER_STATUS_IDLE)
             gui.counter_to_sleep++;
 
         gui.sleep_z_state = IS_SLEEPING ? (gui.sleep_z_state + 1) % 4 : 0;
         gui.run_state = IS_RUNNING ? (gui.run_state + 1) % 10 : 0;
     }
 
-    DRAW(10, 16, &img_idle, *gui.status == FLASHAPP_STATUS_IDLE);
-    DRAW(54, 16, &img_prog, *gui.status == FLASHAPP_STATUS_PROG);
-    DRAW(10, 37, &img_erase, *gui.status == FLASHAPP_STATUS_ERASE);
+    DRAW(10, 16, &img_idle, *gui.status == GNWMANAGER_STATUS_IDLE);
+    DRAW(54, 16, &img_prog, *gui.status == GNWMANAGER_STATUS_PROG);
+    DRAW(10, 37, &img_erase, *gui.status == GNWMANAGER_STATUS_ERASE);
 
     draw_clock();
 
@@ -128,20 +128,20 @@ void gnwmanager_gui_draw(bool step){
 
     DRAW(ERROR1_ORIGIN_X, ERROR1_ORIGIN_Y, &img_error, IS_ERROR_STATUS);
     DRAW(ERROR1_ORIGIN_X + 65, ERROR1_ORIGIN_Y, &img_hash,
-            (*gui.status == FLASHAPP_STATUS_HASH)
-            || *gui.status == FLASHAPP_STATUS_BAD_HASH_FLASH
-            || *gui.status == FLASHAPP_STATUS_BAD_HASH_RAM
+            (*gui.status == GNWMANAGER_STATUS_HASH)
+            || *gui.status == GNWMANAGER_STATUS_BAD_HASH_FLASH
+            || *gui.status == GNWMANAGER_STATUS_BAD_HASH_RAM
     );
     DRAW(ERROR1_ORIGIN_X + 65 + 54, ERROR1_ORIGIN_Y, &img_mismatch,
-            *gui.status == FLASHAPP_STATUS_BAD_HASH_FLASH
-            || *gui.status == FLASHAPP_STATUS_BAD_HASH_RAM
+            *gui.status == GNWMANAGER_STATUS_BAD_HASH_FLASH
+            || *gui.status == GNWMANAGER_STATUS_BAD_HASH_RAM
     );
 
     DRAW(ERROR2_ORIGIN_X, ERROR2_ORIGIN_Y, &img_flash,
-            *gui.status == FLASHAPP_STATUS_BAD_HASH_FLASH
+            *gui.status == GNWMANAGER_STATUS_BAD_HASH_FLASH
     );
     DRAW(ERROR2_ORIGIN_X + 65, ERROR2_ORIGIN_Y, &img_ram,
-            *gui.status == FLASHAPP_STATUS_BAD_HASH_RAM
+            *gui.status == GNWMANAGER_STATUS_BAD_HASH_RAM
     );
 
     const retro_logo_image* run[] = {
