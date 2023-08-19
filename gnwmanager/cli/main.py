@@ -31,8 +31,9 @@ from ._start_gnwmanager import start_gnwmanager
 session: Session
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False, add_completion=False)
-app.add_typer(flash.app, name="flash")
 app.add_typer(debug.app, name="debug")
+app.add_typer(flash.app, name="flash")
+app.add_typer(screenshot.app, name="screenshot")
 app.command()(disable_debug.disable_debug)
 app.command()(erase.erase)
 app.command()(format.format)
@@ -44,7 +45,6 @@ app.command()(monitor.monitor)
 app.command()(mv.mv)
 app.command()(pull.pull)
 app.command()(push.push)
-app.command()(screenshot.screenshot)
 app.command()(shell.shell)
 app.command()(start.start)
 
@@ -107,7 +107,10 @@ def run_app():
         # Hack in our convenience methods
         mixin_object(session.target, GnWTargetMixin)
 
-        if len(commands_args) == 1 and commands_args[0][0] in ("monitor", "gdb", "gdbserver"):
+        if len(commands_args) == 1 and (
+            (commands_args[0][0] in ("monitor", "gdb", "gdbserver"))
+            or (commands_args[0][:2] == ["screenshot", "capture"])
+        ):
             # Do NOT start the on-device app
             pass
         else:

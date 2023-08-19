@@ -1,5 +1,5 @@
 def disable_debug():
-    """Disables the microcontroller's debug block."""
+    """Disable the microcontroller's debug block."""
     from .main import session
 
     target = session.target

@@ -9,7 +9,7 @@ from typing_extensions import Annotated
 def gdbserver(
     port: Annotated[int, Option(help="GDB Server Port")] = 3333,
 ):
-    """Spawn a gdbserver."""
+    """Launch a gdbserver."""
     from .main import session
 
     session.options.set("gdbserver_port", port)

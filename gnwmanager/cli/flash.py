@@ -14,7 +14,10 @@ from gnwmanager.utils import sha256
 from gnwmanager.validation import validate_extflash_offset
 
 app = typer.Typer(
-    no_args_is_help=True, pretty_exceptions_enable=False, add_completion=False, help="Flash firmware to device."
+    no_args_is_help=True,
+    pretty_exceptions_enable=False,
+    add_completion=False,
+    help="Flash firmware to device.",
 )
 
 

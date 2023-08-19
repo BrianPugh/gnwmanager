@@ -29,7 +29,7 @@ def mv(
         ),
     ] = 0,
 ):
-    """Create a directory on device."""
+    """Move/Rename a file or directory."""
     from .main import session
 
     target = session.target

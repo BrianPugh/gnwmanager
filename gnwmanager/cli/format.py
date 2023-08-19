@@ -23,7 +23,7 @@ def format(
         ),
     ] = 0,
 ):
-    """Create a directory on device."""
+    """Format device's filesystem."""
     from .main import session
 
     target = session.target
