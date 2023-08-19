@@ -13,12 +13,12 @@
 #include "sha256.h"
 #include "rg_rtc.h"
 #include "odroid_overlay.h"
-#include "flashapp.h"
-#include "flashapp_gui.h"
+#include "gnwmanager.h"
+#include "gnwmanager_gui.h"
 #include "buttons.h"
 
 
-typedef enum {  // For the flashapp state machine
+typedef enum {  // For the gnwmanager state machine
     FLASHAPP_IDLE                   ,
     FLASHAPP_DECOMPRESSING          ,
     FLASHAPP_CHECK_HASH_RAM         ,
@@ -28,10 +28,10 @@ typedef enum {  // For the flashapp state machine
     FLASHAPP_CHECK_HASH_FLASH       ,
 
     FLASHAPP_ERROR = 0xF000,
-} flashapp_state_t;
+} gnwmanager_state_t;
 
 
-enum flashapp_action {
+enum gnwmanager_action {
     FLASHAPP_ACTION_ERASE_AND_FLASH = 0,
     FLASHAPP_ACTION_HASH = 1,
 };
@@ -64,7 +64,7 @@ typedef struct {
             // 0 - ext; 1 - bank1; 2 - bank2
             uint32_t bank;
 
-            // see enum flashapp_action
+            // see enum gnwmanager_action
             uint32_t action;
 
             // Action was performed, computer should read back buffer now.
@@ -72,7 +72,7 @@ typedef struct {
 
             /* Add future variables here */
 
-            // This work context is ready for the on-device flashapp to process.
+            // This work context is ready for the on-device gnwmanager to process.
             // Place "ready" at the end of the struct so it's the last to be erased
             uint32_t ready;
         };
@@ -83,7 +83,7 @@ typedef struct {
     };
 } volatile work_context_t;
 
-struct flashapp_comm {  // Values are read or written by the debugger
+struct gnwmanager_comm {  // Values are read or written by the debugger
                         // only add attributes at the end (before work_buffers)
                         // so that addresses don't change.
     union {
@@ -121,7 +121,7 @@ struct flashapp_comm {  // Values are read or written by the debugger
     unsigned char decompress_buffer[256 << 10];
 };
 
-static struct flashapp_comm comm __attribute__((section (".flashapp_comm")));
+static struct gnwmanager_comm comm __attribute__((section (".gnwmanager_comm")));
 
 
 /**
@@ -185,11 +185,11 @@ static void release_context(work_context_t *context){
     memset((void *)context, 0, sizeof(work_context_t));
 }
 
-static void set_status(flashapp_status_t status){
-    static flashapp_status_t prev_status = 0;
+static void set_status(gnwmanager_status_t status){
+    static gnwmanager_status_t prev_status = 0;
     comm.status = status;
     if(status != prev_status){
-        flashapp_gui_draw(false);
+        gnwmanager_gui_draw(false);
     }
     prev_status = status;
 }
@@ -197,7 +197,7 @@ static void set_status(flashapp_status_t status){
 /**
  * Compute sha256 hashes of 256KB chunks.
  */
-static void flashapp_action_hash(work_context_t *context){
+static void gnwmanager_action_hash(work_context_t *context){
     OSPI_EnableMemoryMappedMode();
     const uint32_t chunk_size = 256 << 10;
     uint8_t *response_buffer = (uint8_t *) context->buffer;
@@ -222,9 +222,9 @@ static bool ext_is_erased(uint32_t offset, uint32_t size){
     return true;
 }
 
-static void flashapp_run(void)
+static void gnwmanager_run(void)
 {
-    static flashapp_state_t state = FLASHAPP_IDLE;
+    static gnwmanager_state_t state = FLASHAPP_IDLE;
     static uint32_t erase_offset = 0;  // Holds intermediate erase address.
                                         // Is it's own variable since context->offset is used by both
                                         // programming and erasing.
@@ -261,7 +261,7 @@ static void flashapp_run(void)
                 break;
             case FLASHAPP_ACTION_HASH:
                 set_status(FLASHAPP_STATUS_HASH);
-                flashapp_action_hash(source_context);
+                gnwmanager_action_hash(source_context);
                 return;
         }
 
@@ -439,7 +439,7 @@ static void flashapp_run(void)
 
 #define FLASHAPP_BACKGROUND_COLOR RGB24_TO_RGB565(0x71, 0x71, 0x71)
 
-void flashapp_main(void)
+void gnwmanager_main(void)
 {
     memset((void *)&comm, 0, sizeof(comm));
     gui.status = &comm.status;
@@ -450,7 +450,7 @@ void flashapp_main(void)
 
     // Draw LCD silvery background once.
     odroid_overlay_draw_fill_rect(0, 0, 320, 240, FLASHAPP_BACKGROUND_COLOR);
-    flashapp_gui_draw(false);
+    gnwmanager_gui_draw(false);
 
     uint32_t last_tick = HAL_GetTick();  // Monotonically increasing millisecond counter
     while (true) {
@@ -465,9 +465,9 @@ void flashapp_main(void)
             else{
                 gui.status = &comm.status;
             }
-            flashapp_run();
+            gnwmanager_run();
         }while(HAL_GetTick() - last_tick < 500);
         last_tick = HAL_GetTick();
-        flashapp_gui_draw(true);
+        gnwmanager_gui_draw(true);
     }
 }

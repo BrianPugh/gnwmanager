@@ -41,8 +41,8 @@ Core/Src/lcd.c \
 Core/Src/buttons.c \
 Core/Src/main.c \
 Core/Src/odroid_overlay.c \
-Core/Src/flashapp.c \
-Core/Src/flashapp_gui.c \
+Core/Src/gnwmanager.c \
+Core/Src/gnwmanager_gui.c \
 Core/Src/sha256.c \
 Core/Src/lzma/LzmaDec.c \
 Core/Src/lzma/lzma.c \

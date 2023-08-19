@@ -82,7 +82,7 @@ SECTIONS
   {
       . = ALIGN(4);
       *(.lcd)
-      *(.flashapp_comm)
+      *(.gnwmanager_comm)
       . = ALIGN(4);
   } > RAM  /* 0xe9800 large */
 

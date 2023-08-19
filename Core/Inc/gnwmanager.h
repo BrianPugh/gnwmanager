@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 
-enum flashapp_status { // For signaling program status to computer
+enum gnwmanager_status { // For signaling program status to computer
     FLASHAPP_BOOTING = 0,
 
     FLASHAPP_STATUS_BAD_HASH_RAM    = 0xbad00001,
@@ -14,7 +14,7 @@ enum flashapp_status { // For signaling program status to computer
     FLASHAPP_STATUS_PROG      ,
     FLASHAPP_STATUS_HASH      ,
 };
-typedef uint32_t flashapp_status_t;  // All computer interactions are uint32_t for simplicity.
+typedef uint32_t gnwmanager_status_t;  // All computer interactions are uint32_t for simplicity.
                                     // No need to be stingy about RAM.
 
-void flashapp_main(void);
+void gnwmanager_main(void);

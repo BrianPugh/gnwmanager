@@ -1,7 +1,7 @@
 #include "odroid_overlay.h"
 #include "segments.h"
-#include "flashapp.h"
-#include "flashapp_gui.h"
+#include "gnwmanager.h"
+#include "gnwmanager_gui.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include "rg_rtc.h"
@@ -32,7 +32,7 @@
 #define IS_SLEEPING (gui.counter_to_sleep == SLEEPING_THRESH)
 #define IS_RUNNING (!IS_SLEEPING && !IS_ERROR_STATUS)
 
-flashapp_gui_t gui;
+gnwmanager_gui_t gui;
 
 
 static void draw_clock_digit(uint8_t val, uint16_t x, uint16_t y){
@@ -65,7 +65,7 @@ static void draw_clock(){
     draw_clock_digit(GW_currentTime.Minutes % 10, CLOCK_MINUTE_ORIGIN_X + CLOCK_DIGIT_SPACE, CLOCK_ORIGIN_Y);
 }
 
-void flashapp_gui_draw(bool step){
+void gnwmanager_gui_draw(bool step){
     if(*gui.status != FLASHAPP_STATUS_IDLE){
         gui.counter_to_sleep = 0;
     }

@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include "rg_rtc.h"
 #include "main.h"
-#include "flashapp_gui.h"
+#include "gnwmanager_gui.h"
 
 static pixel_t overlay_buffer[GW_LCD_WIDTH * 32 * 2] __attribute__((aligned(4)));
 

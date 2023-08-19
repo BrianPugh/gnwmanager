@@ -26,7 +26,7 @@
 #include "flash.h"
 #include "lcd.h"
 #include <string.h>
-#include "flashapp.h"
+#include "gnwmanager.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -130,7 +130,7 @@ int main(void)
   SCB_InvalidateICache();
   SCB_EnableICache();
 
-  flashapp_main();
+  gnwmanager_main();
   /* USER CODE END 3 */
 }
 
