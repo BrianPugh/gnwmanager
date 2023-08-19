@@ -109,6 +109,7 @@ void wdog_refresh(void);
 #define V3V3_Enable_GPIO_Port GPIOD
 #define BTN_B_Pin GPIO_PIN_5
 #define BTN_B_GPIO_Port GPIOD
+
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
@@ -118,5 +119,3 @@ void wdog_refresh(void);
 #endif
 
 #endif /* __MAIN_H */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

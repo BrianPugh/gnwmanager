@@ -21,6 +21,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+
 /* USER CODE BEGIN Includes */
 
 /* USER CODE END Includes */
@@ -142,8 +143,6 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* hadc)
 
 }
 
-static uint32_t HAL_RCC_DAC12_CLK_ENABLED=0;
-
 /**
 * @brief DAC MSP Initialization
 * This function configures the hardware resources used in this example
@@ -159,10 +158,7 @@ void HAL_DAC_MspInit(DAC_HandleTypeDef* hdac)
 
   /* USER CODE END DAC1_MspInit 0 */
     /* Peripheral clock enable */
-    HAL_RCC_DAC12_CLK_ENABLED++;
-    if(HAL_RCC_DAC12_CLK_ENABLED==1){
-      __HAL_RCC_DAC12_CLK_ENABLE();
-    }
+    __HAL_RCC_DAC12_CLK_ENABLE();
 
     __HAL_RCC_GPIOA_CLK_ENABLE();
     /**DAC1 GPIO Configuration
@@ -184,10 +180,7 @@ void HAL_DAC_MspInit(DAC_HandleTypeDef* hdac)
 
   /* USER CODE END DAC2_MspInit 0 */
     /* Peripheral clock enable */
-    HAL_RCC_DAC12_CLK_ENABLED++;
-    if(HAL_RCC_DAC12_CLK_ENABLED==1){
-      __HAL_RCC_DAC12_CLK_ENABLE();
-    }
+    __HAL_RCC_DAC2_CLK_ENABLE();
 
     __HAL_RCC_GPIOA_CLK_ENABLE();
     /**DAC2 GPIO Configuration
@@ -219,10 +212,7 @@ void HAL_DAC_MspDeInit(DAC_HandleTypeDef* hdac)
 
   /* USER CODE END DAC1_MspDeInit 0 */
     /* Peripheral clock disable */
-    HAL_RCC_DAC12_CLK_ENABLED--;
-    if(HAL_RCC_DAC12_CLK_ENABLED==0){
-      __HAL_RCC_DAC12_CLK_DISABLE();
-    }
+    __HAL_RCC_DAC12_CLK_DISABLE();
 
     /**DAC1 GPIO Configuration
     PA4     ------> DAC1_OUT1
@@ -240,10 +230,7 @@ void HAL_DAC_MspDeInit(DAC_HandleTypeDef* hdac)
 
   /* USER CODE END DAC2_MspDeInit 0 */
     /* Peripheral clock disable */
-    HAL_RCC_DAC12_CLK_ENABLED--;
-    if(HAL_RCC_DAC12_CLK_ENABLED==0){
-      __HAL_RCC_DAC12_CLK_DISABLE();
-    }
+    __HAL_RCC_DAC2_CLK_DISABLE();
 
     /**DAC2 GPIO Configuration
     PA6     ------> DAC2_OUT1
@@ -266,11 +253,29 @@ void HAL_DAC_MspDeInit(DAC_HandleTypeDef* hdac)
 void HAL_LTDC_MspInit(LTDC_HandleTypeDef* hltdc)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
   if(hltdc->Instance==LTDC)
   {
   /* USER CODE BEGIN LTDC_MspInit 0 */
 
   /* USER CODE END LTDC_MspInit 0 */
+
+  /** Initializes the peripherals clock
+  */
+    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
+    PeriphClkInitStruct.PLL3.PLL3M = 4;
+    PeriphClkInitStruct.PLL3.PLL3N = 8;
+    PeriphClkInitStruct.PLL3.PLL3P = 2;
+    PeriphClkInitStruct.PLL3.PLL3Q = 2;
+    PeriphClkInitStruct.PLL3.PLL3R = 3;
+    PeriphClkInitStruct.PLL3.PLL3RGE = RCC_PLL3VCIRANGE_3;
+    PeriphClkInitStruct.PLL3.PLL3VCOSEL = RCC_PLL3VCOWIDE;
+    PeriphClkInitStruct.PLL3.PLL3FRACN = 0.0;
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
     /* Peripheral clock enable */
     __HAL_RCC_LTDC_CLK_ENABLE();
 
@@ -460,11 +465,22 @@ void HAL_LTDC_MspDeInit(LTDC_HandleTypeDef* hltdc)
 void HAL_OSPI_MspInit(OSPI_HandleTypeDef* hospi)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
   if(hospi->Instance==OCTOSPI1)
   {
   /* USER CODE BEGIN OCTOSPI1_MspInit 0 */
 
   /* USER CODE END OCTOSPI1_MspInit 0 */
+
+  /** Initializes the peripherals clock
+  */
+    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_OSPI;
+    PeriphClkInitStruct.OspiClockSelection = RCC_OSPICLKSOURCE_CLKP;
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
     /* Peripheral clock enable */
     __HAL_RCC_OCTOSPIM_CLK_ENABLE();
     __HAL_RCC_OSPI1_CLK_ENABLE();
@@ -580,11 +596,22 @@ void HAL_OSPI_MspDeInit(OSPI_HandleTypeDef* hospi)
 */
 void HAL_RTC_MspInit(RTC_HandleTypeDef* hrtc)
 {
+  RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
   if(hrtc->Instance==RTC)
   {
   /* USER CODE BEGIN RTC_MspInit 0 */
 
   /* USER CODE END RTC_MspInit 0 */
+
+  /** Initializes the peripherals clock
+  */
+    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC;
+    PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
     /* Peripheral clock enable */
     __HAL_RCC_RTC_ENABLE();
   /* USER CODE BEGIN RTC_MspInit 1 */
@@ -625,11 +652,22 @@ void HAL_RTC_MspDeInit(RTC_HandleTypeDef* hrtc)
 void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
   if(hspi->Instance==SPI2)
   {
   /* USER CODE BEGIN SPI2_MspInit 0 */
 
   /* USER CODE END SPI2_MspInit 0 */
+
+  /** Initializes the peripherals clock
+  */
+    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_SPI2;
+    PeriphClkInitStruct.Spi123ClockSelection = RCC_SPI123CLKSOURCE_CLKP;
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
     /* Peripheral clock enable */
     __HAL_RCC_SPI2_CLK_ENABLE();
 
@@ -790,7 +828,7 @@ void HAL_SAI_MspInit(SAI_HandleTypeDef* hsai)
     GPIO_InitStruct.Alternate = GPIO_AF6_SAI1;
     HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-    /* Peripheral DMA init*/
+      /* Peripheral DMA init*/
 
     hdma_sai1_a.Instance = DMA1_Stream0;
     hdma_sai1_a.Init.Request = DMA_REQUEST_SAI1_A;
@@ -829,6 +867,7 @@ void HAL_SAI_MspDeInit(SAI_HandleTypeDef* hsai)
       {
       /* Peripheral clock disable */
        __HAL_RCC_SAI1_CLK_DISABLE();
+      /* SAI1 interrupt DeInit */
       HAL_NVIC_DisableIRQ(SAI1_IRQn);
       }
 
@@ -839,6 +878,7 @@ void HAL_SAI_MspDeInit(SAI_HandleTypeDef* hsai)
     */
     HAL_GPIO_DeInit(GPIOE, GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6);
 
+    /* SAI1 DMA Deinit */
     HAL_DMA_DeInit(hsai->hdmarx);
     HAL_DMA_DeInit(hsai->hdmatx);
     }
@@ -847,5 +887,3 @@ void HAL_SAI_MspDeInit(SAI_HandleTypeDef* hsai)
 /* USER CODE BEGIN 1 */
 
 /* USER CODE END 1 */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
