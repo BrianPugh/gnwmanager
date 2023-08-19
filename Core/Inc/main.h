@@ -68,6 +68,8 @@ void wdog_refresh(void);
 #define BTN_PWR_GPIO_Port GPIOA
 #define BTN_TIME_Pin GPIO_PIN_5
 #define BTN_TIME_GPIO_Port GPIOC
+#define LCD_Reset_Pin GPIO_PIN_8
+#define LCD_Reset_GPIO_Port GPIOD
 #define BTN_A_Pin GPIO_PIN_9
 #define BTN_A_GPIO_Port GPIOD
 #define BTN_Left_Pin GPIO_PIN_11
@@ -82,6 +84,10 @@ void wdog_refresh(void);
 #define BTN_SELECT_GPIO_Port GPIOC
 #define BTN_Up_Pin GPIO_PIN_0
 #define BTN_Up_GPIO_Port GPIOD
+#define VAUX_Enable_Pin GPIO_PIN_1
+#define VAUX_Enable_GPIO_Port GPIOD
+#define V3V3_Enable_Pin GPIO_PIN_4
+#define V3V3_Enable_GPIO_Port GPIOD
 #define BTN_B_Pin GPIO_PIN_5
 #define BTN_B_GPIO_Port GPIOD
 /* USER CODE BEGIN Private defines */
