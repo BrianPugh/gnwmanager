@@ -110,6 +110,10 @@ void gnwmanager_gui_draw(){
 
     wdog_refresh();
 
+    // These can change at any moment, so always draw them.
+    DRAW(12, 60, &img_download, *gui.download_in_progress);
+    DRAW(12, 60, &img_upload, *gui.upload_in_progress);
+
     if((current_t - prev_t) > 500 ){
         step = true;
         prev_t = current_t;

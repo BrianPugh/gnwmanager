@@ -26,7 +26,7 @@ class LfsDriverContext:
             pass
         self.target.wait_for_all_contexts_complete()  # if a prog/erase is being performed, chip is not in memory-mapped-mode
         addr = 0x9000_0000 + self.filesystem_end - ((block + 1) * cfg.block_size)
-        self.cache[block] = bytearray(self.target.read_memory_block8(addr, size))
+        self.cache[block] = bytearray(self.target.read_mem(addr, size))
         return bytes(self.cache[block][off : off + size])
 
     def prog(self, cfg: LFSConfig, block: int, off: int, data: bytes) -> int:

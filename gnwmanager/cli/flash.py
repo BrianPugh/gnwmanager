@@ -1,7 +1,6 @@
 from collections import namedtuple
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import typer
 from tqdm import tqdm
