@@ -107,9 +107,9 @@ class GnWTargetMixin(Target):
                 raise ValueError
             addr = key
         elif isinstance(key, Variable):
-            if size is not None:
-                raise ValueError
-            addr, size = key.address, key.size
+            if size is None:
+                size = key.size
+            addr = key.address
         else:
             raise TypeError
 

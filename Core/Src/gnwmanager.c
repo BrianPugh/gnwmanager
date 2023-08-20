@@ -164,7 +164,6 @@ static void sha256bank(uint8_t bank, uint8_t *digest, uint32_t offset, uint32_t 
     else if(bank == 2){
         sha256(digest, (const BYTE*) (0x08100000 + offset), size);
     }
-    OSPI_DisableMemoryMappedMode();
 }
 
 static uint32_t context_counter = 1;
@@ -202,6 +201,7 @@ static void gnwmanager_action_hash(work_context_t *context){
     uint8_t *response_buffer = (uint8_t *) context->buffer;
     uint32_t offset_end = context->offset + context->size;
     for(uint32_t offset=context->offset; offset < offset_end; offset += chunk_size){
+        wdog_refresh();
         uint32_t remaining_bytes = (offset_end - offset);
         uint32_t size = chunk_size < remaining_bytes ? chunk_size : remaining_bytes;
         sha256bank(0, response_buffer, offset, size);
