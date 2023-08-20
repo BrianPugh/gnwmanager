@@ -59,8 +59,10 @@ OSPI_HandleTypeDef hospi1;
 
 RTC_HandleTypeDef hrtc;
 
+#ifdef HAL_SAI_MODULE_ENABLED
 SAI_HandleTypeDef hsai_BlockA1;
 DMA_HandleTypeDef hdma_sai1_a;
+#endif
 
 SPI_HandleTypeDef hspi2;
 
@@ -80,7 +82,11 @@ static void MX_DMA_Init(void);
 static void MX_LTDC_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_OCTOSPI1_Init(void);
+
+#ifdef HAL_SAI_MODULE_ENABLED
 static void MX_SAI1_Init(void);
+#endif
+
 static void MX_RTC_Init(void);
 #ifdef HAL_DAC_MODULE_ENABLED
 static void MX_DAC1_Init(void);
@@ -136,7 +142,9 @@ int main(void)
   MX_LTDC_Init();
   MX_SPI2_Init();
   MX_OCTOSPI1_Init();
+#ifdef HAL_SAI_MODULE_ENABLED
   MX_SAI1_Init();
+#endif
   MX_RTC_Init();
 #ifdef HAL_DAC_MODULE_ENABLED
   MX_DAC1_Init();
@@ -261,7 +269,10 @@ void SystemClock_Config(void)
     Error_Handler();
   }
   PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_LTDC
-                              |RCC_PERIPHCLK_SPI2|RCC_PERIPHCLK_SAI1
+                              |RCC_PERIPHCLK_SPI2
+#ifdef HAL_SAI_MODULE_ENABLED
+                              |RCC_PERIPHCLK_SAI1
+#endif
 #ifdef HAL_ADC_MODULE_ENABLED
                               |RCC_PERIPHCLK_ADC
 #endif
@@ -285,7 +296,9 @@ void SystemClock_Config(void)
   PeriphClkInitStruct.PLL3.PLL3FRACN = 0;
   PeriphClkInitStruct.OspiClockSelection = RCC_OSPICLKSOURCE_CLKP;
   PeriphClkInitStruct.CkperClockSelection = RCC_CLKPSOURCE_HSI;
+#ifdef HAL_SAI_MODULE_ENABLED
   PeriphClkInitStruct.Sai1ClockSelection = RCC_SAI1CLKSOURCE_PLL2;
+#endif
   PeriphClkInitStruct.Spi123ClockSelection = RCC_SPI123CLKSOURCE_CLKP;
 #ifdef HAL_ADC_MODULE_ENABLED
   PeriphClkInitStruct.AdcClockSelection = RCC_ADCCLKSOURCE_PLL2;
@@ -658,6 +671,7 @@ static void MX_RTC_Init(void)
 
 }
 
+#ifdef HAL_SAI_MODULE_ENABLED
 /**
   * @brief SAI1 Initialization Function
   * @param None
@@ -693,6 +707,7 @@ static void MX_SAI1_Init(void)
   /* USER CODE END SAI1_Init 2 */
 
 }
+#endif
 
 /**
   * @brief SPI2 Initialization Function

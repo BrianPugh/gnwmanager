@@ -52,8 +52,10 @@ extern DAC_HandleTypeDef hdac2;
 extern LTDC_HandleTypeDef hltdc;
 extern OSPI_HandleTypeDef hospi1;
 extern RTC_HandleTypeDef hrtc;
+#ifdef HAL_SAI_MODULE_ENABLED
 extern SAI_HandleTypeDef hsai_BlockA1;
 extern DMA_HandleTypeDef hdma_sai1_a;
+#endif
 extern SPI_HandleTypeDef hspi2;
 extern TIM_HandleTypeDef htim1;
 extern WWDG_HandleTypeDef hwwdg1;

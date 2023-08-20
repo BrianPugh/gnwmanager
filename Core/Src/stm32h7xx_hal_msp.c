@@ -765,6 +765,7 @@ void HAL_WWDG_MspInit(WWDG_HandleTypeDef* hwwdg)
 
 }
 
+#ifdef HAL_SAI_MODULE_ENABLED
 extern DMA_HandleTypeDef hdma_sai1_a;
 
 static uint32_t SAI1_client =0;
@@ -852,6 +853,7 @@ void HAL_SAI_MspDeInit(SAI_HandleTypeDef* hsai)
     HAL_DMA_DeInit(hsai->hdmatx);
     }
 }
+#endif
 
 /* USER CODE BEGIN 1 */
 

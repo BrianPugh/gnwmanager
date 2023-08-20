@@ -224,6 +224,7 @@ void EXTI2_IRQHandler(void)
   /* USER CODE END EXTI2_IRQn 1 */
 }
 
+#ifdef HAL_SAI_MODULE_ENABLED
 /**
   * @brief This function handles DMA1 stream0 global interrupt.
   */
@@ -237,6 +238,7 @@ void DMA1_Stream0_IRQHandler(void)
 
   /* USER CODE END DMA1_Stream0_IRQn 1 */
 }
+#endif
 
 #ifdef HAL_ADC_MODULE_ENABLED
 /**
@@ -282,6 +284,7 @@ void TIM1_UP_IRQHandler(void)
   /* USER CODE END TIM1_UP_IRQn 1 */
 }
 
+#ifdef HAL_SAI_MODULE_ENABLED
 /**
   * @brief This function handles SAI1 global interrupt.
   */
@@ -295,6 +298,7 @@ void SAI1_IRQHandler(void)
 
   /* USER CODE END SAI1_IRQn 1 */
 }
+#endif
 
 /**
   * @brief This function handles LTDC global interrupt.
