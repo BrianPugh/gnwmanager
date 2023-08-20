@@ -76,6 +76,7 @@ void HAL_MspInit(void)
   /* USER CODE END MspInit 1 */
 }
 
+#ifdef HAL_ADC_MODULE_ENABLED
 /**
 * @brief ADC MSP Initialization
 * This function configures the hardware resources used in this example
@@ -141,6 +142,7 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* hadc)
   }
 
 }
+#endif
 
 #ifdef HAL_DAC_MODULE_ENABLED
 static uint32_t HAL_RCC_DAC12_CLK_ENABLED=0;

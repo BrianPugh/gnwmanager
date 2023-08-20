@@ -44,7 +44,9 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+#ifdef HAL_ADC_MODULE_ENABLED
 ADC_HandleTypeDef hadc1;
+#endif
 
 #ifdef HAL_DAC_MODULE_ENABLED
 DAC_HandleTypeDef hdac1;
@@ -85,7 +87,11 @@ static void MX_DAC1_Init(void);
 static void MX_DAC2_Init(void);
 #endif
 static void MX_WWDG1_Init(void);
+
+#ifdef HAL_ADC_MODULE_ENABLED
 static void MX_ADC1_Init(void);
+#endif
+
 static void MX_TIM1_Init(void);
 static void MX_NVIC_Init(void);
 /* USER CODE BEGIN PFP */
@@ -137,7 +143,9 @@ int main(void)
   MX_DAC2_Init();
 #endif
   MX_WWDG1_Init();
+#ifdef HAL_ADC_MODULE_ENABLED
   MX_ADC1_Init();
+#endif
   MX_TIM1_Init();
 
   /* Initialize interrupts */
@@ -254,7 +262,10 @@ void SystemClock_Config(void)
   }
   PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_LTDC
                               |RCC_PERIPHCLK_SPI2|RCC_PERIPHCLK_SAI1
-                              |RCC_PERIPHCLK_ADC|RCC_PERIPHCLK_OSPI
+#ifdef HAL_ADC_MODULE_ENABLED
+                              |RCC_PERIPHCLK_ADC
+#endif
+                              |RCC_PERIPHCLK_OSPI
                               |RCC_PERIPHCLK_CKPER;
   PeriphClkInitStruct.PLL2.PLL2M = 25;
   PeriphClkInitStruct.PLL2.PLL2N = 192;
@@ -276,7 +287,9 @@ void SystemClock_Config(void)
   PeriphClkInitStruct.CkperClockSelection = RCC_CLKPSOURCE_HSI;
   PeriphClkInitStruct.Sai1ClockSelection = RCC_SAI1CLKSOURCE_PLL2;
   PeriphClkInitStruct.Spi123ClockSelection = RCC_SPI123CLKSOURCE_CLKP;
+#ifdef HAL_ADC_MODULE_ENABLED
   PeriphClkInitStruct.AdcClockSelection = RCC_ADCCLKSOURCE_PLL2;
+#endif
   PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
   PeriphClkInitStruct.TIMPresSelection = RCC_TIMPRES_ACTIVATED;
 
@@ -310,6 +323,7 @@ static void MX_NVIC_Init(void)
   HAL_NVIC_EnableIRQ(OCTOSPI1_IRQn);
 }
 
+#ifdef HAL_ADC_MODULE_ENABLED
 /**
   * @brief ADC1 Initialization Function
   * @param None
@@ -374,6 +388,7 @@ static void MX_ADC1_Init(void)
   /* USER CODE END ADC1_Init 2 */
 
 }
+#endif
 
 #ifdef HAL_DAC_MODULE_ENABLED
 /**

@@ -56,13 +56,6 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern ADC_HandleTypeDef hadc1;
-extern LTDC_HandleTypeDef hltdc;
-extern OSPI_HandleTypeDef hospi1;
-extern DMA_HandleTypeDef hdma_sai1_a;
-extern SAI_HandleTypeDef hsai_BlockA1;
-extern TIM_HandleTypeDef htim1;
-extern WWDG_HandleTypeDef hwwdg1;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -245,6 +238,7 @@ void DMA1_Stream0_IRQHandler(void)
   /* USER CODE END DMA1_Stream0_IRQn 1 */
 }
 
+#ifdef HAL_ADC_MODULE_ENABLED
 /**
   * @brief This function handles ADC1 and ADC2 global interrupts.
   */
@@ -258,6 +252,7 @@ void ADC_IRQHandler(void)
 
   /* USER CODE END ADC_IRQn 1 */
 }
+#endif
 
 /**
   * @brief This function handles EXTI line[9:5] interrupts.
