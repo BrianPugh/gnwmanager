@@ -43,8 +43,10 @@ extern "C" {
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
 extern ADC_HandleTypeDef hadc1;
+#ifdef HAL_DAC_MODULE_ENABLED
 extern DAC_HandleTypeDef hdac1;
 extern DAC_HandleTypeDef hdac2;
+#endif
 extern LTDC_HandleTypeDef hltdc;
 extern OSPI_HandleTypeDef hospi1;
 extern RTC_HandleTypeDef hrtc;

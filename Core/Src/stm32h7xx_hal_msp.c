@@ -142,6 +142,7 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* hadc)
 
 }
 
+#ifdef HAL_DAC_MODULE_ENABLED
 static uint32_t HAL_RCC_DAC12_CLK_ENABLED=0;
 
 /**
@@ -260,8 +261,8 @@ void HAL_DAC_MspDeInit(DAC_HandleTypeDef* hdac)
 
   /* USER CODE END DAC2_MspDeInit 1 */
   }
-
 }
+#endif
 
 /**
 * @brief LTDC MSP Initialization
