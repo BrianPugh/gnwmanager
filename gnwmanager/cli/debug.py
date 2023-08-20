@@ -1,4 +1,5 @@
 from pathlib import Path
+from time import time
 
 import typer
 from typer import Option
@@ -59,3 +60,22 @@ def pdb(
     get_filesystem(target, offset=offset)
 
     breakpoint()
+
+
+@app.command()
+def hash():
+    """Evaluates on-device hashing performance."""
+    from .main import session
+
+    target = session.target
+    flash_size = target.read_int("flash_size")
+
+    empty = b"\x00" * 32
+    t_start = time()
+    device_hashes = target.read_hashes(0, flash_size)
+    t_end = time()
+
+    assert empty not in device_hashes
+
+    t_delta = t_end - t_start
+    print(f"Hashed {len(device_hashes)} bytes in {t_delta:.3f}s.")
