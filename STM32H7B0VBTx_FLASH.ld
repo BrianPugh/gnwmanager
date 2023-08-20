@@ -84,7 +84,7 @@ SECTIONS
       *(.lcd)
       *(.gnwmanager_comm)
       . = ALIGN(4);
-  } > RAM  /* 0xe9800 large */
+  } > RAM  /* 0xe6800 large */
 
   .isr_vector :
   {

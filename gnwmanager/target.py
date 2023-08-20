@@ -36,7 +36,7 @@ def _populate_comm():
     _comm["min_erase_size"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
 
     for i in range(2):
-        struct_start = _comm["flashapp_comm"].address + ((i + 1) * 4096)
+        struct_start = _comm["flashapp_comm"].address + ((i + 1) * 1024)
 
         contexts[i]["return_buffer_ptr"] = last_variable = Variable(struct_start, 4)
 
@@ -52,8 +52,8 @@ def _populate_comm():
 
         contexts[i]["ready"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
 
-    struct_start = _comm["flashapp_comm"].address + (3 * 4096)
-    _comm["active_context"] = last_variable = Variable(struct_start, 4096)
+    struct_start = _comm["flashapp_comm"].address + (3 * 1024)
+    _comm["active_context"] = last_variable = Variable(struct_start, 1024)
 
     for i in range(2):
         contexts[i]["buffer"] = last_variable = Variable(last_variable.address + last_variable.size, 256 << 10)

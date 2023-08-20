@@ -24,7 +24,7 @@ def start_gnwmanager(force=False):
     assert target is not None
 
     target.reset_and_halt()
-    addr = 0x240E_9800
+    addr = 0x240E_6800
     with importlib.resources.path("gnwmanager", "firmware.bin") as f:
         firmware = f.read_bytes()
         target.write_memory_block8(addr, firmware)
