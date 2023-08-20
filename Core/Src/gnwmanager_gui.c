@@ -110,6 +110,10 @@ void gnwmanager_gui_draw(){
 
     wdog_refresh();
 
+    // These can change at any moment, so always draw them.
+    DRAW(12, 60, &img_download, *gui.download_in_progress);
+    DRAW(12, 60, &img_upload, *gui.upload_in_progress);
+
     if((current_t - prev_t) > 500 ){
         step = true;
         prev_t = current_t;
@@ -143,9 +147,6 @@ void gnwmanager_gui_draw(){
     DRAW(232, 37, &img_z_0, IS_SLEEPING && gui.sleep_z_state > 0);
     DRAW(227, 26, &img_z_1, IS_SLEEPING && gui.sleep_z_state > 1);
     DRAW(221, 12, &img_z_2, IS_SLEEPING && gui.sleep_z_state > 2);
-
-    DRAW(12, 60, &img_download, false);
-    DRAW(12, 60, &img_upload, false);
 
     DRAW(ERROR1_ORIGIN_X, ERROR1_ORIGIN_Y, &img_error, IS_ERROR_STATUS);
     DRAW(ERROR1_ORIGIN_X + 65, ERROR1_ORIGIN_Y, &img_hash,

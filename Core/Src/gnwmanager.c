@@ -104,6 +104,10 @@ struct gnwmanager_comm {  // Values are read or written by the debugger
 
             // output: minimum external flash erase size in bytes
             uint32_t min_erase_size;
+
+            volatile uint32_t upload_in_progress;  // computer -> device
+
+            volatile uint32_t download_in_progress;  // device -> computer
         };
         struct {
             // Force spacing, allowing for backward-compatible additional variables
@@ -445,6 +449,8 @@ void gnwmanager_main(void)
     memset((void *)&comm, 0, sizeof(comm));
     gui.status = &comm.status;
     gui.progress = &comm.progress;
+    gui.upload_in_progress = &comm.upload_in_progress;
+    gui.download_in_progress = &comm.download_in_progress;
 
     comm.flash_size = OSPI_GetSize();
     comm.min_erase_size = OSPI_GetSmallestEraseSize();

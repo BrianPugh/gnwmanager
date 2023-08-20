@@ -34,6 +34,8 @@ def _populate_comm():
     _comm["progress"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
     _comm["flash_size"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
     _comm["min_erase_size"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
+    _comm["upload_in_progress"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
+    _comm["download_in_progress"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
 
     for i in range(2):
         struct_start = _comm["flashapp_comm"].address + ((i + 1) * 1024)
@@ -113,7 +115,11 @@ class GnWTargetMixin(Target):
         else:
             raise TypeError
 
-        return bytes(self.read_memory_block8(addr, size))
+        self.write_int("download_in_progress", 1)
+        data = bytes(self.read_memory_block8(addr, size))
+        self.write_int("download_in_progress", 0)
+
+        return data
 
     def write_mem(self, key, val):
         addr = _key_to_address(key)
@@ -245,6 +251,8 @@ class GnWTargetMixin(Target):
             self.wait_for_idle()
             self.halt()
 
+        self.write_int("upload_in_progress", 1)
+
         self.write_int(context["action"], actions["ERASE_AND_FLASH"])
         self.write_int(context["offset"], offset)
         self.write_int(context["size"], len(data))
@@ -267,6 +275,8 @@ class GnWTargetMixin(Target):
 
         self.write_int(context["ready"], self.context_counter)
         self.context_counter += 1
+
+        self.write_int("upload_in_progress", 0)
 
         if blocking:
             self.resume()

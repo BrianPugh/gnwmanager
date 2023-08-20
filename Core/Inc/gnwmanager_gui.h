@@ -22,6 +22,8 @@
 typedef struct{
     volatile gnwmanager_status_t *status;
     volatile uint32_t *progress;
+    volatile uint32_t *upload_in_progress;  // computer -> device
+    volatile uint32_t *download_in_progress;  // device -> computer
 
     uint8_t sleep_z_state;  // [0, 3]
     uint8_t counter_to_sleep;
