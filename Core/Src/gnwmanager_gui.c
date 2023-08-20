@@ -144,6 +144,9 @@ void gnwmanager_gui_draw(){
     DRAW(227, 26, &img_z_1, IS_SLEEPING && gui.sleep_z_state > 1);
     DRAW(221, 12, &img_z_2, IS_SLEEPING && gui.sleep_z_state > 2);
 
+    DRAW(12, 60, &img_download, false);
+    DRAW(12, 60, &img_upload, false);
+
     DRAW(ERROR1_ORIGIN_X, ERROR1_ORIGIN_Y, &img_error, IS_ERROR_STATUS);
     DRAW(ERROR1_ORIGIN_X + 65, ERROR1_ORIGIN_Y, &img_hash,
             (*gui.status == GNWMANAGER_STATUS_HASH)
