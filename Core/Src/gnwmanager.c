@@ -187,7 +187,7 @@ static void set_status(gnwmanager_status_t status){
     static gnwmanager_status_t prev_status = 0;
     comm.status = status;
     if(status != prev_status){
-        gnwmanager_gui_draw(false);
+        gnwmanager_gui_draw();
     }
     prev_status = status;
 }
@@ -201,7 +201,9 @@ static void gnwmanager_action_hash(work_context_t *context){
     uint8_t *response_buffer = (uint8_t *) context->buffer;
     uint32_t offset_end = context->offset + context->size;
     for(uint32_t offset=context->offset; offset < offset_end; offset += chunk_size){
+        // Each iteration is expected to take around
         wdog_refresh();
+        gnwmanager_gui_draw();
         uint32_t remaining_bytes = (offset_end - offset);
         uint32_t size = chunk_size < remaining_bytes ? chunk_size : remaining_bytes;
         sha256bank(0, response_buffer, offset, size);
@@ -236,6 +238,7 @@ static void gnwmanager_run(void)
     uint8_t program_calculated_sha256[32];
 
     wdog_refresh();
+    gnwmanager_gui_draw();
 
     switch (state) {
     case GNWMANAGER_IDLE:
@@ -448,24 +451,19 @@ void gnwmanager_main(void)
 
     // Draw LCD silvery background once.
     gui_fill(GUI_BACKGROUND_COLOR);
-    gnwmanager_gui_draw(false);
 
     uint32_t last_tick = HAL_GetTick();  // Monotonically increasing millisecond counter
     while (true) {
-        do{
-            if(buttons_get() & B_POWER){
-                NVIC_SystemReset();
-            }
+        if(buttons_get() & B_POWER){
+            NVIC_SystemReset();
+        }
 
-            if(comm.status_override){
-                gui.status = &comm.status_override;
-            }
-            else{
-                gui.status = &comm.status;
-            }
-            gnwmanager_run();
-        }while(HAL_GetTick() - last_tick < 500);
-        last_tick = HAL_GetTick();
-        gnwmanager_gui_draw(true);
+        if(comm.status_override){
+            gui.status = &comm.status_override;
+        }
+        else{
+            gui.status = &comm.status;
+        }
+        gnwmanager_run();
     }
 }

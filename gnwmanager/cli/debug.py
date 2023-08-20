@@ -78,4 +78,5 @@ def hash():
     assert empty not in device_hashes
 
     t_delta = t_end - t_start
-    print(f"Hashed {len(device_hashes)} bytes in {t_delta:.3f}s.")
+    kbs = len(device_hashes) * 256 / t_delta
+    print(f"Hashed {len(device_hashes)} 256KB chunks in {t_delta:.3f}s ({kbs:.1f} KB/s).")

@@ -101,7 +101,26 @@ static void draw_clock(){
     draw_clock_digit(GW_currentTime.Minutes % 10, CLOCK_MINUTE_ORIGIN_X + CLOCK_DIGIT_SPACE, CLOCK_ORIGIN_Y);
 }
 
-void gnwmanager_gui_draw(bool step){
+void gnwmanager_gui_draw(){
+    bool step = false;
+    static uint32_t prev_t = 0;
+    static gnwmanager_status_t prev_status = -1;
+
+    uint32_t current_t = HAL_GetTick();
+
+    wdog_refresh();
+
+    if((current_t - prev_t) > 500 ){
+        step = true;
+        prev_t = current_t;
+    }
+    if(!step){
+        if(prev_status == *gui.status){
+            return;  // No need to draw.
+        }
+        prev_status = *gui.status;
+    }
+
     if(*gui.status != GNWMANAGER_STATUS_IDLE){
         gui.counter_to_sleep = 0;
     }

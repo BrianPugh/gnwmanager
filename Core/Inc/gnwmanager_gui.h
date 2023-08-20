@@ -34,4 +34,4 @@ extern gnwmanager_gui_t gui;
 void gui_fill(pixel_t color);
 void gui_draw_glyph(uint16_t x_pos, uint16_t y_pos, const glyph_t *glyph, uint16_t color);
 
-void gnwmanager_gui_draw(bool step);
+void gnwmanager_gui_draw();
