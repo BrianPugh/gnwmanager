@@ -32,10 +32,14 @@ onto your device, managing the filesystem, and other device administrative tasks
 
 ## Installation
 
-It is **highly** recommended to use [pipx](https://pypa.github.io/pipx/installation/) to install GnWManager:
+It is **highly** recommended to use [pipx](https://pypa.github.io/pipx/installation/) to install GnWManager.
+Currently, GNWManager is not available on PyPI (but the name is reserved) until upstream PRs are merged.
+Until then, the best way to install GNWManager is:
 
 ```bash
-pipx install gnwmanager
+git clone https://github.com/BrianPugh/gnwmanager.git
+cd gnwmanager
+pipx install .
 ```
 
 That's it!

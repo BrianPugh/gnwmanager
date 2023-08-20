@@ -14,10 +14,6 @@ jobs:
       - name: arm-none-eabi-gcc GNU Arm Embedded Toolchain
         uses: carlosperate/arm-none-eabi-gcc-action@v1.7.1
 
-      - name: Build GNWManager App
-        run: |
-          make -j15
-
       - name: Build and publish to pypi
         uses: JRubics/poetry-publish@v1.16
         with:

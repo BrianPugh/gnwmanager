@@ -21,6 +21,7 @@ include = ["gnwmanager/firmware.bin"]
 
 [tool.poetry.build]
 generate-setup-file = false
+script = 'build.py'
 
 [tool.poetry.scripts]
 gnwmanager = "gnwmanager.cli.main:run_app"
