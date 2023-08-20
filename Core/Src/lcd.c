@@ -9,13 +9,20 @@ static volatile uint32_t frame_counter;
 
 void lcd_backlight_off()
 {
+#ifdef HAL_DAC_MODULE_ENABLED
   HAL_DAC_Stop(&hdac1, DAC_CHANNEL_1);
   HAL_DAC_Stop(&hdac1, DAC_CHANNEL_2);
   HAL_DAC_Stop(&hdac2, DAC_CHANNEL_1);
+#else
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
+#endif
 }
 
 void lcd_backlight_set(uint8_t brightness)
 {
+#ifdef HAL_DAC_MODULE_ENABLED
   HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_1, DAC_ALIGN_8B_R, brightness);
   HAL_DAC_SetValue(&hdac1, DAC_CHANNEL_2, DAC_ALIGN_8B_R, brightness);
   HAL_DAC_SetValue(&hdac2, DAC_CHANNEL_1, DAC_ALIGN_8B_R, brightness);
@@ -23,6 +30,16 @@ void lcd_backlight_set(uint8_t brightness)
   HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
   HAL_DAC_Start(&hdac1, DAC_CHANNEL_2);
   HAL_DAC_Start(&hdac2, DAC_CHANNEL_1);
+#else
+  if(brightness){
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
+  }
+  else{
+    lcd_backlight_off();
+  }
+#endif
 }
 
 void lcd_backlight_on()

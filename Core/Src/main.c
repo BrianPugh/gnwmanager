@@ -46,8 +46,10 @@
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
 
+#ifdef HAL_DAC_MODULE_ENABLED
 DAC_HandleTypeDef hdac1;
 DAC_HandleTypeDef hdac2;
+#endif
 
 LTDC_HandleTypeDef hltdc;
 
@@ -78,8 +80,10 @@ static void MX_SPI2_Init(void);
 static void MX_OCTOSPI1_Init(void);
 static void MX_SAI1_Init(void);
 static void MX_RTC_Init(void);
+#ifdef HAL_DAC_MODULE_ENABLED
 static void MX_DAC1_Init(void);
 static void MX_DAC2_Init(void);
+#endif
 static void MX_WWDG1_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM1_Init(void);
@@ -128,8 +132,10 @@ int main(void)
   MX_OCTOSPI1_Init();
   MX_SAI1_Init();
   MX_RTC_Init();
+#ifdef HAL_DAC_MODULE_ENABLED
   MX_DAC1_Init();
   MX_DAC2_Init();
+#endif
   MX_WWDG1_Init();
   MX_ADC1_Init();
   MX_TIM1_Init();
@@ -369,6 +375,7 @@ static void MX_ADC1_Init(void)
 
 }
 
+#ifdef HAL_DAC_MODULE_ENABLED
 /**
   * @brief DAC1 Initialization Function
   * @param None
@@ -457,6 +464,7 @@ static void MX_DAC2_Init(void)
   /* USER CODE END DAC2_Init 2 */
 
 }
+#endif
 
 /**
   * @brief LTDC Initialization Function
@@ -897,6 +905,15 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+#ifndef HAL_DAC_MODULE_ENABLED
+  /*Configure GPIO pins : PA4 PA5 PA6 (Backlight LEDs)*/
+  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+#endif
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI2_IRQn, 0, 0);

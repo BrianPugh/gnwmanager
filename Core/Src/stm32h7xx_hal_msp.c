@@ -181,6 +181,12 @@ void HAL_DAC_MspInit(DAC_HandleTypeDef* hdac)
   else if(hdac->Instance==DAC2)
   {
   /* USER CODE BEGIN DAC2_MspInit 0 */
+    static uint32_t HAL_RCC_DAC2_CLK_ENABLED = 0;
+
+    HAL_RCC_DAC2_CLK_ENABLED++;
+    if(HAL_RCC_DAC2_CLK_ENABLED==1){
+      __HAL_RCC_DAC2_CLK_ENABLE();
+    }
 
   /* USER CODE END DAC2_MspInit 0 */
     /* Peripheral clock enable */
