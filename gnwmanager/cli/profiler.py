@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from time import time
 from typing import Optional
@@ -17,6 +18,8 @@ def create_func_lookup(elf: Path) -> IntervalTree:
         elffile = ELFFile(f)
 
         symtab = elffile.get_section_by_name(".symtab")
+        elffile.get_section_by_name(".debug_line")
+
         for symbol in symtab.iter_symbols():
             if "FUNC" in symbol.entry.st_info.type and symbol.entry.st_size:
                 start = symbol.entry.st_value
@@ -44,6 +47,8 @@ def profiler(
     from .main import session
 
     target = session.target
+
+    os.environ.get("ADDR2LINE", "arm-none-eabi-addr2line")
 
     if elf is None:
         elf = find_elf()
@@ -79,3 +84,5 @@ def profiler(
     for key, value in sorted_counter.items():
         percentage = 100 * (value / len(pcs))
         print(f"{key}: {percentage:.1f}%")
+
+    # TODO: "addr2line -e elffile addr"
