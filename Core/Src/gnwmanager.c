@@ -10,7 +10,6 @@
 #include "lcd.h"
 #include "main.h"
 #include "lzma.h"
-#include "sha256.h"
 #include "rg_rtc.h"
 #include "gnwmanager.h"
 #include "gnwmanager_gui.h"
@@ -159,15 +158,25 @@ uint32_t erase_intflash(uint8_t bank, uint32_t offset, uint32_t size){
 static void sha256bank(uint8_t bank, uint8_t *digest, uint32_t offset, uint32_t size){
     OSPI_EnableMemoryMappedMode();
 
+    uint32_t base_address;
     if(bank == 0){
-        sha256(digest, (const BYTE*) (0x90000000 + offset), size);
+        base_address = 0x90000000;
     }
     else if(bank == 1){
-        sha256(digest, (const BYTE*) (0x08000000 + offset), size);
+        base_address = 0x08000000;
     }
     else if(bank == 2){
-        sha256(digest, (const BYTE*) (0x08100000 + offset), size);
+        base_address = 0x08100000;
     }
+
+    if(HAL_HASHEx_SHA256_Start(&hhash,
+                (uint8_t *)(base_address + offset), size,
+                digest,
+                HAL_MAX_DELAY
+            )){
+        Error_Handler();
+    }
+
 }
 
 static uint32_t context_counter = 1;
@@ -346,7 +355,13 @@ static void gnwmanager_run(void)
         break;
     case GNWMANAGER_CHECK_HASH_RAM:
         // Calculate sha256 hash of the RAM first
-        sha256(program_calculated_sha256, (const BYTE*) working_context->buffer, working_context->size);
+        if(HAL_HASHEx_SHA256_Start(&hhash,
+            (uint8_t *)working_context->buffer, working_context->size,
+            program_calculated_sha256,
+            HAL_MAX_DELAY
+        )){
+            Error_Handler();
+        }
 
         if (memcmp((const void *)program_calculated_sha256, (const void *)working_context->expected_sha256, 32) != 0) {
             // Hashes don't match even in RAM, openocd loading failed.
@@ -458,7 +473,6 @@ void gnwmanager_main(void)
     // Draw LCD silvery background once.
     gui_fill(GUI_BACKGROUND_COLOR);
 
-    uint32_t last_tick = HAL_GetTick();  // Monotonically increasing millisecond counter
     while (true) {
         if(buttons_get() & B_POWER){
             NVIC_SystemReset();
