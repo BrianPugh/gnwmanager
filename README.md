@@ -19,9 +19,10 @@ onto your device, managing the filesystem, and other device administrative tasks
 * Standalone and simple to install.
     * No more installing many different tools with various patches!
 * Fast internal and external flash firmware flashing.
-    * Only syncs changed data.
-    * Minimizes flash erases and writes, extending flash lifespan.
-    * Double buffered, asynchronous transfers for maximum speed.
+    * Hardware-accelerated hashing for rapid duplicate discovery.
+        * Only syncs changed data.
+        * Minimizes flash erases and writes, extending flash lifespan.
+    * Double buffered, asynchronous, LZMA-compressed transfers for maximum speed.
 * Complete filesystem management.
     * Backup and restore files.
     * Interactive filesystem explorer.
@@ -52,26 +53,26 @@ $ gnwmanager --help
 
  Usage: gnwmanager [OPTIONS] COMMAND [ARGS]...
 
-╭─ Options ─────────────────────────────────────────────────────────────────────────────╮
-│ --version  -v        Print gnwmanager version.                                        │
-│ --help               Show this message and exit.                                      │
-╰───────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ────────────────────────────────────────────────────────────────────────────╮
-│ debug             GnWManager internal debugging tools                                 │
-│ disable-debug     Disables the microcontroller's debug block.                         │
-│ erase             Erase a section of flash.                                           │
-│ flash             Flash firmware to device.                                           │
-│ format            Create a directory on device.                                       │
-│ gdb               Launch a gdbserver and connect to it with gdb.                      │
-│ gdbserver         Spawn a gdbserver.                                                  │
-│ ls                List contents of device directory.                                  │
-│ mkdir             Create a directory on device.                                       │
-│ monitor           Monitor the device's stdout logging buffer.                         │
-│ mv                Create a directory on device.                                       │
-│ pull              Pull a file or folder from device.                                  │
-│ push              Push file(s) and folder(s) to device.                               │
-│ screenshot        Pull and decode a screenshot from device.                           │
-│ shell             Launch an interactive shell to browse device filesystem.            │
-│ start             Start firmware at location.                                         │
-╰───────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ──────────────────────────────────────────────────────────────────────────────╮
+│ --version  -v        Print gnwmanager version.                                         │
+│ --help               Show this message and exit.                                       │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ─────────────────────────────────────────────────────────────────────────────╮
+│ debug             GnWManager internal debugging tools                                  │
+│ disable-debug     Disable the microcontroller's debug block.                           │
+│ erase             Erase a section of flash.                                            │
+│ flash             Flash firmware to device.                                            │
+│ format            Format device's filesystem.                                          │
+│ gdb               Launch a gdbserver and connect to it with gdb.                       │
+│ gdbserver         Launch a gdbserver.                                                  │
+│ ls                List contents of device directory.                                   │
+│ mkdir             Create a directory on device.                                        │
+│ monitor           Monitor the device's stdout logging buffer.                          │
+│ mv                Move/Rename a file or directory.                                     │
+│ pull              Pull a file or folder from device.                                   │
+│ push              Push file(s) and folder(s) to device.                                │
+│ screenshot        Capture and transfer screenshots from device.                        │
+│ shell             Launch an interactive shell to browse device filesystem.             │
+│ start             Start firmware at location.                                          │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
 ```

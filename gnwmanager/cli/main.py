@@ -96,7 +96,7 @@ def run_app():
         is_last = i == (len(commands_args) - 1)
         if not args or "--help" in args or "--version" in args:
             # Early help and version print without having to launch device
-            app(args=args, standalone_mode=False, prog_name="gnwmanager")
+            app(args=args, prog_name="gnwmanager")
 
         command = args[0]
         if command in ("shell", "gdb", "monitor", "gdbserver") and not is_last:
