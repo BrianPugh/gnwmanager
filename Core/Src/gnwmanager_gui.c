@@ -125,7 +125,7 @@ void gnwmanager_gui_draw(){
         prev_status = *gui.status;
     }
 
-    if(*gui.status != GNWMANAGER_STATUS_IDLE){
+    if(*gui.status != GNWMANAGER_STATUS_IDLE || *gui.download_in_progress || *gui.upload_in_progress){
         gui.counter_to_sleep = 0;
     }
 
@@ -197,6 +197,6 @@ void gnwmanager_gui_draw(){
     };
 
     for(uint8_t i=0; i < 26; i++){
-        DRAW(5 + i * 12, 200, progress[i % 10], i <= *gui.progress);
+        DRAW(5 + i * 12, 200, progress[i % 10], i < *gui.progress);
     }
 }
