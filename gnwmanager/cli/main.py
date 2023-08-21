@@ -20,6 +20,7 @@ from . import (
     mkdir,
     monitor,
     mv,
+    profiler,
     pull,
     push,
     screenshot,
@@ -43,6 +44,7 @@ app.command()(ls.ls)
 app.command()(mkdir.mkdir)
 app.command()(monitor.monitor)
 app.command()(mv.mv)
+app.command()(profiler.profiler)
 app.command()(pull.pull)
 app.command()(push.push)
 app.command()(shell.shell)
@@ -99,7 +101,7 @@ def run_app():
             app(args=args, prog_name="gnwmanager")
 
         command = args[0]
-        if command in ("shell", "gdb", "monitor", "gdbserver") and not is_last:
+        if command in ("shell", "gdb", "monitor", "gdbserver", "profiler") and not is_last:
             raise ValueError(f'Command "{command}" must be the final chained command.')
 
     global session
@@ -108,7 +110,7 @@ def run_app():
         mixin_object(session.target, GnWTargetMixin)
 
         if len(commands_args) == 1 and (
-            (commands_args[0][0] in ("monitor", "gdb", "gdbserver"))
+            (commands_args[0][0] in ("monitor", "gdb", "gdbserver", "profiler"))
             or (commands_args[0][:2] == ["screenshot", "capture"])
         ):
             # Do NOT start the on-device app

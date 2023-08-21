@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 from elftools.elf.elffile import ELFFile
-from pyocd.core.exceptions import ProbeError, TransferFaultError, TransferTimeoutError
+from pyocd.core.exceptions import TransferFaultError, TransferTimeoutError
 from typer import Option
 from typing_extensions import Annotated
 
