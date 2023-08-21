@@ -70,6 +70,8 @@ TIM_HandleTypeDef htim1;
 
 WWDG_HandleTypeDef hwwdg1;
 
+HASH_HandleTypeDef hhash
+
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -82,6 +84,7 @@ static void MX_DMA_Init(void);
 static void MX_LTDC_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_OCTOSPI1_Init(void);
+static void MX_HASH_Init(void);
 
 #ifdef HAL_SAI_MODULE_ENABLED
 static void MX_SAI1_Init(void);
@@ -155,6 +158,7 @@ int main(void)
   MX_ADC1_Init();
 #endif
   MX_TIM1_Init();
+  MX_HASH_Init();
 
   /* Initialize interrupts */
   MX_NVIC_Init();
@@ -493,6 +497,32 @@ static void MX_DAC2_Init(void)
 
 }
 #endif
+
+/**
+  * @brief HASH Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_HASH_Init(void)
+{
+
+  /* USER CODE BEGIN HASH_Init 0 */
+
+  /* USER CODE END HASH_Init 0 */
+
+  /* USER CODE BEGIN HASH_Init 1 */
+
+  /* USER CODE END HASH_Init 1 */
+  hhash.Init.DataType = HASH_DATATYPE_32B;
+  if (HAL_HASH_Init(&hhash) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN HASH_Init 2 */
+
+  /* USER CODE END HASH_Init 2 */
+
+}
 
 /**
   * @brief LTDC Initialization Function
