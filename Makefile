@@ -42,7 +42,6 @@ Core/Src/buttons.c \
 Core/Src/main.c \
 Core/Src/gnwmanager.c \
 Core/Src/gnwmanager_gui.c \
-Core/Src/sha256.c \
 Core/Src/lzma/LzmaDec.c \
 Core/Src/lzma/lzma.c \
 Core/Src/rg_rtc.c \

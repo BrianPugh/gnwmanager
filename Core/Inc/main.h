@@ -59,6 +59,7 @@ extern DMA_HandleTypeDef hdma_sai1_a;
 extern SPI_HandleTypeDef hspi2;
 extern TIM_HandleTypeDef htim1;
 extern WWDG_HandleTypeDef hwwdg1;
+extern HASH_HandleTypeDef hhash;
 
 /* USER CODE END EC */
 
