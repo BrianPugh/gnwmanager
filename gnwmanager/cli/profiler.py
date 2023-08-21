@@ -1,4 +1,5 @@
 from pathlib import Path
+from time import time
 from typing import Optional
 
 from elftools.elf.elffile import ELFFile
@@ -32,6 +33,13 @@ def profiler(
             help='Project\'s ELF file. Defaults to searching "build/" directory.',
         ),
     ] = None,
+    # samples_per_second: Annotated[
+    #    float,
+    #    Option(
+    #        help="Target number of samples per second."
+    #    )
+    # ] = 100,
+    sample_duration: Annotated[float, Option(help="Sampling duration in seconds.")] = 30,
 ):
     from .main import session
 
@@ -44,10 +52,30 @@ def profiler(
 
     pbar = tqdm(desc="Sampling", unit="iter", unit_scale=True)
 
+    pcs = []
+    t_start = time()
     while True:
         target.halt()
-        pc = target.read_core_register("pc")
+        pcs.append(target.read_core_register("pc"))
         target.resume()
         pbar.update(1)
 
-    list(lookup[pc])[0].data
+        # Rate limiting and exiting
+        t_current = time()
+        if t_current - t_start >= sample_duration:
+            break
+
+    counter = {}
+    for pc in pcs:
+        try:
+            sym = list(lookup[pc])[0].data
+        except IndexError:
+            counter["<<UNKNOWN_PC>>"] = counter.get("<<UNKNOWN_PC>>", 0) + 1
+            continue
+        counter[sym.name] = counter.get(sym.name, 0) + 1
+
+    sorted_counter = dict(sorted(counter.items(), key=lambda item: item[1]))
+
+    for key, value in sorted_counter.items():
+        percentage = 100 * (value / len(pcs))
+        print(f"{key}: {percentage:.1f}%")
