@@ -25,6 +25,18 @@ DEBUG = 1
 OPT ?= -Og
 
 
+ifeq ($(OS),Windows_NT)
+CP = copy
+RM = del /Q /F
+PATH_SEP = \\
+FIX_PATH = $(subst /,\\,$1)
+else
+CP = cp
+RM = rm -rf
+PATH_SEP = /
+FIX_PATH = $1
+endif
+
 #######################################
 # paths
 #######################################
@@ -99,16 +111,16 @@ PREFIX = arm-none-eabi-
 ifdef GCC_PATH
 CC = $(GCC_PATH)/$(PREFIX)gcc
 AS = $(GCC_PATH)/$(PREFIX)gcc -x assembler-with-cpp
-CP = $(GCC_PATH)/$(PREFIX)objcopy
+OBJCOPY = $(GCC_PATH)/$(PREFIX)objcopy
 SZ = $(GCC_PATH)/$(PREFIX)size
 else
 CC = $(PREFIX)gcc
 AS = $(PREFIX)gcc -x assembler-with-cpp
-CP = $(PREFIX)objcopy
+OBJCOPY = $(PREFIX)objcopy
 SZ = $(PREFIX)size
 endif
-HEX = $(CP) -O ihex
-BIN = $(CP) -O binary -S --verbose
+HEX = $(OBJCOPY) -O ihex
+BIN = $(OBJCOPY) -O binary -S --verbose
 
 #######################################
 # CFLAGS
@@ -214,7 +226,7 @@ $(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
 		-j .fini_array \
 		-j .data \
 		$< $@
-	cp $@ gnwmanager/firmware.bin
+	@$(CP) $(call FIX_PATH, $@) $(call FIX_PATH, gnwmanager$(PATH_SEP)firmware.bin)
 
 $(BUILD_DIR):
 	@mkdir $@
@@ -243,7 +255,8 @@ gdb: $(BUILD_DIR)/$(TARGET).elf
 # clean up
 #######################################
 clean:
-	-rm -fR $(BUILD_DIR) gnwmanager/firmware.bin
+	@$(RM) $(BUILD_DIR)
+	@$(RM) $(call FIX_PATH, gnwmanager/firmware.bin)
 
 
 #######################################
