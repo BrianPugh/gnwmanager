@@ -249,7 +249,6 @@ class GnWTargetMixin(Target):
 
         if blocking:
             self.wait_for_idle()
-            self.halt()
 
         self.write_int("upload_in_progress", 1)
 
@@ -279,7 +278,6 @@ class GnWTargetMixin(Target):
         self.write_int("upload_in_progress", 0)
 
         if blocking:
-            self.resume()
             self.wait_for_all_contexts_complete()
             self.wait_for_idle()  # Wait for the early-return context to complete.
 
