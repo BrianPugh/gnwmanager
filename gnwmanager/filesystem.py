@@ -60,7 +60,7 @@ def get_flash_params(target) -> Tuple[int, int]:
     return flash_size, block_size
 
 
-def get_filesystem(target, offset: int = 0, block_count=0):
+def get_filesystem(target, offset: int = 0, block_count=0, mount=True):
     """Get LittleFS filesystem handle.
 
     Parameters
@@ -84,7 +84,8 @@ def get_filesystem(target, offset: int = 0, block_count=0):
         block_cycles=500,
         mount=False,  # Separately mount to not trigger a format-on-corruption
     )
-    fs.mount()
+    if mount:
+        fs.mount()
     return fs
 
 
