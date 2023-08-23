@@ -1,4 +1,8 @@
-import readline
+from contextlib import suppress
+
+with suppress(ImportError):
+    import readline  # Not available on windows
+
 import shlex
 
 from typer import Option
