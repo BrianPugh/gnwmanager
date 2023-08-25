@@ -7,24 +7,24 @@ from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import int_parser
 from gnwmanager.filesystem import get_filesystem
+from gnwmanager.utils import Color, colored
 
 
 def _tree(fs: LittleFS, path: str, depth: int, max_depth: int, prefix: str = ""):
     try:
         if depth == 0:
-            print(f"\033[94m{path}\033[0m")
+            print(colored(Color.BLUE, path))
         
         elements = list(fs.scandir(path))
         for idx, element in enumerate(elements):
+            color = Color.NONE
             if element.type == 1:
                 typ = "FILE"
-                color = "\033[0m"
             elif element.type == 2:
                 typ = "DIR "
-                color = "\033[94m"
+                color = Color.BLUE
             else:
                 typ = "UKWN"
-                color = "\033[0m"
 
             fullpath = f"{path}/{element.name}"
             try:
@@ -39,7 +39,8 @@ def _tree(fs: LittleFS, path: str, depth: int, max_depth: int, prefix: str = "")
                 indent += "└── "
             else:
                 indent += "├── "
-            print(f"{indent}\033[90m[{element.size:7}B {typ} {time_str}] {color}{element.name}\033[0m")
+            metadata = colored(Color.BLACK, f"[{element.size:7}B {typ} {time_str}]")
+            print(f"{indent}{metadata} {colored(color, element.name)}")
 
             # Recursive call on subdirectory
             if element.type == 2 and depth < max_depth:
