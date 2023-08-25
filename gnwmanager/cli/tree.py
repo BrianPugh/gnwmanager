@@ -9,8 +9,11 @@ from gnwmanager.cli._parsers import int_parser
 from gnwmanager.filesystem import get_filesystem
 
 
-def _tree(fs: LittleFS, path: str, depth: int, max_depth: int):
+def _tree(fs: LittleFS, path: str, depth: int, max_depth: int, prefix: str = ""):
     try:
+        if depth == 0:
+            print(f"\033[94m{path}\033[0m")
+        
         elements = list(fs.scandir(path))
         for idx, element in enumerate(elements):
             if element.type == 1:
@@ -30,18 +33,18 @@ def _tree(fs: LittleFS, path: str, depth: int, max_depth: int):
             except LittleFSError:
                 time_str = " " * 19
 
-            indent = ""
-            if depth > 0:
-                indent = "│   " * (depth - 1)
-                if idx == (len(elements) - 1):
-                    indent += "└── "
-                else:
-                    indent += "├── "
+            is_last_element = (idx == (len(elements) - 1))
+            indent = prefix
+            if is_last_element:
+                indent += "└── "
+            else:
+                indent += "├── "
             print(f"{indent}\033[90m[{element.size:7}B {typ} {time_str}] {color}{element.name}\033[0m")
 
             # Recursive call on subdirectory
             if element.type == 2 and depth < max_depth:
-                _tree(fs, fullpath, depth+1, max_depth)
+                next_prefix = prefix + ("    " if is_last_element else "│   ")
+                _tree(fs, fullpath, depth+1, max_depth, next_prefix)
     except LittleFSError as e:
         if e.code != -2:
             raise
