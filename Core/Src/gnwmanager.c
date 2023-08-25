@@ -14,7 +14,9 @@
 #include "gnwmanager.h"
 #include "gnwmanager_gui.h"
 #include "buttons.h"
+#include "buildinfo.h"
 
+#define GNWMANAGER_MAGIC 0x476e575f // "GnW_"
 
 typedef enum {  // For the gnwmanager state machine
     GNWMANAGER_IDLE                   ,
@@ -86,6 +88,15 @@ struct gnwmanager_comm {  // Values are read or written by the debugger
                         // so that addresses don't change.
     union {
         volatile struct{
+            // const: magic bytes
+            uint32_t magic;
+
+            // const: git hash
+            char git_hash[16];
+
+            // const: build time
+            uint32_t build_time;
+
             // output: Status register
             uint32_t status;
 
@@ -462,6 +473,9 @@ static void gnwmanager_run(void)
 void gnwmanager_main(void)
 {
     memset((void *)&comm, 0, sizeof(comm));
+    comm.magic = GNWMANAGER_MAGIC;
+    strncpy(&comm.git_hash, GIT_HASH, sizeof(GIT_HASH));
+    comm.build_time = BUILD_TIME;
     gui.status = &comm.status;
     gui.progress = &comm.progress;
     gui.upload_in_progress = &comm.upload_in_progress;

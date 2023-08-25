@@ -17,7 +17,7 @@ description = ""
 authors = ["Brian Pugh"]
 readme = "README.md"
 packages = [{include = "gnwmanager"}]
-include = ["gnwmanager/firmware.bin"]
+include = ["gnwmanager/firmware.bin","gnwmanager/buildinfo.py"]
 
 [tool.poetry.build]
 generate-setup-file = false

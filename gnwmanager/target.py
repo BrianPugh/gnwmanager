@@ -28,7 +28,10 @@ contexts = [{} for i in range(2)]
 
 def _populate_comm():
     # Communication Variables; put in a function to prevent variable leakage.
-    _comm["status"] = last_variable = Variable(_comm["flashapp_comm"].address, 4)
+    _comm["magic"] = last_variable = Variable(_comm["flashapp_comm"].address, 4)
+    _comm["git_hash"] = last_variable = Variable(last_variable.address + last_variable.size, 16)
+    _comm["build_time"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
+    _comm["status"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
     _comm["status_override"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
     _comm["utc_timestamp"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
     _comm["progress"] = last_variable = Variable(last_variable.address + last_variable.size, 4)

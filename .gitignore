@@ -255,3 +255,5 @@ poetry.toml
 # GnW Manager
 gnwmanager/firmware.bin
 /screenshot.png
+Core/Inc/buildinfo.h
+gnwmanager/buildinfo.py
