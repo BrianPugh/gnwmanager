@@ -25,6 +25,7 @@ from . import (
     screenshot,
     shell,
     start,
+    tree,
 )
 from ._start_gnwmanager import start_gnwmanager
 
@@ -47,6 +48,7 @@ app.command()(pull.pull)
 app.command()(push.push)
 app.command()(shell.shell)
 app.command()(start.start)
+app.command()(tree.tree)
 
 
 def version_callback(value: bool):
