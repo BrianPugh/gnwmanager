@@ -21,8 +21,13 @@ TARGET = gnwmanager
 ######################################
 # debug build?
 DEBUG ?= 0
+
 # optimization
+ifeq ($(DEBUG), 1)
+OPT ?= -Og
+else
 OPT ?= -Os
+endif
 
 
 ifeq ($(OS),Windows_NT)
@@ -164,12 +169,12 @@ C_INCLUDES =  \
 # compile gcc flags
 ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
 
-CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -Wfatal-errors -fdata-sections -ffunction-sections -flto
+CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -Wfatal-errors -fdata-sections -ffunction-sections
 
 ifeq ($(DEBUG), 1)
 CFLAGS += -g -gdwarf-2 -O0
 else
-CFLAGS += -Werror
+CFLAGS += -Werror -flto
 endif
 
 
@@ -186,8 +191,12 @@ LDSCRIPT = STM32H7B0VBTx_FLASH.ld
 # libraries
 LIBS = -lc -lm -lnosys
 LIBDIR =
-LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections -flto
+LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections
 
+ifeq ($(DEBUG), 1)
+else
+LDFLAGS += -flto
+endif
 # default action: build all
 all: $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).hex $(BUILD_DIR)/$(TARGET).bin
 
@@ -231,18 +240,6 @@ $(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
 $(BUILD_DIR):
 	@mkdir $@
 
-
-
-OPENOCD ?= openocd
-ADAPTER ?= stlink
-INTFLASH_ADDRESS=0x08000000
-flash_intflash: $(BUILD_DIR)/$(TARGET).bin
-	$(OPENOCD) -f scripts/interface_$(ADAPTER).cfg -c "program $< $(INTFLASH_ADDRESS) verify reset exit"
-
-openocd: $(BUILD_DIR)/$(TARGET).bin
-	@$(OPENOCD) -f scripts/interface_$(ADAPTER).cfg \
-		-c 'init; halt'
-.PHONY: openocd
 
 GDB ?= $(PREFIX)gdb
 
