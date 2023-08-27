@@ -20,9 +20,9 @@ TARGET = gnwmanager
 # building variables
 ######################################
 # debug build?
-DEBUG = 1
+DEBUG ?= 0
 # optimization
-OPT ?= -Og
+OPT ?= -Os
 
 
 ifeq ($(OS),Windows_NT)
