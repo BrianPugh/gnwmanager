@@ -20,9 +20,14 @@ TARGET = gnwmanager
 # building variables
 ######################################
 # debug build?
-DEBUG = 1
+DEBUG ?= 0
+
 # optimization
+ifeq ($(DEBUG), 1)
 OPT ?= -Og
+else
+OPT ?= -Os
+endif
 
 
 ifeq ($(OS),Windows_NT)
@@ -169,7 +174,7 @@ CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -Wfatal-errors -fdata-secti
 ifeq ($(DEBUG), 1)
 CFLAGS += -g -gdwarf-2 -O0
 else
-CFLAGS += -Werror
+CFLAGS += -Werror -flto
 endif
 
 
@@ -188,6 +193,10 @@ LIBS = -lc -lm -lnosys
 LIBDIR =
 LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections
 
+ifeq ($(DEBUG), 1)
+else
+LDFLAGS += -flto
+endif
 # default action: build all
 all: $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).hex $(BUILD_DIR)/$(TARGET).bin
 
@@ -203,7 +212,7 @@ OBJECTS += $(addprefix $(BUILD_DIR)/,$(notdir $(ASM_SOURCES:.s=.o)))
 vpath %.s $(sort $(dir $(ASM_SOURCES)))
 
 $(BUILD_DIR)/%.o: %.c Makefile | $(BUILD_DIR)
-	@$(CC) -c $(CFLAGS) -Wa,-a,-ad,-alms=$(BUILD_DIR)/$(notdir $(<:.c=.lst)) $< -o $@
+	@$(CC) -c $(CFLAGS) $< -o $@
 
 $(BUILD_DIR)/%.o: %.s Makefile | $(BUILD_DIR)
 	@$(AS) -c $(CFLAGS) $< -o $@
@@ -231,18 +240,6 @@ $(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
 $(BUILD_DIR):
 	@mkdir $@
 
-
-
-OPENOCD ?= openocd
-ADAPTER ?= stlink
-INTFLASH_ADDRESS=0x08000000
-flash_intflash: $(BUILD_DIR)/$(TARGET).bin
-	$(OPENOCD) -f scripts/interface_$(ADAPTER).cfg -c "program $< $(INTFLASH_ADDRESS) verify reset exit"
-
-openocd: $(BUILD_DIR)/$(TARGET).bin
-	@$(OPENOCD) -f scripts/interface_$(ADAPTER).cfg \
-		-c 'init; halt'
-.PHONY: openocd
 
 GDB ?= $(PREFIX)gdb
 

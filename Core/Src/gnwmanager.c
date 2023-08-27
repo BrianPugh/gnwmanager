@@ -168,6 +168,9 @@ static void sha256bank(uint8_t bank, uint8_t *digest, uint32_t offset, uint32_t 
     else if(bank == 2){
         base_address = 0x08100000;
     }
+    else{
+        assert(0);
+    }
 
     if(HAL_HASHEx_SHA256_Start(&hhash,
                 (uint8_t *)(base_address + offset), size,
