@@ -1,8 +1,9 @@
 import hashlib
 import lzma
 import struct
-from pathlib import Path
 from enum import Enum
+from pathlib import Path
+
 from PIL import Image
 
 
@@ -17,8 +18,10 @@ class Color(Enum):
     CYAN = 96
     WHITE = 97
 
+
 def colored(color: Color, text: str) -> str:
     return f"\033[{color.value}m{text}\033[{Color.NONE.value}m"
+
 
 def sha256(data) -> bytes:
     return hashlib.sha256(data).digest()

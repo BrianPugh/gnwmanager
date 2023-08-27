@@ -14,7 +14,7 @@ def _tree(fs: LittleFS, path: str, depth: int, max_depth: int, prefix: str = "")
     try:
         if depth == 0:
             print(colored(Color.BLUE, path))
-        
+
         elements = list(fs.scandir(path))
         for idx, element in enumerate(elements):
             color = Color.NONE
@@ -33,7 +33,7 @@ def _tree(fs: LittleFS, path: str, depth: int, max_depth: int, prefix: str = "")
             except LittleFSError:
                 time_str = " " * 19
 
-            is_last_element = (idx == (len(elements) - 1))
+            is_last_element = idx == (len(elements) - 1)
             indent = prefix
             if is_last_element:
                 indent += "└── "
@@ -45,7 +45,7 @@ def _tree(fs: LittleFS, path: str, depth: int, max_depth: int, prefix: str = "")
             # Recursive call on subdirectory
             if element.type == 2 and depth < max_depth:
                 next_prefix = prefix + ("    " if is_last_element else "│   ")
-                _tree(fs, fullpath, depth+1, max_depth, next_prefix)
+                _tree(fs, fullpath, depth + 1, max_depth, next_prefix)
     except LittleFSError as e:
         if e.code != -2:
             raise
