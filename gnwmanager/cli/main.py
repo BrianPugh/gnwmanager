@@ -1,11 +1,15 @@
 import sys
+from contextlib import suppress
+from typing import Optional
 
 import typer
 from pyocd.core.helpers import ConnectHelper
 from pyocd.core.session import Session
 from typer import Option
+from typing_extensions import Annotated
 
 import gnwmanager
+from gnwmanager.cli._parsers import int_parser
 from gnwmanager.target import GnWTargetMixin, mixin_object
 
 from . import (
@@ -61,21 +65,46 @@ def version_callback(value: bool):
 @app.callback()
 def common(
     ctx: typer.Context,
-    version: bool = Option(
-        None,
-        "--version",
-        "-v",
-        callback=version_callback,
-        help="Print gnwmanager version.",
-    ),
+    version: Annotated[
+        bool,
+        Option(
+            "--version",
+            "-v",
+            callback=version_callback,
+            help="Print gnwmanager version.",
+        ),
+    ] = False,
+    frequency: Annotated[
+        Optional[float], Option("--frequency", "-f", parser=int_parser, help="Probe frequency.")
+    ] = None,
 ):
-    pass
+    """Game And Watch Device Manager.
+
+    Manages device flashing, filesystem management, peripheral configuration, and more.
+    """
+    # This callback gets invoked before each command.
+
+    global session
+    if session and frequency:
+        session.probe.set_clock(frequency)
+
+
+def _set_good_default_clock(probe):
+    name = probe.product_name
+
+    lookup = {
+        "Picoprobe (CMSIS-DAP)": 10_000_000,
+        "STM32 STLink": 10_000_000,
+        "CMSIS-DAP_LU": 500_000,
+    }
+
+    with suppress(KeyError):
+        probe.set_clock(lookup[name])
 
 
 def run_app():
     global app, session
     options = {
-        "frequency": 5_000_000,
         "connect_mode": "attach",
         "warning.cortex_m_default": False,
         "persist": True,
@@ -97,7 +126,7 @@ def run_app():
     for i, args in enumerate(commands_args):
         is_last = i == (len(commands_args) - 1)
         if not args or "--help" in args or "--version" in args:
-            # Early help and version print without having to launch device
+            # Early help and version print without having to session
             app(args=args, prog_name="gnwmanager")
 
         command = args[0]
@@ -105,7 +134,11 @@ def run_app():
             raise ValueError(f'Command "{command}" must be the final chained command.')
 
     global session
+    # Frequency needs to be set prior to connecting.
     with ConnectHelper.session_with_chosen_probe(options=options) as session:
+        # Attempt to set good clock defaults
+        _set_good_default_clock(session.probe)
+
         # Hack in our convenience methods
         mixin_object(session.target, GnWTargetMixin)
 
