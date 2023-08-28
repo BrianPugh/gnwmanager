@@ -10,14 +10,14 @@ def gdbserver(
     port: Annotated[int, Option(help="GDB Server Port")] = 3333,
 ):
     """Launch a gdbserver."""
-    from .main import session
+    from .main import gnw
 
-    session.options.set("gdbserver_port", port)
+    gnw.options.set("gdbserver_port", port)
 
     build_color_logger(level=1)
 
-    gdb = GDBServer(session, core=0)
-    session.gdbservers[0] = gdb
+    gdb = GDBServer(gnw, core=0)
+    gnw.gdbservers[0] = gdb
     gdb.start()
 
     while gdb.is_alive():

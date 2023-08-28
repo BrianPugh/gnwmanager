@@ -3,14 +3,12 @@ from contextlib import suppress
 from typing import Optional
 
 import typer
-from pyocd.core.helpers import ConnectHelper
-from pyocd.core.session import Session
 from typer import Option
 from typing_extensions import Annotated
 
 import gnwmanager
 from gnwmanager.cli._parsers import int_parser
-from gnwmanager.target import GnWTargetMixin, mixin_object
+from gnwmanager.target import GnW, OCDBackend
 
 from . import (
     debug,
@@ -33,7 +31,7 @@ from . import (
 )
 from ._start_gnwmanager import start_gnwmanager
 
-session: Session
+gnw: GnW
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False, add_completion=False)
 app.add_typer(debug.app, name="debug")
@@ -84,9 +82,9 @@ def common(
     """
     # This callback gets invoked before each command.
 
-    global session
-    if session and frequency:
-        session.probe.set_clock(frequency)
+    global gnw
+    if gnw and frequency:
+        gnw.probe.set_clock(frequency)
 
 
 def _set_good_default_clock(probe):
@@ -103,13 +101,7 @@ def _set_good_default_clock(probe):
 
 
 def run_app():
-    global app, session
-    options = {
-        "connect_mode": "attach",
-        "warning.cortex_m_default": False,
-        "persist": True,
-        "target_override": "STM32H7B0xx",
-    }
+    global gnw
 
     # Manual command chaining; Typer/Clicks's builtin is kinda broken.
     sys_args = sys.argv[1:]
@@ -133,15 +125,9 @@ def run_app():
         if command in ("shell", "gdb", "monitor", "gdbserver") and not is_last:
             raise ValueError(f'Command "{command}" must be the final chained command.')
 
-    global session
     # Frequency needs to be set prior to connecting.
-    with ConnectHelper.session_with_chosen_probe(options=options) as session:
-        # Attempt to set good clock defaults
-        _set_good_default_clock(session.probe)
-
-        # Hack in our convenience methods
-        mixin_object(session.target, GnWTargetMixin)
-
+    with OCDBackend["pyocd"]() as backend:  # TODO: determine backend from cli
+        gnw = GnW(backend)
         if len(commands_args) == 1 and (
             (commands_args[0][0] in ("monitor", "gdb", "gdbserver"))
             or (commands_args[0][:2] == ["screenshot", "capture"])

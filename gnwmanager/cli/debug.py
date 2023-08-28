@@ -12,7 +12,6 @@ from typer import Option
 from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import int_parser
-from gnwmanager.filesystem import get_filesystem
 from gnwmanager.utils import convert_framebuffer, find_elf
 
 app = typer.Typer(
@@ -38,13 +37,10 @@ def screenshot(
     ] = Path("screenshot.png"),
 ):
     """Get a screenshot of the gnwmanager app."""
-    from .main import session
+    from .main import gnw
 
-    target = session.target
-
-    framebuffer = target.read_mem("framebuffer")
+    framebuffer = gnw.read_memory("framebuffer")
     img = convert_framebuffer(framebuffer)
-
     img.save(dst)
 
 
@@ -60,10 +56,9 @@ def pdb(
     ] = 0,
 ):
     """Drop into debugging with app launched."""
-    from .main import session
+    from .main import gnw
 
-    target = session.target
-    get_filesystem(target, offset=offset)
+    gnw.filesystem(offset=offset)
 
     breakpoint()
 
@@ -71,16 +66,15 @@ def pdb(
 @app.command()
 def hash():
     """Evaluates on-device hashing performance."""
-    from .main import session
+    from .main import gnw
 
-    target = session.target
-    flash_size = target.read_int("flash_size")
+    flash_size = gnw.read_uint32("flash_size")
 
-    empty = b"\x00" * 32
     t_start = time()
-    device_hashes = target.read_hashes(0, flash_size)
+    device_hashes = gnw.read_hashes(0, flash_size)
     t_end = time()
 
+    empty = b"\x00" * 32
     assert empty not in device_hashes
 
     t_delta = t_end - t_start
@@ -102,13 +96,14 @@ def gdb(
     Checks the environment variable ``GDB`` for gdb executable.
     Defaults to ``arm-none-eabi-gdb``.
     """
-    from .main import session
+    from .main import gnw
 
     if elf is None:
         elf = find_elf()
 
-    gdb = GDBServer(session, core=0)
-    session.gdbservers[0] = gdb
+    # TODO: revisit
+    gdb = GDBServer(gnw, core=0)
+    gnw.gdbservers[0] = gdb
     gdb.start()
 
     gdb_executable = os.environ.get("GDB", "arm-none-eabi-gdb")

@@ -1,8 +1,6 @@
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
-from littlefs import LittleFS, LittleFSError
 from typer import Argument, Option
 from typing_extensions import Annotated
 
@@ -35,10 +33,9 @@ def push(
     ] = 0,
 ):
     """Push file(s) and folder(s) to device."""
-    from .main import session
+    from .main import gnw
 
-    target = session.target
-    fs = get_filesystem(target, offset=offset)
+    fs = gnw.filesystem(offset=offset)
 
     gnw_path_is_dir = is_existing_gnw_dir(fs, gnw_path)
 
@@ -75,5 +72,5 @@ def push(
 
                 fs.setattr(dst.as_posix(), "t", timestamp_now().to_bytes(4, "little"))
 
-    target.wait_for_all_contexts_complete()
-    target.wait_for_idle()
+    gnw.wait_for_all_contexts_complete()
+    gnw.wait_for_idle()

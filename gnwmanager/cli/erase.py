@@ -1,6 +1,5 @@
 from enum import Enum
 
-from pyocd.flash.eraser import FlashEraser
 from typer import Argument
 from typing_extensions import Annotated
 
@@ -16,19 +15,17 @@ def erase(
     location: Annotated[EraseLocation, Argument(case_sensitive=False, help="Section to erase.")],
 ):
     """Erase a section of flash."""
-    from .main import session
+    from .main import gnw
 
-    target = session.target
+    location_str = location.value
 
-    location = location.value
-
-    if location in ("ext", "all"):
+    if location_str in ("ext", "all"):
         # Just setting an artibrarily long timeout
         # TODO: maybe add visualization callback
-        target.erase_ext(0, 0, whole_chip=True, timeout=10_000)
+        gnw.erase(0, 0, 0, whole_chip=True, timeout=10_000)
 
-    if location in ("bank1", "all"):
-        target.erase_int(1, 0, 256 << 10)
+    if location_str in ("bank1", "all"):
+        gnw.erase(1, 0, 0, whole_chip=True)
 
-    if location in ("bank2", "all"):
-        target.erase_int(2, 0, 256 << 10)
+    if location_str in ("bank2", "all"):
+        gnw.erase(2, 0, 0, whole_chip=True)

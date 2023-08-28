@@ -1,21 +1,22 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 from littlefs import LittleFS, LittleFSError
-from littlefs.lfs import LFSConfig
+from littlefs.lfs import LFSConfig, UserContext
 
+from gnwmanager.target import GnW
 from gnwmanager.utils import sha256
 from gnwmanager.validation import validate_extflash_offset
 
 _gnw_cache = {}
 
 
-class LfsDriverContext:
-    def __init__(self, target, filesystem_end: int, cache: dict = None) -> None:
+class LfsDriverContext(UserContext):
+    def __init__(self, gnw: GnW, filesystem_end: int, cache: Optional[Dict] = None) -> None:
         validate_extflash_offset(filesystem_end)
 
-        self.target = target
+        self.gnw = gnw
         self.filesystem_end = filesystem_end
         self.cache = _gnw_cache if cache is None else cache
 
@@ -24,9 +25,9 @@ class LfsDriverContext:
             return bytes(self.cache[block][off : off + size])
         except KeyError:
             pass
-        self.target.wait_for_all_contexts_complete()  # if a prog/erase is being performed, chip is not in memory-mapped-mode
+        self.gnw.wait_for_all_contexts_complete()  # if a prog/erase is being performed, chip is not in memory-mapped-mode
         addr = 0x9000_0000 + self.filesystem_end - ((block + 1) * cfg.block_size)
-        self.cache[block] = bytearray(self.target.read_mem(addr, size))
+        self.cache[block] = bytearray(self.gnw.read_memory(addr, size))
         return bytes(self.cache[block][off : off + size])
 
     def prog(self, cfg: LFSConfig, block: int, off: int, data: bytes) -> int:
@@ -38,14 +39,14 @@ class LfsDriverContext:
             pass
 
         addr = self.filesystem_end - ((block + 1) * cfg.block_size) + off
-        self.target.prog(0, addr, data, erase=False)
+        self.gnw.program(0, addr, data, erase=False)
 
         return 0
 
     def erase(self, cfg: "LFSConfig", block: int) -> int:
         self.cache[block] = bytearray([0xFF] * cfg.block_size)
         offset = self.filesystem_end - ((block + 1) * cfg.block_size)
-        self.target.erase_ext(offset, cfg.block_size)
+        self.gnw.erase(0, offset, cfg.block_size)
         return 0
 
     def sync(self, cfg: "LFSConfig") -> int:
@@ -53,14 +54,13 @@ class LfsDriverContext:
 
 
 @lru_cache
-def get_flash_params(target) -> Tuple[int, int]:
-    flash_size = target.read_int("flash_size")
-    block_size = target.read_int("min_erase_size")
-
+def get_flash_params(gnw: GnW) -> Tuple[int, int]:
+    flash_size = gnw.read_uint32("flash_size")
+    block_size = gnw.read_uint32("min_erase_size")
     return flash_size, block_size
 
 
-def get_filesystem(target, offset: int = 0, block_count=0, mount=True):
+def get_filesystem(gnw: GnW, offset: int = 0, block_count=0, mount=True) -> LittleFS:
     """Get LittleFS filesystem handle.
 
     Parameters
@@ -73,9 +73,9 @@ def get_filesystem(target, offset: int = 0, block_count=0, mount=True):
         Number of blocks in filesystem.
         Defaults to ``0`` (infer from existing filesystem).
     """
-    flash_size, block_size = get_flash_params(target)
+    flash_size, block_size = get_flash_params(gnw)
     filesystem_end = flash_size - offset
-    lfs_context = LfsDriverContext(target, filesystem_end)
+    lfs_context = LfsDriverContext(gnw, filesystem_end)
 
     fs = LittleFS(
         lfs_context,
@@ -89,7 +89,8 @@ def get_filesystem(target, offset: int = 0, block_count=0, mount=True):
     return fs
 
 
-def is_existing_gnw_dir(fs: LittleFS, path: Union[str, Path]):
+def is_existing_gnw_dir(fs: LittleFS, path: Union[str, Path]) -> bool:
+    """Checks if a directory exists on the GnW filesystem."""
     if isinstance(path, Path):
         path = path.as_posix()
 
@@ -102,7 +103,8 @@ def is_existing_gnw_dir(fs: LittleFS, path: Union[str, Path]):
     return stat.type == 2
 
 
-def gnw_sha256(fs, path: Union[str, Path]):
+def gnw_sha256(fs: LittleFS, path: Union[str, Path]):
+    """Compute locally the sha256 digest of a remote file."""
     if isinstance(path, Path):
         path = path.as_posix()
 

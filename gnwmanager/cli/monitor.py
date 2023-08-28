@@ -19,7 +19,7 @@ def monitor(
     index: Annotated[str, Option(help="Log buffer index variable name.")] = "log_idx",
 ):
     """Monitor the device's stdout logging buffer."""
-    from .main import session
+    from .main import gnw
 
     if elf is None:
         elf = find_elf()
@@ -45,10 +45,8 @@ def monitor(
 
         logidx_addr = logidx_sym.entry.st_value
 
-    target = session.target
-
     def read_and_decode(*args):
-        data = target.read_memory_block8(*args)
+        data = gnw.read_memory(*args)
         try:
             end = data.index(0)
             data = data[:end]
@@ -60,7 +58,7 @@ def monitor(
     last_idx = 0
     while True:
         with suppress(TransferFaultError, TransferTimeoutError):
-            log_idx = target.read_int(logidx_addr)
+            log_idx = gnw.read_uint32(logidx_addr)
 
             if log_idx > last_idx:
                 # print the new data since last iteration

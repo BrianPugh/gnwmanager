@@ -25,13 +25,13 @@ def gdb(
     Checks the environment variable ``GDB`` for gdb executable.
     Defaults to ``arm-none-eabi-gdb``.
     """
-    from .main import session
+    from .main import gnw
 
     if elf is None:
         elf = find_elf()
 
-    gdb = GDBServer(session, core=0)
-    session.gdbservers[0] = gdb
+    gdb = GDBServer(gnw, core=0)
+    gnw.gdbservers[0] = gdb
     gdb.start()
 
     gdb_executable = os.environ.get("GDB", "arm-none-eabi-gdb")

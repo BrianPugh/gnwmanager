@@ -1,3 +1,5 @@
+from enum import Enum
+
 from typer import Argument, Option
 from typing_extensions import Annotated
 
@@ -13,9 +15,7 @@ def start(
     ] = 0,
 ):
     """Start firmware at location."""
-    from .main import session
-
-    target = session.target
+    from .main import gnw
 
     try:
         addr = int(location, 0)
@@ -27,7 +27,9 @@ def start(
         else:
             raise ValueError(f'Unknown location "{location}"') from None
 
-    target.reset_and_halt()
-    target.write_core_register("msp", target.read_int(addr))
-    target.write_core_register("pc", target.read_int(addr + 4))
-    target.resume()
+    addr += offset
+
+    gnw.backend.reset_and_halt()
+    gnw.backend.write_register("msp", gnw.read_uint32(addr))
+    gnw.backend.write_register("pc", gnw.read_uint32(addr + 4))
+    gnw.backend.resume()

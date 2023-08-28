@@ -3,11 +3,11 @@ from typer import Option
 from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import int_parser
-from gnwmanager.filesystem import get_filesystem, get_flash_params
+from gnwmanager.filesystem import get_flash_params
 
 
-def _infer_block_count(target, block_size, offset):
-    fs = get_filesystem(target, offset=offset, block_count=0, mount=False)
+def _infer_block_count(gnw, offset):
+    fs = gnw.filesystem(offset=offset, block_count=0, mount=False)
     try:
         fs.mount()
     except LittleFSError as e:
@@ -35,10 +35,9 @@ def format(
     ] = 0,
 ):
     """Format device's filesystem."""
-    from .main import session
+    from .main import gnw
 
-    target = session.target
-    flash_size, block_size = get_flash_params(target)
+    flash_size, block_size = get_flash_params(gnw)
 
     if size > flash_size:
         raise ValueError(f"--size must be <= detected flash size {flash_size}.")
@@ -51,10 +50,10 @@ def format(
 
     if block_count == 0:
         # Attempt to infer block_count from a previous filesystem.
-        block_count = _infer_block_count(target, block_size, offset)
+        block_count = _infer_block_count(gnw, offset)
 
     if block_count < 2:  # Even a block_count of 2 would be silly
         raise ValueError("Too few block_count.")
 
-    fs = get_filesystem(target, offset=offset, block_count=block_count, mount=False)
+    fs = gnw.filesystem(offset=offset, block_count=block_count, mount=False)
     fs.format()

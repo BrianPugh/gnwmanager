@@ -6,7 +6,6 @@ from typer import Argument, Option
 from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import int_parser
-from gnwmanager.filesystem import get_filesystem
 from gnwmanager.utils import Color, colored
 
 
@@ -77,8 +76,7 @@ def tree(
     ] = 0,
 ):
     """List contents of device directory and its descendants."""
-    from .main import session
+    from .main import gnw
 
-    target = session.target
-    fs = get_filesystem(target, offset=offset)
+    fs = gnw.filesystem(offset=offset)
     _tree(fs, path.as_posix(), 0, depth)

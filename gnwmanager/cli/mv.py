@@ -4,7 +4,6 @@ from typer import Argument, Option
 from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import int_parser
-from gnwmanager.filesystem import get_filesystem
 
 
 def mv(
@@ -30,9 +29,8 @@ def mv(
     ] = 0,
 ):
     """Move/Rename a file or directory."""
-    from .main import session
+    from .main import gnw
 
-    target = session.target
-    fs = get_filesystem(target, offset=offset)
+    fs = gnw.filesystem(offset=offset)
 
     fs.rename(src.as_posix(), dst.as_posix())

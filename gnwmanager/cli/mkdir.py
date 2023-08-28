@@ -24,9 +24,7 @@ def mkdir(
     ] = 0,
 ):
     """Create a directory on device."""
-    from .main import session
+    from .main import gnw
 
-    target = session.target
-    fs = get_filesystem(target, offset=offset)
-
+    fs = gnw.filesystem(offset=offset)
     fs.makedirs(path.as_posix(), exist_ok=True)

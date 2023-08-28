@@ -8,7 +8,6 @@ from typer import Option
 from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import int_parser
-from gnwmanager.filesystem import get_filesystem
 from gnwmanager.utils import convert_framebuffer, find_elf
 
 app = typer.Typer(
@@ -46,9 +45,7 @@ def capture(
     ] = "framebuffer",
 ):
     """Capture a live screenshot from device's framebuffer."""
-    from .main import session
-
-    target = session.target
+    from .main import gnw
 
     if elf is None:
         elf = find_elf()
@@ -71,7 +68,7 @@ def capture(
     if framebuffer_size != expected_framebuffer_size:
         raise ValueError(f"Unexpected framebuffer size {framebuffer_size}. Expected {expected_framebuffer_size}.")
 
-    data = bytes(target.read_memory_block8(framebuffer_addr, framebuffer_size))
+    data = gnw.read_memory(framebuffer_addr, framebuffer_size)
     img = convert_framebuffer(data)
     img.save(dst)
 
@@ -100,10 +97,9 @@ def dump(
     ] = 0,
 ):
     """Decode a saved screenshot from device filesystem."""
-    from .main import session
+    from .main import gnw
 
-    target = session.target
-    fs = get_filesystem(target, offset=offset)
+    fs = gnw.filesystem(offset=offset)
 
     with fs.open(src.as_posix(), "rb") as f:
         compressed_data = f.read()

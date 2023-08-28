@@ -1,7 +1,5 @@
 def disable_debug():
     """Disable the microcontroller's debug block."""
-    from .main import session
+    from .main import gnw
 
-    target = session.target
-
-    target.write32(0xE00E1004, 0x00000000)
+    gnw.write_uint32(0xE00E1004, 0x00000000)
