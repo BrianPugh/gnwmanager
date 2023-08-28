@@ -1,9 +1,11 @@
-from collections import namedtuple
+from abc import abstractmethod
+from contextlib import suppress
 from math import ceil
 from time import sleep, time
 from types import MethodType
-from typing import List, Literal
+from typing import Dict, List, Literal, NamedTuple, Optional, Union
 
+from autoregistry import Registry
 from pyocd.core.target import Target
 
 from gnwmanager.exceptions import DataError
@@ -11,19 +13,23 @@ from gnwmanager.status import flashapp_status_enum_to_str
 from gnwmanager.utils import EMPTY_HASH_DIGEST, compress_lzma, sha256
 from gnwmanager.validation import validate_extflash_offset, validate_intflash_offset
 
-Variable = namedtuple("Variable", ["address", "size"])
 
-actions = {
+class Variable(NamedTuple):
+    address: int
+    size: int
+
+
+actions: Dict[str, int] = {
     "ERASE_AND_FLASH": 0,
     "HASH": 1,
 }
 
 
-_comm = {
+_comm: Dict[str, Variable] = {
     "framebuffer": Variable(0x2400_0000, 320 * 240 * 2),
     "flashapp_comm": Variable(0x2402_5800, 0xC4000),
 }
-contexts = [{} for i in range(2)]
+contexts: List[Dict[str, Variable]] = [{} for _ in range(2)]
 
 
 def _populate_comm():
@@ -78,7 +84,7 @@ def mixin_object(obj, cls):
             setattr(obj, name, MethodType(method, obj))
 
 
-def _key_to_address(key) -> int:
+def _key_to_address(key: Union[int, str, Variable]) -> int:
     if isinstance(key, str):
         addr = _comm[key].address
     elif isinstance(key, int):
@@ -90,16 +96,120 @@ def _key_to_address(key) -> int:
     return addr
 
 
-class GnWTargetMixin(Target):
-    def read_int(self, key) -> int:
-        addr = _key_to_address(key)
-        return self.read32(addr)
+class OCDBackend(Registry):
+    """Abstraction for handling lower level memory read/writes."""
 
-    def write_int(self, key, val):
-        addr = _key_to_address(key)
-        self.write32(addr, val)
+    def __init__(self):
+        pass
 
-    def read_mem(self, key, size=None):
+    def __enter__(self):
+        self.open()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def open(self) -> "OCDBackend":
+        """Open device connection."""
+        return self
+
+    def close(self):
+        """Close device connection."""
+
+    def read_uint32(self, addr: int):
+        """Reads a uint32 from addr."""
+        return int.from_bytes(self.read_memory(addr, 4), byteorder="little")
+
+    def write_uint32(self, addr: int, val: int):
+        """Writes a uint32 to addr."""
+        return self.write_memory(addr, val.to_bytes(length=4, byteorder="little"))
+
+    @abstractmethod
+    def read_memory(self, addr: int, size: int) -> bytes:
+        """Reads a block of memory."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def write_memory(self, addr: int, data: bytes):
+        """Writes a block of memory."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def set_frequency(self, freq: int):
+        """Set probe frequency in hertz."""
+        raise NotImplementedError
+
+
+class PyOCDBackend(OCDBackend):
+    def __init__(self):
+        super().__init__()
+        from pyocd.core.helpers import ConnectHelper
+
+        options = {
+            "connect_mode": "attach",
+            "warning.cortex_m_default": False,
+            "persist": True,
+            "target_override": "STM32H7B0xx",
+        }
+        session = ConnectHelper.session_with_chosen_probe(options=options)
+        assert session is not None
+        self.session = session
+
+    @property
+    def target(self):
+        target = self.session.target
+        assert target is not None
+        return target
+
+    @property
+    def probe(self):
+        probe = self.session.probe
+        assert probe is not None
+        return probe
+
+    def set_frequency(self, freq: int):
+        self.probe.set_clock(freq)
+
+    def _set_default_frequency(self):
+        """Attempt to set a good default frequency based on detected probe."""
+        name = self.probe.product_name
+
+        lookup = {
+            "Picoprobe (CMSIS-DAP)": 10_000_000,
+            "STM32 STLink": 10_000_000,
+            "CMSIS-DAP_LU": 500_000,
+        }
+
+        with suppress(KeyError):
+            self.set_frequency(lookup[name])
+
+    def open(self) -> OCDBackend:
+        self.session.open()
+        self._set_default_frequency()
+        return self
+
+    def close(self):
+        self.session.close()
+
+    def read_memory(self, addr: int, size: int) -> bytes:
+        return bytes(self.target.read_memory_block8(addr, size))
+
+    def write_memory(self, addr: int, data: bytes):
+        self.target.write_memory_block8(addr, data)
+
+
+class GnW:
+    """Abstraction pertaining to specific GnW hardware and the on-devicegnwmanager app."""
+
+    def __init__(self, backend: OCDBackend):
+        self.backend = backend
+
+    def read_uint32(self, key: Union[int, str, Variable]) -> int:
+        return self.backend.read_uint32(_key_to_address(key))
+
+    def write_uint32(self, key: Union[int, str, Variable], val: int):
+        return self.backend.write_uint32(_key_to_address(key), val)
+
+    def read_memory(self, key: Union[int, str, Variable], size: Optional[int] = None):
         if isinstance(key, str):
             if size is not None:
                 raise ValueError
@@ -115,24 +225,23 @@ class GnWTargetMixin(Target):
         else:
             raise TypeError
 
-        self.write_int("download_in_progress", 1)
-        data = bytes(self.read_memory_block8(addr, size))
-        self.write_int("download_in_progress", 0)
+        self.write_uint32("download_in_progress", 1)
+        data = self.backend.read_memory(addr, size)
+        self.write_uint32("download_in_progress", 0)
 
         return data
 
-    def write_mem(self, key, val):
+    def write_memory(self, key: Union[int, str, Variable], val: bytes):
         addr = _key_to_address(key)
-        self.write_memory_block8(addr, val)
+        self.backend.write_memory(addr, val)
 
-    def wait_for_idle(self, timeout=20):
+    def wait_for_idle(self, timeout: float = 20):
         """Block until the on-device status is IDLE."""
-        time()
         t_deadline = time() + timeout
         error_mask = 0xFFFF_0000
 
         while True:
-            status_enum = self.read_int("status")
+            status_enum = self.read_uint32("status")
             status_str = flashapp_status_enum_to_str.get(status_enum, "UNKNOWN")
             if status_str == "IDLE":
                 break
@@ -143,10 +252,9 @@ class GnWTargetMixin(Target):
             sleep(0.05)
 
     def wait_for_all_contexts_complete(self, timeout=20):
-        time()
         t_deadline = time() + timeout
         for context in contexts:
-            while self.read_int(context["ready"]):
+            while self.read_uint32(context["ready"]):
                 if time() > t_deadline:
                     raise TimeoutError
                 sleep(0.05)
@@ -156,48 +264,62 @@ class GnWTargetMixin(Target):
         if not hasattr(self, "context_counter"):
             self.context_counter = 1
 
-        time()
         t_deadline = time() + timeout
         while True:
             for context in contexts:
-                if not self.read_int(context["ready"]):
+                if not self.read_uint32(context["ready"]):
                     return context
                 if time() > t_deadline:
                     raise TimeoutError
             sleep(0.05)
 
     def wait_for_context_response(self, context, timeout=20):
-        time()
         t_deadline = time() + timeout
-        while not self.read_int(context["response_ready"]):
+        while not self.read_uint32(context["response_ready"]):
             if time() > t_deadline:
                 raise TimeoutError
 
             sleep(0.05)
 
     def read_hashes(self, offset, size) -> List[bytes]:
+        """Blocking call to get the hashes of external flash chunks.
+
+        All chunks are 256KB; the last chunk may be less.
+
+        Parameters
+        ----------
+        offset: int
+            Offset into external flash.
+        size: int
+            Number of bytes to hash.
+
+        Returns
+        -------
+        List[bytes]
+            List of 32-byte sha256 hashes.
+        """
         validate_extflash_offset(offset)
         n_chunks = int(ceil(size / (256 << 10)))
 
         context = self.get_context()
 
-        self.write_int(context["response_ready"], 0)
-        self.write_int(context["action"], actions["HASH"])
-        self.write_int(context["offset"], offset)
-        self.write_int(context["size"], size)
-        self.write_int(context["ready"], self.context_counter)
+        self.write_uint32(context["response_ready"], 0)
+        self.write_uint32(context["action"], actions["HASH"])
+        self.write_uint32(context["offset"], offset)
+        self.write_uint32(context["size"], size)
+        self.write_uint32(context["ready"], self.context_counter)
         self.context_counter += 1
 
         self.wait_for_context_response(context)
 
-        hashes = self.read_mem(context["buffer"], n_chunks * 32)
+        hashes = self.read_memory(context["buffer"], n_chunks * 32)
 
         # Free the context
-        self.write_int(context["ready"], 0)
+        self.write_uint32(context["ready"], 0)
 
         return _chunk_bytes(hashes, 32)
 
-    def prog(
+    def program(
         self,
         bank: Literal[0, 1, 2],
         offset: int,
@@ -206,7 +328,7 @@ class GnWTargetMixin(Target):
         blocking: bool = True,
         compress: bool = True,
     ) -> None:
-        """Write data to extflash.
+        """Write data to flash.
 
         Limited to RAM constraints (i.e. <256KB writes).
 
@@ -225,9 +347,11 @@ class GnWTargetMixin(Target):
         erase: bool
             Erases flash prior to write.
             Defaults to ``True``.
+        blocking: bool
+            Wait for action to be complete.
         """
         if bank not in (0, 1, 2):
-            raise ValueError
+            raise ValueError("Bank must be one of {0, 1, 2}.")
 
         if bank == 0:
             validate_extflash_offset(offset)
@@ -247,105 +371,97 @@ class GnWTargetMixin(Target):
 
         context = self.get_context()
 
-        if blocking:
-            self.wait_for_idle()
+        self.write_uint32("upload_in_progress", 1)
 
-        self.write_int("upload_in_progress", 1)
-
-        self.write_int(context["action"], actions["ERASE_AND_FLASH"])
-        self.write_int(context["offset"], offset)
-        self.write_int(context["size"], len(data))
-        self.write_int(context["bank"], bank)
+        self.write_uint32(context["action"], actions["ERASE_AND_FLASH"])
+        self.write_uint32(context["offset"], offset)
+        self.write_uint32(context["size"], len(data))
+        self.write_uint32(context["bank"], bank)
 
         if erase:
-            self.write_int(context["erase"], 1)  # Perform an erase at `offset`
-            self.write_int(context["erase_bytes"], len(data))
+            self.write_uint32(context["erase"], 1)  # Perform an erase at `offset`
+            self.write_uint32(context["erase_bytes"], len(data))
         else:
-            self.write_int(context["erase"], 0)
+            self.write_uint32(context["erase"], 0)
 
-        self.write_mem(context["expected_sha256"], sha256(data))
+        self.write_memory(context["expected_sha256"], sha256(data))
 
         if compress:
-            self.write_int(context["compressed_size"], len(compressed_data))
-            self.write_mem(context["buffer"], compressed_data)
+            self.write_uint32(context["compressed_size"], len(compressed_data))
+            self.write_memory(context["buffer"], compressed_data)
         else:
-            self.write_int(context["compressed_size"], 0)
-            self.write_mem(context["buffer"], data)
+            self.write_uint32(context["compressed_size"], 0)
+            self.write_memory(context["buffer"], data)
 
-        self.write_int(context["ready"], self.context_counter)
+        self.write_uint32(context["ready"], self.context_counter)
         self.context_counter += 1
 
-        self.write_int("upload_in_progress", 0)
+        self.write_uint32("upload_in_progress", 0)
 
         if blocking:
             self.wait_for_all_contexts_complete()
             self.wait_for_idle()  # Wait for the early-return context to complete.
 
-    def erase_ext(self, offset: int, size: int, whole_chip: bool = False, **kwargs) -> None:
-        """Erase a range of data on extflash.
-
-        On-device flashapp will round up to nearest minimum erase size.
-        ``program_chunk_idx`` must externally be set.
+    def erase(
+        self, bank: Literal[0, 1, 2], offset: int, size: int, blocking: bool = True, whole_chip: bool = False, **kwargs
+    ) -> None:
+        """Perform a flash erase.
 
         Parameters
         ----------
+        bank: int
+            0 - External Flash
+            1 - Internal Bank 1
+            2 - Internal Bank 2
         offset: int
-            Offset into extflash to erase.
+            Offset into location to erase.
         size: int
             Number of bytes to erase.
+            Will be rounded up to the nearest sector size, if necessary.
+            Ignored if ``whole_chip=True``.
+        blocking: bool
+            Wait for action to be complete.
         whole_chip: bool
-            If ``True``, ``size`` is ignored and the entire chip is erased.
-            Defaults to ``False``.
+            If ``true``, perform a faster bulk erase and erase entire location.
+            Set ``offset=0`` and ``size=0`` when using this option.
         """
-        validate_extflash_offset(offset)
-
-        if size <= 0 and not whole_chip:
-            raise ValueError("Size must be >0; 0 erases the entire chip.")
-
-        context = self.get_context()
-
-        self.write_int(context["action"], actions["ERASE_AND_FLASH"])
-        self.write_int(context["offset"], offset)
-        self.write_int(context["erase"], 1)  # Perform an erase at `offset`
-        self.write_int(context["size"], 0)
-        self.write_int(context["bank"], 0)
+        # Input validation
+        if size < 0:
+            raise ValueError
 
         if whole_chip:
-            self.write_int(context["erase_bytes"].address, 0)  # Note: a 0 value erases the whole chip
+            if offset != 0:
+                raise ValueError("Offset must be 0 if whole_chip=True.")
+            if size != 0:
+                raise ValueError("Size must be 0 if whole_chip=True.")
         else:
-            self.write_int(context["erase_bytes"].address, size)
+            if size == 0:
+                raise ValueError("Size must be >0.")
 
-        self.write_mem(context["expected_sha256"], EMPTY_HASH_DIGEST)
+        if bank not in (0, 1, 2):
+            raise ValueError("Bank must be one of {0, 1, 2}.")
 
-        self.write_int(context["ready"], self.context_counter)
-        self.context_counter += 1
+        if bank == 0:
+            validate_extflash_offset(offset)
+        elif bank in (1, 2):
+            validate_intflash_offset(offset)
+        else:
+            raise NotImplementedError
 
-        self.wait_for_all_contexts_complete(**kwargs)
-        self.wait_for_idle()
-
-    def erase_int(self, bank: int, offset: int, size: int, **kwargs) -> None:
-        validate_intflash_offset(offset)
-
-        if size <= 0:
-            raise ValueError
-
-        size = _round_up(size, 8192)
-
-        if bank not in (1, 2):
-            raise ValueError
-
+        # Perform action
         context = self.get_context()
 
-        self.write_int(context["action"], actions["ERASE_AND_FLASH"])
-        self.write_int(context["offset"], offset)
-        self.write_int(context["erase"], 1)  # Perform an erase at `offset`
-        self.write_int(context["size"], 0)
-        self.write_int(context["bank"], bank)
+        self.write_uint32(context["action"], actions["ERASE_AND_FLASH"])
+        self.write_uint32(context["offset"], offset)
+        self.write_uint32(context["size"], 0)  # We are not programming any bytes
+        self.write_uint32(context["erase"], 1)  # Perform an erase at `offset`
+        self.write_uint32(context["erase_bytes"].address, size)  # 0 signals a whole-chip erase.
+        self.write_uint32(context["bank"], bank)
+        self.write_memory(context["expected_sha256"], EMPTY_HASH_DIGEST)
 
-        self.write_mem(context["expected_sha256"], EMPTY_HASH_DIGEST)
-
-        self.write_int(context["ready"], self.context_counter)
+        self.write_uint32(context["ready"], self.context_counter)
         self.context_counter += 1
 
-        self.wait_for_all_contexts_complete(**kwargs)
-        self.wait_for_idle()
+        if blocking:
+            self.wait_for_all_contexts_complete(**kwargs)
+            self.wait_for_idle()

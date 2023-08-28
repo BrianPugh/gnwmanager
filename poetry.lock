@@ -51,6 +51,17 @@ six = "*"
 test = ["astroid", "pytest"]
 
 [[package]]
+name = "autoregistry"
+version = "1.0.0"
+description = "Automatic registry design-pattern for mapping names to functionality."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "autoregistry-1.0.0-py3-none-any.whl", hash = "sha256:834a4a4ea29f5d78dfceca9529807d8e9b5dc8c75270d91544c6a8638a244a69"},
+    {file = "autoregistry-1.0.0.tar.gz", hash = "sha256:22212c2c53b938816e8579b6766a4b3198b66eda92609eaab1cb141fc859f1be"},
+]
+
+[[package]]
 name = "babel"
 version = "2.12.1"
 description = "Internationalization utilities"
@@ -2014,4 +2025,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8"
-content-hash = "b37f96153fe5cf25a3edd324f88682376d7404090b0d272d7c73d0458226fcdf"
+content-hash = "045389560787475ff530502d724e7b40eb533f9d5515c54d92606c2f07d2a86b"
