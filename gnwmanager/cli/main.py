@@ -1,5 +1,6 @@
-import sys
+import argparse
 from contextlib import suppress
+from enum import Enum
 from typing import Optional
 
 import typer
@@ -60,6 +61,9 @@ def version_callback(value: bool):
     raise typer.Exit()
 
 
+OCDBackendEnum = Enum("MyEnumType", ((x, x) for x in OCDBackend))
+
+
 @app.callback()
 def common(
     ctx: typer.Context,
@@ -73,14 +77,20 @@ def common(
         ),
     ] = False,
     frequency: Annotated[
-        Optional[float], Option("--frequency", "-f", parser=int_parser, help="Probe frequency.")
+        Optional[float],
+        Option("--frequency", "-f", parser=int_parser, help="Probe frequency."),
     ] = None,
+    backend: Annotated[
+        OCDBackendEnum,
+        Option("--backend", "-b", help="OCD Backend."),
+    ] = OCDBackendEnum.pyocd.value,
 ):
     """Game And Watch Device Manager.
 
     Manages device flashing, filesystem management, peripheral configuration, and more.
     """
     # This callback gets invoked before each command.
+    # Note: ``backend`` here is just for help string, it's actually parsed/used by argparse.
 
     global gnw
     if gnw and frequency:
@@ -103,8 +113,11 @@ def _set_good_default_clock(probe):
 def run_app():
     global gnw
 
+    early_parser = argparse.ArgumentParser(add_help=False)
+    early_parser.add_argument("--backend", "-b", type=str.lower, default=OCDBackendEnum.pyocd.value)
+    early_args, sys_args = early_parser.parse_known_args()
+
     # Manual command chaining; Typer/Clicks's builtin is kinda broken.
-    sys_args = sys.argv[1:]
     commands_args = []
     current_command_args = []
     for arg in sys_args:
@@ -126,7 +139,7 @@ def run_app():
             raise ValueError(f'Command "{command}" must be the final chained command.')
 
     # Frequency needs to be set prior to connecting.
-    with OCDBackend["pyocd"]() as backend:  # TODO: determine backend from cli
+    with OCDBackend[early_args.backend]() as backend:
         gnw = GnW(backend)
         if len(commands_args) == 1 and (
             (commands_args[0][0] in ("monitor", "gdb", "gdbserver"))
