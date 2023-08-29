@@ -2,7 +2,6 @@ import hashlib
 import lzma
 import struct
 from enum import Enum
-from pathlib import Path
 
 from PIL import Image
 
@@ -69,13 +68,3 @@ def convert_framebuffer(data: bytes) -> Image.Image:
             pixels[x, y] = (red, green, blue)
             index += 2
     return img
-
-
-def find_elf(path=Path("build/")) -> Path:
-    candidate_elf_files = list(path.glob("*.elf"))
-    if not candidate_elf_files:
-        raise FileNotFoundError("No ELF files found!")
-    if len(candidate_elf_files) > 1:
-        raise FileNotFoundError(f"Found {len(candidate_elf_files)} ELF files. Please specify one via --elf.")
-    elf = candidate_elf_files[0]
-    return elf

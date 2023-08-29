@@ -7,12 +7,12 @@ from time import time
 from typing import Optional
 
 import typer
-from pyocd.gdbserver import GDBServer
 from typer import Option
 from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import int_parser
-from gnwmanager.utils import convert_framebuffer, find_elf
+from gnwmanager.elf import find_elf
+from gnwmanager.utils import convert_framebuffer
 
 app = typer.Typer(
     no_args_is_help=True,

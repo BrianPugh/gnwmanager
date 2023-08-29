@@ -3,12 +3,11 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Optional
 
-from elftools.elf.elffile import ELFFile
-from pyocd.core.exceptions import ProbeError, TransferFaultError, TransferTimeoutError
+from pyocd.core.exceptions import TransferFaultError, TransferTimeoutError
 from typer import Option
 from typing_extensions import Annotated
 
-from gnwmanager.utils import find_elf
+from gnwmanager.elf import SymTab
 
 
 def monitor(
@@ -21,28 +20,12 @@ def monitor(
     """Monitor the device's stdout logging buffer."""
     from .main import gnw
 
-    if elf is None:
-        elf = find_elf()
-
-    with elf.open("rb") as f:
-        elffile = ELFFile(f)
-        symtab = elffile.get_section_by_name(".symtab")
-        if symtab is None:
-            raise ValueError("No symbol table found.")
-
-        try:
-            logbuf_sym = symtab.get_symbol_by_name(buffer)[0]
-        except IndexError:
-            raise ValueError(f'No buffer variable found "{buffer}".') from None
-
+    with SymTab(elf) if elf else SymTab.find() as symtab:
+        logbuf_sym = symtab[buffer]
         logbuf_addr = logbuf_sym.entry.st_value
         logbuf_size = logbuf_sym.entry.st_size
 
-        try:
-            logidx_sym = symtab.get_symbol_by_name(index)[0]
-        except IndexError:
-            raise ValueError(f'No buffer index variable found "{index}".') from None
-
+        logidx_sym = symtab[index]
         logidx_addr = logidx_sym.entry.st_value
 
     def read_and_decode(*args):
@@ -57,7 +40,7 @@ def monitor(
 
     last_idx = 0
     while True:
-        with suppress(TransferFaultError, TransferTimeoutError):
+        with suppress(TransferFaultError, TransferTimeoutError):  # TODO: abstract this out to ocdbackend
             log_idx = gnw.read_uint32(logidx_addr)
 
             if log_idx > last_idx:

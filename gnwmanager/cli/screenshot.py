@@ -3,12 +3,12 @@ from typing import Optional
 
 import tamp
 import typer
-from elftools.elf.elffile import ELFFile
 from typer import Option
 from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import int_parser
-from gnwmanager.utils import convert_framebuffer, find_elf
+from gnwmanager.elf import SymTab
+from gnwmanager.utils import convert_framebuffer
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -47,20 +47,8 @@ def capture(
     """Capture a live screenshot from device's framebuffer."""
     from .main import gnw
 
-    if elf is None:
-        elf = find_elf()
-
-    with elf.open("rb") as f:
-        elffile = ELFFile(f)
-        symtab = elffile.get_section_by_name(".symtab")
-        if symtab is None:
-            raise ValueError("No symbol table found.")
-
-        try:
-            framebuffer_sym = symtab.get_symbol_by_name(framebuffer)[0]
-        except IndexError:
-            raise ValueError(f'No framebuffer variable found "{framebuffer}".') from None
-
+    with SymTab(elf) if elf else SymTab.find() as symtab:
+        framebuffer_sym = symtab[framebuffer]
         framebuffer_addr = framebuffer_sym.entry.st_value
         framebuffer_size = framebuffer_sym.entry.st_size
 

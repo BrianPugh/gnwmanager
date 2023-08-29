@@ -61,7 +61,7 @@ def version_callback(value: bool):
     raise typer.Exit()
 
 
-OCDBackendEnum = Enum("MyEnumType", ((x, x) for x in OCDBackend))
+OCDBackendEnum = Enum("OCDBackendEnum", ((x, x) for x in OCDBackend))
 
 
 @app.callback()
@@ -77,13 +77,13 @@ def common(
         ),
     ] = False,
     frequency: Annotated[
-        Optional[float],
+        Optional[int],
         Option("--frequency", "-f", parser=int_parser, help="Probe frequency."),
     ] = None,
     backend: Annotated[
         OCDBackendEnum,
         Option("--backend", "-b", help="OCD Backend."),
-    ] = OCDBackendEnum.pyocd.value,
+    ] = OCDBackendEnum.pyocd.value,  # pyright: ignore [reportGeneralTypeIssues]
 ):
     """Game And Watch Device Manager.
 
@@ -94,14 +94,19 @@ def common(
 
     global gnw
     if gnw and frequency:
-        gnw.probe.set_clock(frequency)
+        gnw.backend.set_frequency(frequency)
 
 
 def run_app():
     global gnw
 
     early_parser = argparse.ArgumentParser(add_help=False)
-    early_parser.add_argument("--backend", "-b", type=str.lower, default=OCDBackendEnum.pyocd.value)
+    early_parser.add_argument(
+        "--backend",
+        "-b",
+        type=str.lower,
+        default=OCDBackendEnum.pyocd.value,  # pyright: ignore [reportGeneralTypeIssues]
+    )
     early_args, sys_args = early_parser.parse_known_args()
 
     # Manual command chaining; Typer/Clicks's builtin is kinda broken.

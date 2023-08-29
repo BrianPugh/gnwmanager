@@ -5,11 +5,10 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from pyocd.gdbserver import GDBServer
 from typer import Option
 from typing_extensions import Annotated
 
-from gnwmanager.utils import find_elf
+from gnwmanager.elf import find_elf
 
 
 def gdb(

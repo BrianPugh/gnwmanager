@@ -61,6 +61,11 @@ repos:
     hooks:
       - id: codespell
 
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.324
+    hooks:
+      - id: pyright
+
 ci:
   autofix_commit_msg: |
     [pre-commit.ci] auto fixes from pre-commit.com hooks

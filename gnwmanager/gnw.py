@@ -262,6 +262,8 @@ class GnW:
             # If we are unable to compress meaningfully, don't bother.
             if len(compressed_data) > (0.9 * len(data)):
                 compress = False
+        else:
+            compressed_data = b""
 
         context = self.get_context()
 
