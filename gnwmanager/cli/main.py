@@ -100,6 +100,10 @@ def common(
 def run_app():
     global gnw
 
+    # Easier for all downstream typehinting, it's only ever None
+    # early in the process.
+    gnw = None  # pyright: ignore [reportGeneralTypeIssues]
+
     early_parser = argparse.ArgumentParser(add_help=False)
     early_parser.add_argument(
         "--backend",
