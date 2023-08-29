@@ -160,6 +160,11 @@ class OCDBackend(Registry, suffix="Backend"):
         """Resume target execution."""
         raise NotImplementedError
 
+    @abstractmethod
+    def start_gdbserver(self, port, logging=True, blocking=True):
+        """Start a blocking GDB Server."""
+        raise NotImplementedError
+
 
 class PyOCDBackend(OCDBackend):
     def __init__(self):
@@ -237,6 +242,23 @@ class PyOCDBackend(OCDBackend):
 
     def resume(self):
         self.target.resume()
+
+    def start_gdbserver(self, port, logging=True, blocking=True):
+        from pyocd.gdbserver import GDBServer
+        from pyocd.utility.color_log import build_color_logger
+
+        self.session.options.set("gdbserver_port", port)
+
+        if logging:
+            build_color_logger(level=1)
+
+        gdb = GDBServer(self.session, core=0)
+        self.session.gdbservers[0] = gdb
+        gdb.start()
+
+        if blocking:
+            while gdb.is_alive():
+                sleep(0.1)
 
 
 class GnW:
