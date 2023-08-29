@@ -7,6 +7,7 @@ from time import time
 from typing import Optional
 
 import typer
+from littlefs import LittleFSError
 from typer import Option
 from typing_extensions import Annotated
 
@@ -58,7 +59,12 @@ def pdb(
     """Drop into debugging with app launched."""
     from .main import gnw
 
-    gnw.filesystem(offset=offset)
+    try:
+        fs = gnw.filesystem(offset=offset)  # noqa: F841
+    except LittleFSError as e:
+        if e.code != -84:  # LFS_ERR_CORRUPT
+            raise
+        print("Unable to mount filesystem.")
 
     breakpoint()
 
