@@ -96,6 +96,7 @@ def _set_good_default_clock(probe):
         "Picoprobe (CMSIS-DAP)": 10_000_000,
         "STM32 STLink": 10_000_000,
         "CMSIS-DAP_LU": 500_000,
+        "J-Link EDU": 15_000_000,
     }
 
     with suppress(KeyError):
@@ -109,6 +110,7 @@ def run_app():
         "warning.cortex_m_default": False,
         "persist": True,
         "target_override": "STM32H7B0xx",
+        "jlink.device": "STM32H7B0VB",
     }
 
     # Manual command chaining; Typer/Clicks's builtin is kinda broken.
