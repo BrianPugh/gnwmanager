@@ -5,7 +5,7 @@ from typing import Dict, Optional, Tuple, Union
 from littlefs import LittleFS, LittleFSError
 from littlefs.lfs import LFSConfig, UserContext
 
-from gnwmanager.target import GnW
+from gnwmanager.gnw import GnW
 from gnwmanager.utils import sha256
 from gnwmanager.validation import validate_extflash_offset
 
@@ -65,7 +65,8 @@ def get_filesystem(gnw: GnW, offset: int = 0, block_count=0, mount=True) -> Litt
 
     Parameters
     ----------
-    target
+    gnw: GnW
+        Game and Watch object.
     offset: int
         Distance in bytes from the END of the filesystem, to the END of flash.
         Defaults to 0.

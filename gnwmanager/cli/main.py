@@ -1,5 +1,4 @@
 import argparse
-from contextlib import suppress
 from enum import Enum
 from typing import Optional
 
@@ -9,7 +8,9 @@ from typing_extensions import Annotated
 
 import gnwmanager
 from gnwmanager.cli._parsers import int_parser
-from gnwmanager.target import GnW, OCDBackend
+from gnwmanager.cli._start_gnwmanager import start_gnwmanager
+from gnwmanager.gnw import GnW
+from gnwmanager.ocdbackend import OCDBackend
 
 from . import (
     debug,
@@ -30,7 +31,6 @@ from . import (
     start,
     tree,
 )
-from ._start_gnwmanager import start_gnwmanager
 
 gnw: GnW
 

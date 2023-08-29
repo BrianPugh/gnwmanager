@@ -8,7 +8,6 @@ from typer import Argument, Option
 from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import int_parser
-from gnwmanager.target import contexts
 from gnwmanager.utils import sha256
 from gnwmanager.validation import validate_extflash_offset
 
@@ -65,7 +64,7 @@ def ext(
 
     device_hashes = gnw.read_hashes(offset, len(data))
 
-    chunk_size = contexts[0]["buffer"].size  # Assumes all contexts have same size buffer
+    chunk_size = gnw.contexts[0]["buffer"].size  # Assumes all contexts have same size buffer
     chunks = _chunk_bytes(data, chunk_size)
     len(chunks)
     [sha256(chunk) for chunk in chunks]
@@ -81,7 +80,6 @@ def ext(
         gnw.write_uint32("progress", int(26 * (i + 1) / len(packets)))
 
     gnw.wait_for_all_contexts_complete()
-    gnw.wait_for_idle()  # Wait for the early-return context to complete.
 
 
 @app.command()

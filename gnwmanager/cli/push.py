@@ -73,4 +73,3 @@ def push(
                 fs.setattr(dst.as_posix(), "t", timestamp_now().to_bytes(4, "little"))
 
     gnw.wait_for_all_contexts_complete()
-    gnw.wait_for_idle()
