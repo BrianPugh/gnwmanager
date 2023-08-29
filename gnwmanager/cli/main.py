@@ -97,19 +97,6 @@ def common(
         gnw.probe.set_clock(frequency)
 
 
-def _set_good_default_clock(probe):
-    name = probe.product_name
-
-    lookup = {
-        "Picoprobe (CMSIS-DAP)": 10_000_000,
-        "STM32 STLink": 10_000_000,
-        "CMSIS-DAP_LU": 500_000,
-    }
-
-    with suppress(KeyError):
-        probe.set_clock(lookup[name])
-
-
 def run_app():
     global gnw
 

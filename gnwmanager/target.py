@@ -171,6 +171,7 @@ class PyOCDBackend(OCDBackend):
             "warning.cortex_m_default": False,
             "persist": True,
             "target_override": "STM32H7B0xx",
+            "jlink.device": "STM32H7B0VB",
         }
         session = ConnectHelper.session_with_chosen_probe(options=options)
         assert session is not None
@@ -199,6 +200,7 @@ class PyOCDBackend(OCDBackend):
             "Picoprobe (CMSIS-DAP)": 10_000_000,
             "STM32 STLink": 10_000_000,
             "CMSIS-DAP_LU": 500_000,
+            "J-Link EDU": 15_000_000,
         }
 
         with suppress(KeyError):
