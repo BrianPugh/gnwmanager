@@ -13,6 +13,10 @@ def start(
         int,
         Option(min=0, help="Offset into location."),
     ] = 0,
+    halt: Annotated[
+        bool,
+        Option(help="Start in a halted state."),
+    ] = False,
 ):
     """Start firmware at location."""
     from .main import gnw
@@ -32,4 +36,6 @@ def start(
     gnw.backend.reset_and_halt()
     gnw.backend.write_register("msp", gnw.read_uint32(addr))
     gnw.backend.write_register("pc", gnw.read_uint32(addr + 4))
-    gnw.backend.resume()
+
+    if not halt:
+        gnw.backend.resume()
