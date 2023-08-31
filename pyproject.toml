@@ -30,14 +30,14 @@ gnwmanager = "gnwmanager.cli.main:run_app"
 # Be as loose as possible if writing a library.
 python = ">=3.8"
 typer = ">=0.7.0"
-pyocd = { git = "https://github.com/BrianPugh/pyOCD.git", branch = "stm32h7b0-256k" }
+pyocd = { git = "https://github.com/pyocd/pyOCD.git", branch = "develop" }  # Should be able to swap to v0.36.0 once released
 littlefs-python = { git = "https://github.com/BrianPugh/littlefs-python.git", branch = "develop"}
 typing-extensions = "^4.7.1"
 tqdm = "^4.66.1"
 pillow = "^10.0.0"
 tamp = "^1.1.6"
 rich = "^13.5.2"
-pyelftools = "^0.29"
+pyelftools = ">=0.29"
 autoregistry = "^1.0.0"
 
 [tool.poetry.group.docs.dependencies]
