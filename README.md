@@ -91,26 +91,32 @@ $ gnwmanager --help
 
  Usage: gnwmanager [OPTIONS] COMMAND [ARGS]...
 
-╭─ Options ──────────────────────────────────────────────────────────────────────────────╮
-│ --version  -v        Print gnwmanager version.                                         │
-│ --help               Show this message and exit.                                       │
-╰────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ─────────────────────────────────────────────────────────────────────────────╮
-│ debug             GnWManager internal debugging tools                                  │
-│ disable-debug     Disable the microcontroller's debug block.                           │
-│ erase             Erase a section of flash.                                            │
-│ flash             Flash firmware to device.                                            │
-│ format            Format device's filesystem.                                          │
-│ gdb               Launch a gdbserver and connect to it with gdb.                       │
-│ gdbserver         Launch a gdbserver.                                                  │
-│ ls                List contents of device directory.                                   │
-│ mkdir             Create a directory on device.                                        │
-│ monitor           Monitor the device's stdout logging buffer.                          │
-│ mv                Move/Rename a file or directory.                                     │
-│ pull              Pull a file or folder from device.                                   │
-│ push              Push file(s) and folder(s) to device.                                │
-│ screenshot        Capture and transfer screenshots from device.                        │
-│ shell             Launch an interactive shell to browse device filesystem.             │
-│ start             Start firmware at location.                                          │
-╰────────────────────────────────────────────────────────────────────────────────────────╯
+ Game And Watch Device Manager.
+ Manages device flashing, filesystem management, peripheral configuration, and more.
+
+╭─ Options ──────────────────────────────────────────────────────────────────────────╮
+│ --version    -v                  Print gnwmanager version.                         │
+│ --frequency  -f      INT_PARSER  Probe frequency. [default: None]                  │
+│ --backend    -b      [pyocd]     OCD Backend. [default: pyocd]                     │
+│ --help                           Show this message and exit.                       │
+╰────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ─────────────────────────────────────────────────────────────────────────╮
+│ debug             GnWManager internal debugging tools                              │
+│ disable-debug     Disable the microcontroller's debug block.                       │
+│ erase             Erase a section of flash.                                        │
+│ flash             Flash firmware to device.                                        │
+│ format            Format device's filesystem.                                      │
+│ gdb               Launch a gdbserver and connect to it with gdb.                   │
+│ gdbserver         Launch a gdbserver.                                              │
+│ ls                List contents of device directory.                               │
+│ mkdir             Create a directory on device.                                    │
+│ monitor           Monitor the device's stdout logging buffer.                      │
+│ mv                Move/Rename a file or directory.                                 │
+│ pull              Pull a file or folder from device.                               │
+│ push              Push file(s) and folder(s) to device.                            │
+│ screenshot        Capture and transfer screenshots from device.                    │
+│ shell             Launch an interactive shell to browse device filesystem.         │
+│ start             Start firmware at location.                                      │
+│ tree              List contents of device directory and its descendants.           │
+╰────────────────────────────────────────────────────────────────────────────────────╯
 ```
