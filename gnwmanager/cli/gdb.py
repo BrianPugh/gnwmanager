@@ -5,11 +5,10 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from pyocd.gdbserver import GDBServer
 from typer import Option
 from typing_extensions import Annotated
 
-from gnwmanager.utils import find_elf
+from gnwmanager.elf import find_elf
 
 
 def gdb(
@@ -19,24 +18,23 @@ def gdb(
             help='Project\'s ELF file. Defaults to searching "build/" directory.',
         ),
     ] = None,
+    port: Annotated[int, Option(help="GDB Server Port")] = 3333,
 ):
     """Launch a gdbserver and connect to it with gdb.
 
     Checks the environment variable ``GDB`` for gdb executable.
     Defaults to ``arm-none-eabi-gdb``.
     """
-    from .main import session
+    from .main import gnw
 
     if elf is None:
         elf = find_elf()
 
-    gdb = GDBServer(session, core=0)
-    session.gdbservers[0] = gdb
-    gdb.start()
-
     gdb_executable = os.environ.get("GDB", "arm-none-eabi-gdb")
 
-    cmd = [gdb_executable, str(elf), "-ex", "target extended-remote :3333"]
+    gnw.backend.start_gdbserver(port, logging=False, blocking=False)
+
+    cmd = [gdb_executable, str(elf), "-ex", f"target extended-remote :{port}"]
     process = subprocess.Popen(
         cmd,
         stdin=sys.stdin,

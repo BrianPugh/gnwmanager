@@ -3,12 +3,11 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Optional
 
-from elftools.elf.elffile import ELFFile
-from pyocd.core.exceptions import ProbeError, TransferFaultError, TransferTimeoutError
+from pyocd.core.exceptions import TransferFaultError, TransferTimeoutError
 from typer import Option
 from typing_extensions import Annotated
 
-from gnwmanager.utils import find_elf
+from gnwmanager.elf import SymTab
 
 
 def monitor(
@@ -19,36 +18,18 @@ def monitor(
     index: Annotated[str, Option(help="Log buffer index variable name.")] = "log_idx",
 ):
     """Monitor the device's stdout logging buffer."""
-    from .main import session
+    from .main import gnw
 
-    if elf is None:
-        elf = find_elf()
-
-    with elf.open("rb") as f:
-        elffile = ELFFile(f)
-        symtab = elffile.get_section_by_name(".symtab")
-        if symtab is None:
-            raise ValueError("No symbol table found.")
-
-        try:
-            logbuf_sym = symtab.get_symbol_by_name(buffer)[0]
-        except IndexError:
-            raise ValueError(f'No buffer variable found "{buffer}".') from None
-
+    with SymTab(elf) if elf else SymTab.find() as symtab:
+        logbuf_sym = symtab[buffer]
         logbuf_addr = logbuf_sym.entry.st_value
         logbuf_size = logbuf_sym.entry.st_size
 
-        try:
-            logidx_sym = symtab.get_symbol_by_name(index)[0]
-        except IndexError:
-            raise ValueError(f'No buffer index variable found "{index}".') from None
-
+        logidx_sym = symtab[index]
         logidx_addr = logidx_sym.entry.st_value
 
-    target = session.target
-
     def read_and_decode(*args):
-        data = target.read_memory_block8(*args)
+        data = gnw.read_memory(*args)
         try:
             end = data.index(0)
             data = data[:end]
@@ -59,8 +40,8 @@ def monitor(
 
     last_idx = 0
     while True:
-        with suppress(TransferFaultError, TransferTimeoutError):
-            log_idx = target.read_int(logidx_addr)
+        with suppress(TransferFaultError, TransferTimeoutError):  # TODO: abstract this out to ocdbackend
+            log_idx = gnw.read_uint32(logidx_addr)
 
             if log_idx > last_idx:
                 # print the new data since last iteration

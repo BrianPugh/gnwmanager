@@ -1,16 +1,16 @@
-import sys
-from contextlib import suppress
+import argparse
+from enum import Enum
 from typing import Optional
 
 import typer
-from pyocd.core.helpers import ConnectHelper
-from pyocd.core.session import Session
 from typer import Option
 from typing_extensions import Annotated
 
 import gnwmanager
 from gnwmanager.cli._parsers import int_parser
-from gnwmanager.target import GnWTargetMixin, mixin_object
+from gnwmanager.cli._start_gnwmanager import start_gnwmanager
+from gnwmanager.gnw import GnW
+from gnwmanager.ocdbackend import OCDBackend
 
 from . import (
     debug,
@@ -31,9 +31,8 @@ from . import (
     start,
     tree,
 )
-from ._start_gnwmanager import start_gnwmanager
 
-session: Session
+gnw: GnW
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False, add_completion=False)
 app.add_typer(debug.app, name="debug")
@@ -62,6 +61,9 @@ def version_callback(value: bool):
     raise typer.Exit()
 
 
+OCDBackendEnum = Enum("OCDBackendEnum", ((x, x) for x in OCDBackend))
+
+
 @app.callback()
 def common(
     ctx: typer.Context,
@@ -75,44 +77,43 @@ def common(
         ),
     ] = False,
     frequency: Annotated[
-        Optional[float], Option("--frequency", "-f", parser=int_parser, help="Probe frequency.")
+        Optional[int],
+        Option("--frequency", "-f", parser=int_parser, help="Probe frequency."),
     ] = None,
+    backend: Annotated[
+        OCDBackendEnum,
+        Option("--backend", "-b", help="OCD Backend."),
+    ] = OCDBackendEnum.pyocd.value,  # pyright: ignore [reportGeneralTypeIssues]
 ):
     """Game And Watch Device Manager.
 
     Manages device flashing, filesystem management, peripheral configuration, and more.
     """
     # This callback gets invoked before each command.
+    # Note: ``backend`` here is just for help string, it's actually parsed/used by argparse.
 
-    global session
-    if session and frequency:
-        session.probe.set_clock(frequency)
-
-
-def _set_good_default_clock(probe):
-    name = probe.product_name
-
-    lookup = {
-        "Picoprobe (CMSIS-DAP)": 10_000_000,
-        "STM32 STLink": 10_000_000,
-        "CMSIS-DAP_LU": 500_000,
-    }
-
-    with suppress(KeyError):
-        probe.set_clock(lookup[name])
+    global gnw
+    if gnw and frequency:
+        gnw.backend.set_frequency(frequency)
 
 
 def run_app():
-    global app, session
-    options = {
-        "connect_mode": "attach",
-        "warning.cortex_m_default": False,
-        "persist": True,
-        "target_override": "STM32H7B0xx",
-    }
+    global gnw
+
+    # Easier for all downstream typehinting, it's only ever None
+    # early in the process.
+    gnw = None  # pyright: ignore [reportGeneralTypeIssues]
+
+    early_parser = argparse.ArgumentParser(add_help=False)
+    early_parser.add_argument(
+        "--backend",
+        "-b",
+        type=str.lower,
+        default=OCDBackendEnum.pyocd.value,  # pyright: ignore [reportGeneralTypeIssues]
+    )
+    early_args, sys_args = early_parser.parse_known_args()
 
     # Manual command chaining; Typer/Clicks's builtin is kinda broken.
-    sys_args = sys.argv[1:]
     commands_args = []
     current_command_args = []
     for arg in sys_args:
@@ -133,15 +134,9 @@ def run_app():
         if command in ("shell", "gdb", "monitor", "gdbserver") and not is_last:
             raise ValueError(f'Command "{command}" must be the final chained command.')
 
-    global session
     # Frequency needs to be set prior to connecting.
-    with ConnectHelper.session_with_chosen_probe(options=options) as session:
-        # Attempt to set good clock defaults
-        _set_good_default_clock(session.probe)
-
-        # Hack in our convenience methods
-        mixin_object(session.target, GnWTargetMixin)
-
+    with OCDBackend[early_args.backend]() as backend:
+        gnw = GnW(backend)
         if len(commands_args) == 1 and (
             (commands_args[0][0] in ("monitor", "gdb", "gdbserver"))
             or (commands_args[0][:2] == ["screenshot", "capture"])

@@ -13,36 +13,34 @@ def start_gnwmanager(force=False):
         Force start manager. Normally manager will only launch on first
         ``start_gnwmanager`` invocation.
     """
-    # TODO: this is deprecated, but the replacement was introduced in python3.9.
-    # Migrate to ``as_file`` once python3.8 hits EOL.
     if start_gnwmanager.started and not force:
         return
 
-    from .main import session
+    from .main import gnw
 
-    target = session.target
-    assert target is not None
+    gnw.backend.reset_and_halt()
 
-    target.reset_and_halt()
-    addr = 0x240E_6800
+    # TODO: this is deprecated, but the replacement was introduced in python3.9.
+    # Migrate to ``as_file`` once python3.8 hits EOL.
     with importlib.resources.path("gnwmanager", "firmware.bin") as f:
         firmware = f.read_bytes()
-        target.write_memory_block8(addr, firmware)
 
-    target.write_int("status", 0)  # To be 100% sure there's nothing residual in RAM.
-    target.write_int("status_override", 0)  # To be 100% sure there's nothing residual in RAM.
+    gnw.write_memory(0x240E_6800, firmware)  # See STM32H7B0VBTx_FLASH.ld
+
+    gnw.write_uint32("status", 0)  # To be 100% sure there's nothing residual in RAM.
+    gnw.write_uint32("status_override", 0)  # To be 100% sure there's nothing residual in RAM.
 
     msp = int.from_bytes(firmware[:4], byteorder="little")
     pc = int.from_bytes(firmware[4:8], byteorder="little")
-    target.write_core_register("msp", msp)
-    target.write_core_register("pc", pc)
+    gnw.backend.write_register("msp", msp)
+    gnw.backend.write_register("pc", pc)
 
-    target.resume()
-    target.wait_for_idle()
+    gnw.backend.resume()
+    gnw.wait_for_idle()
 
     start_gnwmanager.started = True
 
-    target.write_int("utc_timestamp", timestamp_now())
+    gnw.write_uint32("utc_timestamp", timestamp_now())
 
 
 start_gnwmanager.started = False

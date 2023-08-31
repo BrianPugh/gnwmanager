@@ -9,10 +9,14 @@
 
 </div>
 
-# GNWManager
+# GnWManager
 
-GNWManager is THE game-and-watch device manager. GNWManager is responsible for getting firmware
-onto your device, managing the filesystem, and other device administrative tasks.
+GnWManager is THE game-and-watch device manager. GnWManager is a command line tool
+who's responsible for getting firmware onto your device, managing the filesystem,
+and other device administrative tasks.
+
+GnWManager accomplishes this via a small bundled pre-compiled firmware that gets
+executed from the STM32's RAM.
 
 ## Features
 
@@ -34,8 +38,8 @@ onto your device, managing the filesystem, and other device administrative tasks
 ## Installation
 
 It is **highly** recommended to use [pipx](https://pypa.github.io/pipx/installation/) to install GnWManager.
-Currently, GNWManager is not available on PyPI (but the name is reserved) until upstream PRs are merged.
-Until then, the best way to install GNWManager is:
+Currently, GnWManager is not available on PyPI (but the name is reserved) until upstream PRs are merged.
+Until then, the best way to install GnWManager is:
 
 ```bash
 git clone https://github.com/BrianPugh/gnwmanager.git
@@ -44,6 +48,40 @@ pipx install .
 ```
 
 That's it!
+
+## Compatibility
+GnWManager works with all major operating systems: Windows, Mac, and Linux.
+GnWManager is also compatible with the following probes:
+
+1. [Raspberry Pi Pico](https://www.raspberrypi.com/products/raspberry-pi-pico/) (Recommended)
+2. [STLink](https://www.st.com/en/development-tools/st-link-v2.html)
+3. [JLink](https://www.segger.com/products/debug-probes/j-link/#models)
+4. [DAPLink](https://daplink.io) (~10x slower than other probes)
+
+Unfortunately, GnWManager **is not** compatible with raspberry pi gpio.
+There is currently an effort to add support in [pyocd](https://github.com/pyocd/pyOCD), the underlying library that GnWManager uses for hardware interactions.
+
+
+#### STLink
+Hook up your STLink to your game and watch as follows:
+
+<div align="center">
+  <img width=512 src="https://github.com/BrianPugh/gnwmanager/blob/main/assets/stlinkv2.png">
+</div>
+
+
+#### Raspberry Pi Pico
+
+All Raspberry Pi Picos can be transformed into programmers via the [picoprobe project](https://github.com/raspberrypi/picoprobe).
+
+1. Download `picoprobe.uf2` from [picoprobe releases](https://github.com/raspberrypi/picoprobe/releases).
+2. Hold BOOT button on the  pico and plug it into the computer. It should show up as a USB drive. Drag and drop `picoprobe.uf2` to it.
+3. Hook up the 3 wires (GND, GP2, GP3) to (GND, SDCLK, SWDIO), respectively.
+
+<div align="center">
+  <img width=512 src="https://github.com/BrianPugh/gnwmanager/blob/main/assets/pi-pico.png">
+</div>
+
 
 ## Usage
 To see available commands, run `gnwmanager --help`.

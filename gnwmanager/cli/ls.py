@@ -6,7 +6,6 @@ from typer import Argument, Option
 from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import int_parser
-from gnwmanager.filesystem import get_filesystem
 
 
 def _ls(fs: LittleFS, path: str):
@@ -50,8 +49,7 @@ def ls(
     ] = 0,
 ):
     """List contents of device directory."""
-    from .main import session
+    from .main import gnw
 
-    target = session.target
-    fs = get_filesystem(target, offset=offset)
+    fs = gnw.filesystem(offset=offset)
     _ls(fs, path.as_posix())

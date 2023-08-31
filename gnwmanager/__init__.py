@@ -2,3 +2,5 @@
 __version__ = "0.0.0"
 
 __all__ = []
+
+from gnwmanager.gnw import GnW

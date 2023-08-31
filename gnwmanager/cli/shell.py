@@ -9,7 +9,6 @@ from typer import Option
 from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import int_parser
-from gnwmanager.filesystem import get_filesystem
 
 
 def shell(
@@ -23,7 +22,7 @@ def shell(
     ] = 0,
 ):
     """Launch an interactive shell to browse device filesystem."""
-    from .main import app, session
+    from .main import app, gnw
 
     print("Interactive shell. Press Ctrl-D to exit.")
 
