@@ -36,10 +36,10 @@ gnw: GnW
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False, add_completion=False)
 app.add_typer(debug.app, name="debug")
-app.add_typer(flash.app, name="flash")
 app.add_typer(screenshot.app, name="screenshot")
 app.command()(disable_debug.disable_debug)
 app.command()(erase.erase)
+app.command()(flash.flash)
 app.command()(format.format)
 app.command()(gdb.gdb)
 app.command()(gdbserver.gdbserver)

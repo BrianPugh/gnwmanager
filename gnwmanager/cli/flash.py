@@ -2,7 +2,6 @@ from collections import namedtuple
 from datetime import datetime
 from pathlib import Path
 
-import typer
 from tqdm import tqdm
 from typer import Argument, Option
 from typing_extensions import Annotated
@@ -10,13 +9,6 @@ from typing_extensions import Annotated
 from gnwmanager.cli._parsers import int_parser
 from gnwmanager.utils import sha256
 from gnwmanager.validation import validate_extflash_offset
-
-app = typer.Typer(
-    no_args_is_help=True,
-    pretty_exceptions_enable=False,
-    add_completion=False,
-    help="Flash firmware to device.",
-)
 
 
 def _chunk_bytes(data, chunk_size):
@@ -30,8 +22,11 @@ def _pad_bytes(data):
     return data + (b"\xFF" * pad_size)
 
 
-@app.command()
-def ext(
+def flash(
+    location: Annotated[
+        str,
+        Argument(help="Either an absolute flash address (e.g. 0x08000000) or one of {bank1, bank2, ext}"),
+    ],
     file: Annotated[
         Path,
         Argument(
@@ -49,10 +44,37 @@ def ext(
         Option(
             min=0,
             parser=int_parser,
-            help="Offset into external flash.",
+            help="Offset into flash.",
         ),
     ] = 0,
 ):
+    """Flash firmware to device."""
+    from .main import gnw
+
+    data = _pad_bytes(file.read_bytes())
+
+    try:
+        addr = int(location, 0)
+    except ValueError:
+        if location == "bank1":
+            gnw.program(1, offset, data)
+        elif location == "bank2":
+            gnw.program(2, offset, data)
+        elif location == "ext":
+            _flash_ext(file, offset)
+        else:
+            raise ValueError(f'Unknown location "{location}"') from None
+        return
+
+    if 0x0800_0000 <= addr <= (0x0800_0000 + (256 << 10)):
+        gnw.program(1, addr - 0x0800_0000, data)
+    elif 0x0810_0000 <= addr <= (0x0810_0000 + (256 << 10)):
+        gnw.program(2, addr - 0x0810_0000, data)
+    else:
+        raise ValueError("Unsupported destination address.")
+
+
+def _flash_ext(file, offset):
     """Flash to external flash."""
     from .main import gnw
 
@@ -80,65 +102,3 @@ def ext(
         gnw.write_uint32("progress", int(26 * (i + 1) / len(packets)))
 
     gnw.wait_for_all_contexts_complete()
-
-
-@app.command()
-def bank1(
-    file: Annotated[
-        Path,
-        Argument(
-            exists=True,
-            file_okay=True,
-            dir_okay=False,
-            writable=False,
-            readable=True,
-            resolve_path=True,
-            help="Binary file to flash.",
-        ),
-    ],
-    offset: Annotated[
-        int,
-        Option(
-            min=0,
-            max=256 << 10,
-            parser=int_parser,
-            help="Offset into bank.",
-        ),
-    ] = 0,
-):
-    """Flash to internal flash bank 1."""
-    from .main import gnw
-
-    data = _pad_bytes(file.read_bytes())
-    gnw.program(1, offset, data)
-
-
-@app.command()
-def bank2(
-    file: Annotated[
-        Path,
-        Argument(
-            exists=True,
-            file_okay=True,
-            dir_okay=False,
-            writable=False,
-            readable=True,
-            resolve_path=True,
-            help="Binary file to flash.",
-        ),
-    ],
-    offset: Annotated[
-        int,
-        Option(
-            min=0,
-            max=256 << 10,
-            parser=int_parser,
-            help="Offset into bank.",
-        ),
-    ] = 0,
-):
-    """Flash to internal flash bank 2."""
-    from .main import gnw
-
-    data = _pad_bytes(file.read_bytes())
-    gnw.program(2, offset, data)
