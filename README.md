@@ -86,7 +86,7 @@ All Raspberry Pi Picos can be transformed into programmers via the [picoprobe pr
 ## Usage
 To see available commands, run `gnwmanager --help`.
 
-```bash
+```console
 $ gnwmanager --help
 
  Usage: gnwmanager [OPTIONS] COMMAND [ARGS]...
