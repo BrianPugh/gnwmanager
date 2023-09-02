@@ -254,4 +254,5 @@ poetry.toml
 
 # GnW Manager
 gnwmanager/firmware.bin
+gnwmanager/unlock.bin
 /screenshot.png

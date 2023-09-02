@@ -235,6 +235,13 @@ $(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
 		-j .data \
 		$< $@
 	@$(CP) $(call FIX_PATH, $@) $(call FIX_PATH, gnwmanager$(PATH_SEP)firmware.bin)
+	@$(CP) $(call FIX_PATH, $@) $(call FIX_PATH, gnwmanager$(PATH_SEP)unlock.bin)
+
+$(BUILD_DIR)/unlock.elf: Core/Src/unlock.s | $(BUILD_DIR)
+	@$(AS) $< -march=armv7e-m $@
+
+$(BUILD_DIR)/unlock.bin: $(BUILD_DIR)/unlock.elf
+	@$(OBJCOPY) -O binary $< $@
 
 $(BUILD_DIR):
 	@mkdir $@
