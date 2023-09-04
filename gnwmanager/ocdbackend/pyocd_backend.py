@@ -5,12 +5,12 @@ from gnwmanager.ocdbackend.base import OCDBackend
 
 
 class PyOCDBackend(OCDBackend):
-    def __init__(self):
+    def __init__(self, connect_mode="attach"):
         super().__init__()
         from pyocd.core.helpers import ConnectHelper
 
         options = {
-            "connect_mode": "attach",
+            "connect_mode": connect_mode,
             "warning.cortex_m_default": False,
             "persist": True,
             "target_override": "STM32H7B0xx",

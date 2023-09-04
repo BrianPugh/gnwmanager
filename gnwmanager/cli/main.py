@@ -30,6 +30,7 @@ from . import (
     shell,
     start,
     tree,
+    unlock,
 )
 
 gnw: GnW
@@ -52,6 +53,7 @@ app.command()(push.push)
 app.command()(shell.shell)
 app.command()(start.start)
 app.command()(tree.tree)
+app.command()(unlock.unlock)
 
 
 def version_callback(value: bool):
@@ -131,14 +133,15 @@ def run_app():
             app(args=args, prog_name="gnwmanager")
 
         command = args[0]
-        if command in ("shell", "gdb", "monitor", "gdbserver") and not is_last:
+        if command in ("shell", "gdb", "monitor", "gdbserver", "unlock") and not is_last:
             raise ValueError(f'Command "{command}" must be the final chained command.')
 
-    # Frequency needs to be set prior to connecting.
-    with OCDBackend[early_args.backend]() as backend:
+    connect_mode = "attach"  # "halt" if commands_args[-1][0] == "unlock" else "attach"
+
+    with OCDBackend[early_args.backend](connect_mode) as backend:
         gnw = GnW(backend)
         if len(commands_args) == 1 and (
-            (commands_args[0][0] in ("monitor", "gdb", "gdbserver", "start", "disable-debug"))
+            (commands_args[0][0] in ("monitor", "gdb", "gdbserver", "start", "disable-debug", "unlock"))
             or (commands_args[0][:2] == ["screenshot", "capture"])
         ):
             # Do NOT start the on-device app

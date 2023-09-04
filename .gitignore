@@ -256,3 +256,4 @@ poetry.toml
 gnwmanager/firmware.bin
 gnwmanager/unlock.bin
 /screenshot.png
+/backups-*
