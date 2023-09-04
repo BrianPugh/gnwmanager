@@ -148,7 +148,6 @@ AS_DEFS =
 
 # C defines
 C_DEFS =  \
--DDUAL_BANK \
 -DUSE_HAL_DRIVER \
 -DSTM32H7B0xx
 

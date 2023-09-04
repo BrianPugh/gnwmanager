@@ -1949,9 +1949,9 @@ typedef struct
 #define OCTOSPI1_BASE             (0x90000000UL) /*!< Base address of : OCTOSPI1 memories  accessible over AXI                                 */
 #define OCTOSPI2_BASE             (0x70000000UL) /*!< Base address of : OCTOSPI2 memories  accessible over AXI                                 */
 
-#define FLASH_BANK1_BASE          (0x08000000UL) /*!< Base address of : (up to 128 KB) Flash Bank1 accessible over AXI                         */
+#define FLASH_BANK1_BASE          (0x08000000UL) /*!< Base address of : (up to 256 KB) Flash Bank1 accessible over AXI                         */
 #define FLASH_BANK2_BASE          (0x08100000UL) /*!< For legacy only , Flash bank 2 not available on STM32H7B0xx value line                   */
-#define FLASH_END                 (0x0801FFFFUL) /*!< FLASH end address                                                                        */
+#define FLASH_END                 (0x0813FFFFUL) /*!< FLASH end address                                                                        */
 
 /* Legacy define */
 #define FLASH_BASE                FLASH_BANK1_BASE
@@ -8735,12 +8735,13 @@ typedef struct
 /*
 * @brief FLASH Global Defines
 */
-#define FLASH_SECTOR_TOTAL                   16U                   /* 16 sectors */
+#define FLASH_SECTOR_TOTAL                   32U                   /* 32 sectors */
 #define FLASH_SECTOR_SIZE                    0x00002000UL          /* 8 KB       */
-#define FLASH_SIZE                           0x00020000UL          /* 128 KB     */
-#define FLASH_BANK_SIZE                      FLASH_SIZE            /* 128 KB     */
+#define FLASH_SIZE                           0x00040000UL          /* 256 KB     */
+#define FLASH_BANK_SIZE                      FLASH_SIZE            /* 256 KB     */
 #define FLASH_LATENCY_DEFAULT                FLASH_ACR_LATENCY_3WS /* FLASH Three Latency cycles */
 #define FLASH_NB_32BITWORD_IN_FLASHWORD      4U                    /* 128 bits */
+#define DUAL_BANK                                                  /* Dual-bank Flash */
 
 /*******************  Bits definition for FLASH_ACR register  **********************/
 #define FLASH_ACR_LATENCY_Pos                (0U)
