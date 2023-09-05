@@ -8,6 +8,7 @@ enum gnwmanager_status { // For signaling program status to computer
     GNWMANAGER_STATUS_BAD_HASH_FLASH   = 0xbad00002,
     GNWMANAGER_STATUS_NOT_ALIGNED     = 0xbad00003,
     GNWMANAGER_STATUS_BAD_DECOMPRESS  = 0xbad00004,
+    GNWMANAGER_STATUS_BAD_SEGFAULT   = 0xbad00005,
 
     GNWMANAGER_STATUS_IDLE            = 0xcafe0000,
     GNWMANAGER_STATUS_ERASE     ,

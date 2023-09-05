@@ -27,6 +27,7 @@
 #include "lcd.h"
 #include <string.h>
 #include "gnwmanager.h"
+#include "gnwmanager_gui.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -1042,12 +1043,15 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
-  while(1) {
-    // Blink display to indicate failure
-    lcd_backlight_off();
-    HAL_Delay(500);
-    lcd_backlight_on();
-    HAL_Delay(500);
+  gnwmanager_status_t status = GNWMANAGER_STATUS_BAD_SEGFAULT;
+  gui.status = &status;
+
+  gui_fill(GUI_BACKGROUND_COLOR);
+  gnwmanager_gui_draw();
+
+  volatile int i = 1;  // Prevents optimizer from optimizing out infinite loop.
+  while(i) {
+    wdog_refresh();
   }
   /* USER CODE END Error_Handler_Debug */
 }
