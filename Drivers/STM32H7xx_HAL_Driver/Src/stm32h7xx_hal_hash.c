@@ -1807,6 +1807,8 @@ static HAL_StatusTypeDef HASH_WriteData(HASH_HandleTypeDef *hhash, uint8_t *pInB
     HASH->DIN = *(uint32_t*)inputaddr;
     inputaddr+=4U;
 
+    wdog_refresh();
+
     /* If the suspension flag has been raised and if the processing is not about
     to end, suspend processing */
     if ((hhash->SuspendRequest == HAL_HASH_SUSPEND) && ((buffercounter+4U) < Size))

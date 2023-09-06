@@ -436,6 +436,7 @@ static void gnwmanager_run(void)
                 program_offset += 16;
                 working_context->buffer += 16;
                 program_bytes_remaining -= 16;
+                wdog_refresh();
             }
             HAL_FLASH_Lock();
             state++;
