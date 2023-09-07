@@ -49,6 +49,7 @@ extern ADC_HandleTypeDef hadc1;
 extern DAC_HandleTypeDef hdac1;
 extern DAC_HandleTypeDef hdac2;
 #endif
+extern IWDG_HandleTypeDef hiwdg1;
 extern LTDC_HandleTypeDef hltdc;
 extern OSPI_HandleTypeDef hospi1;
 extern RTC_HandleTypeDef hrtc;
@@ -58,7 +59,6 @@ extern DMA_HandleTypeDef hdma_sai1_a;
 #endif
 extern SPI_HandleTypeDef hspi2;
 extern TIM_HandleTypeDef htim1;
-extern WWDG_HandleTypeDef hwwdg1;
 extern HASH_HandleTypeDef hhash;
 
 /* USER CODE END EC */

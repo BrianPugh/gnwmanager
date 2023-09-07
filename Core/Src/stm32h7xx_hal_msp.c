@@ -779,31 +779,6 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* htim_base)
 
 }
 
-/**
-* @brief WWDG MSP Initialization
-* This function configures the hardware resources used in this example
-* @param hwwdg: WWDG handle pointer
-* @retval None
-*/
-void HAL_WWDG_MspInit(WWDG_HandleTypeDef* hwwdg)
-{
-  if(hwwdg->Instance==WWDG1)
-  {
-  /* USER CODE BEGIN WWDG1_MspInit 0 */
-
-  /* USER CODE END WWDG1_MspInit 0 */
-    /* Peripheral clock enable */
-    __HAL_RCC_WWDG1_CLK_ENABLE();
-    /* WWDG1 interrupt Init */
-    HAL_NVIC_SetPriority(WWDG_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(WWDG_IRQn);
-  /* USER CODE BEGIN WWDG1_MspInit 1 */
-
-  /* USER CODE END WWDG1_MspInit 1 */
-  }
-
-}
-
 #ifdef HAL_SAI_MODULE_ENABLED
 extern DMA_HandleTypeDef hdma_sai1_a;
 

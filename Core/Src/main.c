@@ -54,6 +54,7 @@ DAC_HandleTypeDef hdac1;
 DAC_HandleTypeDef hdac2;
 #endif
 
+IWDG_HandleTypeDef hiwdg1;
 LTDC_HandleTypeDef hltdc;
 
 OSPI_HandleTypeDef hospi1;
@@ -69,8 +70,6 @@ SPI_HandleTypeDef hspi2;
 
 TIM_HandleTypeDef htim1;
 
-WWDG_HandleTypeDef hwwdg1;
-
 HASH_HandleTypeDef hhash;
 
 /* USER CODE BEGIN PV */
@@ -82,6 +81,7 @@ void SystemClock_Config(void);
 static void MPU_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
+static void MX_IWDG1_Init(void);
 static void MX_LTDC_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_OCTOSPI1_Init(void);
@@ -96,7 +96,6 @@ static void MX_RTC_Init(void);
 static void MX_DAC1_Init(void);
 static void MX_DAC2_Init(void);
 #endif
-static void MX_WWDG1_Init(void);
 
 #ifdef HAL_ADC_MODULE_ENABLED
 static void MX_ADC1_Init(void);
@@ -143,6 +142,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
+  MX_IWDG1_Init();
   MX_LTDC_Init();
   MX_SPI2_Init();
   MX_OCTOSPI1_Init();
@@ -154,7 +154,6 @@ int main(void)
   MX_DAC1_Init();
   MX_DAC2_Init();
 #endif
-  MX_WWDG1_Init();
 #ifdef HAL_ADC_MODULE_ENABLED
   MX_ADC1_Init();
 #endif
@@ -526,6 +525,35 @@ static void MX_HASH_Init(void)
 }
 
 /**
+  * @brief IWDG1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_IWDG1_Init(void)
+{
+
+  /* USER CODE BEGIN IWDG1_Init 0 */
+
+  /* USER CODE END IWDG1_Init 0 */
+
+  /* USER CODE BEGIN IWDG1_Init 1 */
+
+  /* USER CODE END IWDG1_Init 1 */
+  hiwdg1.Instance = IWDG1;
+  hiwdg1.Init.Prescaler = IWDG_PRESCALER_4;
+  hiwdg1.Init.Window = 4095;
+  hiwdg1.Init.Reload = 4095;
+  if (HAL_IWDG_Init(&hiwdg1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN IWDG1_Init 2 */
+
+  /* USER CODE END IWDG1_Init 2 */
+
+}
+
+/**
   * @brief LTDC Initialization Function
   * @param None
   * @retval None
@@ -836,36 +864,6 @@ static void MX_TIM1_Init(void)
 }
 
 /**
-  * @brief WWDG1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_WWDG1_Init(void)
-{
-
-  /* USER CODE BEGIN WWDG1_Init 0 */
-
-  /* USER CODE END WWDG1_Init 0 */
-
-  /* USER CODE BEGIN WWDG1_Init 1 */
-
-  /* USER CODE END WWDG1_Init 1 */
-  hwwdg1.Instance = WWDG1;
-  hwwdg1.Init.Prescaler = WWDG_PRESCALER_128;
-  hwwdg1.Init.Window = 127;
-  hwwdg1.Init.Counter = 127;
-  hwwdg1.Init.EWIMode = WWDG_EWI_ENABLE;
-  if (HAL_WWDG_Init(&hwwdg1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN WWDG1_Init 2 */
-
-  /* USER CODE END WWDG1_Init 2 */
-
-}
-
-/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -988,7 +986,7 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 void wdog_refresh()
 {
-    HAL_WWDG_Refresh(&hwwdg1);
+    HAL_IWDG_Refresh(&hiwdg1);
 }
 /* USER CODE END 4 */
 
