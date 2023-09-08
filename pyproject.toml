@@ -41,7 +41,7 @@ pyelftools = ">=0.29"
 autoregistry = "^1.0.0"
 
 [tool.poetry.group.docs.dependencies]
-sphinx = "~6.2.1"
+sphinx = ">=6.2.1,<7.2.0"
 sphinx_rtd_theme = ">=1.2.2,<1.4.0"
 gitpython = ">=3.1.31"
 sphinx-copybutton = "^0.5.2"
