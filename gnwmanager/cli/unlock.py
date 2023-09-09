@@ -201,6 +201,12 @@ def unlock(
             help="Enable/Disable interactive prompts.",
         ),
     ] = True,
+    backup: Annotated[
+        bool,
+        Option(
+            help="Backup device contents first.",
+        ),
+    ] = True,
 ):
     """Backs up and unlocks a stock Game & Watch console."""
     from .main import gnw
@@ -213,7 +219,7 @@ def unlock(
             yield
         finally:
             if interactive:
-                print("complete!\n")
+                print("complete!")
 
     if interactive:
         input("Make sure your Game & Watch is turned on and in the time screen. Press return when ready! ")
@@ -226,12 +232,13 @@ def unlock(
     if interactive:
         print(f"Detected {model} game and watch.")
 
-    with message("Backing up itcm"):
+    if backup:
         itcm = output / f"itcm_backup_{model}.bin"
-        itcm.write_bytes(device.read_itcm())
+        with message(f'Backing up itcm to "{itcm}"'):
+            itcm.write_bytes(device.read_itcm())
 
-    with message("Backing up external flash"):
         external_flash = output / f"flash_backup_{model}.bin"
-        external_flash.write_bytes(device.read_extflash())
+        with message(f'Backing up external flash to "{external_flash}"'):
+            external_flash.write_bytes(device.read_extflash())
 
     raise NotImplementedError
