@@ -141,7 +141,7 @@ def run_app():
     with OCDBackend[early_args.backend](connect_mode) as backend:
         gnw = GnW(backend)
         if len(commands_args) == 1 and (
-            (commands_args[0][0] in ("monitor", "gdb", "gdbserver", "start", "disable-debug", "unlock"))
+            (commands_args[0][0] in ("monitor", "gdb", "gdbserver", "start", "disable-debug"))
             or (commands_args[0][:2] == ["screenshot", "capture"])
         ):
             # Do NOT start the on-device app
