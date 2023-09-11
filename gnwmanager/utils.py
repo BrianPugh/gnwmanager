@@ -68,3 +68,17 @@ def convert_framebuffer(data: bytes) -> Image.Image:
             pixels[x, y] = (red, green, blue)
             index += 2
     return img
+
+
+def chunk_bytes(data: bytes, chunk_size: int):
+    return [data[i : i + chunk_size] for i in range(0, len(data), chunk_size)]
+
+
+def pad_bytes(data: bytes, mod: int, fill: int = 0xFF) -> bytes:
+    if not (0 <= fill <= 0xFF):
+        raise ValueError("Fill value must be a single byte.")
+
+    pad_size = (mod - len(data) % mod) % mod
+    if pad_size == 0:
+        return data
+    return data + (fill.to_bytes() * pad_size)

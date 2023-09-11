@@ -3,7 +3,6 @@ from typer import Option
 from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import int_parser
-from gnwmanager.filesystem import get_flash_params
 
 
 def _infer_block_count(gnw, offset):
@@ -37,16 +36,16 @@ def format(
     """Format device's filesystem."""
     from .main import gnw
 
-    flash_size, block_size = get_flash_params(gnw)
+    if size > gnw.external_flash_size:
+        raise ValueError(f"--size must be <= detected flash size {gnw.external_flash_size}.")
+    if size % gnw.external_flash_block_size != 0:
+        raise ValueError(f"--size must be a multiple of gnw.external_flash_block_size {gnw.external_flash_block_size}.")
+    if offset % gnw.external_flash_block_size != 0:
+        raise ValueError(
+            f"--offset must be a multiple of gnw.external_flash_block_size {gnw.external_flash_block_size}."
+        )
 
-    if size > flash_size:
-        raise ValueError(f"--size must be <= detected flash size {flash_size}.")
-    if size % block_size != 0:
-        raise ValueError(f"--size must be a multiple of block_size {block_size}.")
-    if offset % block_size != 0:
-        raise ValueError(f"--offset must be a multiple of block_size {block_size}.")
-
-    block_count = int(size / block_size)
+    block_count = int(size / gnw.external_flash_block_size)
 
     if block_count == 0:
         # Attempt to infer block_count from a previous filesystem.
