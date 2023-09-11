@@ -7,7 +7,7 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
 
   - repo: https://github.com/psf/black
-    rev: 23.7.0
+    rev: 23.9.1
     hooks:
       - id: black
         args:
@@ -62,7 +62,7 @@ repos:
       - id: codespell
 
   - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.325
+    rev: v1.1.326
     hooks:
       - id: pyright
 
