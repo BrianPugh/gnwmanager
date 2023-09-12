@@ -253,7 +253,6 @@ poetry.toml
 /MXTmpFiles
 
 # GnW Manager
-gnwmanager/firmware.bin
-gnwmanager/unlock.bin
+*.bin
 /screenshot.png
 /backups-*
