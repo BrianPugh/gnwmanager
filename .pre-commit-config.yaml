@@ -1,7 +1,7 @@
 exclude: ^(poetry.lock|.idea/|Drivers/)
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.0.287"
+    rev: "v0.0.290"
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
@@ -62,7 +62,7 @@ repos:
       - id: codespell
 
   - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.326
+    rev: v1.1.327
     hooks:
       - id: pyright
 
