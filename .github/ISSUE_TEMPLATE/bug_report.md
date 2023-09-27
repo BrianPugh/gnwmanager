@@ -1,8 +1,22 @@
-### Environment Details:
-<!-- Please run `gnwmanager --version` and paste the output below. -->
-* GnWManager Version:
-<!-- Please specify what debugging probe you are using (pi pico / stlinkv2 / jlink / daplink). -->
-* Debugger probe:
+---
+name: Bug report
+about: Create a report to help us improve
+title: ''
+labels: bug
+assignees: ''
 
-### Describe The Issue:
-<!-- A clear and concise description of what the bug is. -->
+---
+
+**Describe the bug**
+A clear and concise description of what the bug is.
+
+**To Reproduce**
+Steps to reproduce the behavior:
+
+**Environment (please complete the following information):**
+ - OS:
+ - GnwManager Version: (run `gnwmanager --version`)
+- Debugger Probe: (e.g. `stlinkv2`)
+
+**Additional context**
+Add any other context about the problem here.
