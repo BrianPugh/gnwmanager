@@ -38,16 +38,18 @@ executed from the STM32's RAM.
 ## Installation
 
 It is **highly** recommended to use [pipx](https://pypa.github.io/pipx/installation/) to install GnWManager.
-Currently, GnWManager is not available on PyPI (but the name is reserved) until upstream PRs are merged.
-Until then, the best way to install GnWManager is:
 
 ```bash
-git clone https://github.com/BrianPugh/gnwmanager.git
-cd gnwmanager
-pipx install .
+pipx install gnwmanager
 ```
 
 That's it!
+
+#### Updating
+Update GnWManager as you would any python command line tool installed by `pipx`:
+```bash
+pipx upgrade gnwmanager
+```
 
 ## Compatibility
 GnWManager works with all major operating systems: Windows, Mac, and Linux.
@@ -120,3 +122,6 @@ $ gnwmanager --help
 │ tree              List contents of device directory and its descendants.           │
 ╰────────────────────────────────────────────────────────────────────────────────────╯
 ```
+
+## Need Help?
+If you need any help, either open up a github issue here, or join the [stacksmashing discord](https://discord.gg/zBN3ex8v4p) for live help.
