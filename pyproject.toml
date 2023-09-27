@@ -31,7 +31,7 @@ gnwmanager = "gnwmanager.cli.main:run_app"
 python = ">=3.8"
 typer = ">=0.7.0"
 pyocd = { git = "https://github.com/pyocd/pyOCD.git", branch = "develop" }  # Should be able to swap to v0.36.0 once released
-littlefs-python = { git = "https://github.com/BrianPugh/littlefs-python.git", branch = "develop"}
+littlefs-python = ">=0.8.0"
 typing-extensions = "^4.7.1"
 tqdm = "^4.66.1"
 pillow = "^10.0.0"
