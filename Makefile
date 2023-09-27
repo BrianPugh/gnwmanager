@@ -197,7 +197,7 @@ else
 LDFLAGS += -flto
 endif
 # default action: build all
-all: $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).hex $(BUILD_DIR)/$(TARGET).bin
+all: gnwmanager/firmware.bin gnwmanager/unlock.bin
 
 
 #######################################
@@ -209,6 +209,12 @@ vpath %.c $(sort $(dir $(C_SOURCES)))
 # list of ASM program objects
 OBJECTS += $(addprefix $(BUILD_DIR)/,$(notdir $(ASM_SOURCES:.s=.o)))
 vpath %.s $(sort $(dir $(ASM_SOURCES)))
+
+$(BUILD_DIR)/unlock.elf: Core/Src/unlock.s | $(BUILD_DIR)
+	arm-none-eabi-as $< -march=armv7e-m -o $@
+
+$(BUILD_DIR)/unlock.bin: $(BUILD_DIR)/unlock.elf
+	@$(OBJCOPY) -O binary $< $@
 
 $(BUILD_DIR)/%.o: %.c Makefile | $(BUILD_DIR)
 	@$(CC) -c $(CFLAGS) $< -o $@
@@ -223,7 +229,7 @@ $(BUILD_DIR)/$(TARGET).elf: $(OBJECTS) Makefile
 $(BUILD_DIR)/%.hex: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
 	@$(HEX) $< $@
 
-$(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
+$(BUILD_DIR)/$(TARGET).bin: $(BUILD_DIR)/$(TARGET).elf | $(BUILD_DIR)
 	@$(V)$(BIN) \
 		-j .isr_vector \
 		-j .text \
@@ -234,7 +240,12 @@ $(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
 		-j .fini_array \
 		-j .data \
 		$< $@
-	@$(CP) $(call FIX_PATH, $@) $(call FIX_PATH, gnwmanager$(PATH_SEP)firmware.bin)
+
+gnwmanager/firmware.bin: $(BUILD_DIR)/$(TARGET).bin
+	@$(CP) $(call FIX_PATH, $<) $(call FIX_PATH, $@)
+
+gnwmanager/unlock.bin: $(BUILD_DIR)/unlock.bin
+	@$(CP) $(call FIX_PATH, $<) $(call FIX_PATH, $@)
 
 $(BUILD_DIR):
 	@mkdir $@

@@ -5,12 +5,12 @@ from gnwmanager.ocdbackend.base import OCDBackend
 
 
 class PyOCDBackend(OCDBackend):
-    def __init__(self):
+    def __init__(self, connect_mode="attach"):
         super().__init__()
         from pyocd.core.helpers import ConnectHelper
 
         options = {
-            "connect_mode": "attach",
+            "connect_mode": connect_mode,
             "warning.cortex_m_default": False,
             "persist": True,
             "target_override": "STM32H7B0xx",
@@ -19,6 +19,7 @@ class PyOCDBackend(OCDBackend):
         session = ConnectHelper.session_with_chosen_probe(options=options)
         assert session is not None
         self.session = session
+        self._frequency_override = 0
 
     @property
     def target(self):
@@ -33,6 +34,7 @@ class PyOCDBackend(OCDBackend):
         return probe
 
     def set_frequency(self, freq: int):
+        self._frequency_override = freq
         self.probe.set_clock(freq)
 
     def _set_default_frequency(self):
@@ -47,11 +49,14 @@ class PyOCDBackend(OCDBackend):
         }
 
         with suppress(KeyError):
-            self.set_frequency(lookup[name])
+            self.probe.set_clock(lookup[name])
 
     def open(self) -> OCDBackend:
         self.session.open()
-        self._set_default_frequency()
+        if self._frequency_override:
+            self.set_frequency(self._frequency_override)
+        else:
+            self._set_default_frequency()
         return self
 
     def close(self):

@@ -12,7 +12,6 @@ from typer import Option
 from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import int_parser
-from gnwmanager.elf import find_elf
 from gnwmanager.utils import convert_framebuffer
 
 app = typer.Typer(
@@ -106,7 +105,7 @@ def gdb(
     from .main import gnw
 
     if elf is None:
-        elf = find_elf()
+        elf = Path("build/gnwmanager.elf")
 
     gdb_executable = os.environ.get("GDB", "arm-none-eabi-gdb")
 

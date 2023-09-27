@@ -1,12 +1,16 @@
+from collections import namedtuple
 from copy import deepcopy
+from functools import lru_cache
 from math import ceil
 from time import sleep, time
-from typing import Dict, List, Literal, NamedTuple, Optional, Union
+from typing import Dict, List, Literal, NamedTuple, Optional, Tuple, Union
+
+from tqdm import tqdm
 
 from gnwmanager.exceptions import DataError
 from gnwmanager.ocdbackend import OCDBackend
 from gnwmanager.status import flashapp_status_enum_to_str
-from gnwmanager.utils import EMPTY_HASH_DIGEST, compress_lzma, sha256
+from gnwmanager.utils import EMPTY_HASH_DIGEST, chunk_bytes, compress_lzma, pad_bytes, sha256
 from gnwmanager.validation import validate_extflash_offset, validate_intflash_offset
 
 
@@ -91,6 +95,20 @@ class GnW:
     def __init__(self, backend: OCDBackend):
         self.backend = backend
         self.contexts = deepcopy(_contexts)
+        self._external_flash_size = 0
+        self._external_flash_block_size = 0
+
+    @property
+    def external_flash_size(self) -> int:
+        if self._external_flash_size == 0:
+            self._external_flash_size = self.read_uint32("flash_size")
+        return self._external_flash_size
+
+    @property
+    def external_flash_block_size(self) -> int:
+        if self._external_flash_block_size == 0:
+            self._external_flash_block_size = self.read_uint32("min_erase_size")
+        return self._external_flash_block_size
 
     def read_uint32(self, key: Union[int, str, Variable]) -> int:
         return self.backend.read_uint32(_key_to_address(key))
@@ -297,8 +315,37 @@ class GnW:
         if blocking:
             self.wait_for_all_contexts_complete()
 
+    def flash(
+        self,
+        bank: Literal[0, 1, 2],
+        offset: int,
+        data: bytes,
+        progress: bool = False,
+    ):
+        """High level convenience function for flashing any-length data to any flash location."""
+        if bank == 0:
+            data = pad_bytes(data, self.external_flash_block_size)
+            if len(data) > self.external_flash_size:
+                raise ValueError("Data cannot fit into external flash.")
+
+            self._flash_ext(offset, data, progress=progress)
+        elif bank in (0, 1):
+            data = pad_bytes(data, 8192)
+            if len(data) > (256 << 10):
+                raise ValueError("Data cannot fit into internal flash.")
+
+            self.program(bank, offset, data)
+        else:
+            raise ValueError
+
     def erase(
-        self, bank: Literal[0, 1, 2], offset: int, size: int, blocking: bool = True, whole_chip: bool = False, **kwargs
+        self,
+        bank: Literal[0, 1, 2],
+        offset: int,
+        size: int,
+        blocking: bool = True,
+        whole_chip: bool = False,
+        **kwargs,
     ) -> None:
         """Perform a flash erase.
 
@@ -359,3 +406,30 @@ class GnW:
 
         if blocking:
             self.wait_for_all_contexts_complete(**kwargs)
+
+    def _flash_ext(
+        self,
+        offset: int,
+        data: bytes,
+        progress: bool = False,
+    ):
+        validate_extflash_offset(offset)
+
+        device_hashes = self.read_hashes(offset, len(data))
+
+        chunk_size = self.contexts[0]["buffer"].size  # Assumes all contexts have same size buffer
+        chunks = chunk_bytes(data, chunk_size)
+        len(chunks)
+        [sha256(chunk) for chunk in chunks]
+
+        Packet = namedtuple("Packet", ["addr", "data"])
+        packets = [Packet(offset + i * chunk_size, chunk) for i, chunk in enumerate(chunks)]
+
+        # Remove packets where the hash already matches
+        packets = [packet for packet, device_hash in zip(packets, device_hashes) if sha256(packet.data) != device_hash]
+
+        for i, packet in enumerate(tqdm(packets) if progress else packets):
+            self.program(0, packet.addr, packet.data, blocking=False)
+            self.write_uint32("progress", int(26 * (i + 1) / len(packets)))
+
+        self.wait_for_all_contexts_complete()

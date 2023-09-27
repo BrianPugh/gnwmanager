@@ -30,6 +30,7 @@ from . import (
     shell,
     start,
     tree,
+    unlock,
 )
 
 gnw: GnW
@@ -52,6 +53,7 @@ app.command()(push.push)
 app.command()(shell.shell)
 app.command()(start.start)
 app.command()(tree.tree)
+# app.command()(unlock.unlock)  # TODO: The ``unlock`` command doesn't fully work yet.
 
 
 def version_callback(value: bool):
@@ -131,10 +133,9 @@ def run_app():
             app(args=args, prog_name="gnwmanager")
 
         command = args[0]
-        if command in ("shell", "gdb", "monitor", "gdbserver") and not is_last:
+        if command in ("shell", "gdb", "monitor", "gdbserver", "unlock") and not is_last:
             raise ValueError(f'Command "{command}" must be the final chained command.')
 
-    # Frequency needs to be set prior to connecting.
     with OCDBackend[early_args.backend]() as backend:
         gnw = GnW(backend)
         if len(commands_args) == 1 and (

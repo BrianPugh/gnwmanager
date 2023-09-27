@@ -1054,6 +1054,16 @@ void Error_Handler(void)
   /* USER CODE END Error_Handler_Debug */
 }
 
+void HAL_Delay(uint32_t Delay)
+{
+  while (Delay--) {
+    // Accurate at 48MHz sysclock
+    for (volatile int i = 0; i < 2 * 48000 / 3; i++) {
+      __NOP();
+    }
+  }
+}
+
 #ifdef  USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number

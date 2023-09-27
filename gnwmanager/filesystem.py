@@ -53,13 +53,6 @@ class LfsDriverContext(UserContext):
         return 0
 
 
-@lru_cache
-def get_flash_params(gnw: GnW) -> Tuple[int, int]:
-    flash_size = gnw.read_uint32("flash_size")
-    block_size = gnw.read_uint32("min_erase_size")
-    return flash_size, block_size
-
-
 def get_filesystem(gnw: GnW, offset: int = 0, block_count=0, mount=True) -> LittleFS:
     """Get LittleFS filesystem handle.
 
@@ -74,13 +67,12 @@ def get_filesystem(gnw: GnW, offset: int = 0, block_count=0, mount=True) -> Litt
         Number of blocks in filesystem.
         Defaults to ``0`` (infer from existing filesystem).
     """
-    flash_size, block_size = get_flash_params(gnw)
-    filesystem_end = flash_size - offset
+    filesystem_end = gnw.external_flash_size - offset
     lfs_context = LfsDriverContext(gnw, filesystem_end)
 
     fs = LittleFS(
         lfs_context,
-        block_size=block_size,
+        block_size=gnw.external_flash_block_size,
         block_count=block_count,
         block_cycles=500,
         mount=False,  # Separately mount to not trigger a format-on-corruption
