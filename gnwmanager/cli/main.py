@@ -53,7 +53,7 @@ app.command()(push.push)
 app.command()(shell.shell)
 app.command()(start.start)
 app.command()(tree.tree)
-app.command()(unlock.unlock)
+# app.command()(unlock.unlock)  # TODO: The ``unlock`` command doesn't fully work yet.
 
 
 def version_callback(value: bool):
@@ -136,9 +136,7 @@ def run_app():
         if command in ("shell", "gdb", "monitor", "gdbserver", "unlock") and not is_last:
             raise ValueError(f'Command "{command}" must be the final chained command.')
 
-    connect_mode = "attach"  # "halt" if commands_args[-1][0] == "unlock" else "attach"
-
-    with OCDBackend[early_args.backend](connect_mode) as backend:
+    with OCDBackend[early_args.backend]() as backend:
         gnw = GnW(backend)
         if len(commands_args) == 1 and (
             (commands_args[0][0] in ("monitor", "gdb", "gdbserver", "start", "disable-debug"))

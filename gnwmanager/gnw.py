@@ -322,7 +322,7 @@ class GnW:
         data: bytes,
         progress: bool = False,
     ):
-        """High level convenience function for flashing any-length data to any location."""
+        """High level convenience function for flashing any-length data to any flash location."""
         if bank == 0:
             data = pad_bytes(data, self.external_flash_block_size)
             if len(data) > self.external_flash_size:
