@@ -11,15 +11,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: arm-none-eabi-gcc GNU Arm Embedded Toolchain
-        uses: carlosperate/arm-none-eabi-gcc-action@v1.7.1
-
       - name: Build and publish to pypi
         uses: JRubics/poetry-publish@v1.16
         with:
           pypi_token: ${{ secrets.PYPI_TOKEN }}
           ignore_dev_requirements: "yes"
           plugins: "poetry-dynamic-versioning[plugin]"
+          extra_build_dependency_packages: "gcc-arm-none-eabi"
 
       - uses: actions/upload-artifact@v3
         if: always()
