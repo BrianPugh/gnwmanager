@@ -30,7 +30,7 @@ gnwmanager = "gnwmanager.cli.main:run_app"
 # Be as loose as possible if writing a library.
 python = ">=3.8"
 typer = ">=0.7.0"
-pyocd = { git = "https://github.com/pyocd/pyOCD.git", branch = "develop" }  # Should be able to swap to v0.36.0 once released
+pyocd = ">=0.35.1"
 littlefs-python = ">=0.8.0"
 typing-extensions = "^4.7.1"
 tqdm = "^4.66.1"

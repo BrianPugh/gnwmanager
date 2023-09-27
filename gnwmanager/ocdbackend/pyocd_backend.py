@@ -8,14 +8,17 @@ class PyOCDBackend(OCDBackend):
     def __init__(self, connect_mode="attach"):
         super().__init__()
         from pyocd.core.helpers import ConnectHelper
+        from pyocd.target import TARGET
 
         options = {
             "connect_mode": connect_mode,
             "warning.cortex_m_default": False,
             "persist": True,
-            "target_override": "STM32H7B0xx",
-            "jlink.device": "STM32H7B0VB",
         }
+        if "stm32h7b0xx" in TARGET:  # pyocd prior to v0.36.0 doesn't have this builtin.
+            options["target_override"] = "STM32h7b0xx"
+            options["jlink.device"] = "STM32H7B0VB"
+
         session = ConnectHelper.session_with_chosen_probe(options=options)
         assert session is not None
         self.session = session

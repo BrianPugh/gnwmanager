@@ -1413,20 +1413,22 @@ six = "*"
 
 [[package]]
 name = "pyocd"
-version = "0.0.0"
+version = "0.35.1"
 description = "Cortex-M debugger for Python"
 optional = false
 python-versions = ">=3.7.0"
-files = []
-develop = false
+files = [
+    {file = "pyocd-0.35.1-py3-none-any.whl", hash = "sha256:b1e0ee1951a2f3b098ef830a02c4046d76295b9d8834df785b63109f46977da4"},
+    {file = "pyocd-0.35.1.tar.gz", hash = "sha256:02e8084f4d3b26d4d7c7470bb470fd4edc6c2bf2ba781e3dd94da4f84571c975"},
+]
 
 [package.dependencies]
 capstone = ">=4.0,<5.0"
 cmsis-pack-manager = ">=0.5.2,<1.0"
 colorama = "<1.0"
 hidapi = {version = ">=0.10.1,<1.0", markers = "platform_system != \"Linux\""}
-importlib_metadata = ">=3.6"
-importlib_resources = "*"
+importlib-metadata = ">=3.6"
+importlib-resources = "*"
 intelhex = ">=2.0,<3.0"
 intervaltree = ">=3.0.2,<4.0"
 lark = ">=1.1.5,<2.0"
@@ -1441,14 +1443,8 @@ six = ">=1.15.0,<2.0"
 typing-extensions = ">=4.0,<5.0"
 
 [package.extras]
-pemicro = ["pyocd_pemicro (>=1.0.6)"]
+pemicro = ["pyocd-pemicro (>=1.0.6)"]
 test = ["coverage", "flake8", "pylint", "pytest (>=6.2)", "pytest-cov", "tox"]
-
-[package.source]
-type = "git"
-url = "https://github.com/pyocd/pyOCD.git"
-reference = "develop"
-resolved_reference = "c684bdf3b6d471bb881071ece1755b5094c8cd86"
 
 [[package]]
 name = "pytest"
@@ -2087,4 +2083,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8"
-content-hash = "473533669d517ed66eb5958498f7b974c9b25569ed5d7d64a7b17fad5fa2683f"
+content-hash = "ade1ea6ed529ed809743d773b2a709063bd6f312d97ac9d662d8b977e7301bcc"
