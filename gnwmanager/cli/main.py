@@ -1,4 +1,5 @@
 import argparse
+import logging
 from enum import Enum
 from typing import Optional
 
@@ -101,6 +102,11 @@ def common(
 
 def run_app():
     global gnw
+
+    # Suppresses log messages like:
+    #    * "Invalid coresight component"
+    #    * "Error attempting to probe CoreSight component referenced by ROM table entry #5"
+    logging.getLogger("pyocd").setLevel(logging.CRITICAL)
 
     # Easier for all downstream typehinting, it's only ever None
     # early in the process.
