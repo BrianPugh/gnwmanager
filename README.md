@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://github.com/BrianPugh/gnwmanager/blob/main/assets/screenshot.png">
+  <img src="https://raw.githubusercontent.com/BrianPugh/gnwmanager/main/assets/screenshot.png">
 </div>
 
 <div align="center">
