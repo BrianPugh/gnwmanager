@@ -1413,13 +1413,13 @@ six = "*"
 
 [[package]]
 name = "pyocd"
-version = "0.35.1"
+version = "0.36.0"
 description = "Cortex-M debugger for Python"
 optional = false
 python-versions = ">=3.7.0"
 files = [
-    {file = "pyocd-0.35.1-py3-none-any.whl", hash = "sha256:b1e0ee1951a2f3b098ef830a02c4046d76295b9d8834df785b63109f46977da4"},
-    {file = "pyocd-0.35.1.tar.gz", hash = "sha256:02e8084f4d3b26d4d7c7470bb470fd4edc6c2bf2ba781e3dd94da4f84571c975"},
+    {file = "pyocd-0.36.0-py3-none-any.whl", hash = "sha256:422ec017f1c0be2fe8f7d43e7e73dfe8fdb413d53685a24d68d09c7d95ac11b3"},
+    {file = "pyocd-0.36.0.tar.gz", hash = "sha256:937782acc9daff054d50fb7c6f788cd94a84f80f0b85f25aacab99dc98228648"},
 ]
 
 [package.dependencies]
