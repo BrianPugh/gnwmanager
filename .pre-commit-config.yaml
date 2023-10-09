@@ -1,7 +1,7 @@
 exclude: ^(poetry.lock|.idea/|Drivers/)
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.0.291"
+    rev: "v0.0.292"
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
@@ -28,7 +28,7 @@ repos:
           - "--line-length=120"
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v4.5.0
     hooks:
       - id: check-added-large-files
       - id: check-ast
@@ -55,14 +55,14 @@ repos:
         exclude: \.(html|svg)$
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.5
+    rev: v2.2.6
     additional_dependencies:
       - tomli
     hooks:
       - id: codespell
 
   - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.329
+    rev: v1.1.330.post0
     hooks:
       - id: pyright
 
