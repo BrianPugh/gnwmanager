@@ -81,4 +81,4 @@ def pad_bytes(data: bytes, mod: int, fill: int = 0xFF) -> bytes:
     pad_size = (mod - len(data) % mod) % mod
     if pad_size == 0:
         return data
-    return data + (fill.to_bytes() * pad_size)
+    return data + (fill.to_bytes(length=1, byteorder="little") * pad_size)
