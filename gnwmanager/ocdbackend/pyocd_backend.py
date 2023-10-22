@@ -1,7 +1,13 @@
 from contextlib import suppress
 from time import sleep
 
-from gnwmanager.ocdbackend.base import OCDBackend
+from gnwmanager.ocdbackend.base import OCDBackend, TransferErrors
+
+with suppress(ImportError):
+    from pyocd.core.exceptions import TransferFaultError, TransferTimeoutError
+
+    TransferErrors.add(TransferFaultError)
+    TransferErrors.add(TransferTimeoutError)
 
 
 class PyOCDBackend(OCDBackend):
