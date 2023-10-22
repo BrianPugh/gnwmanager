@@ -2,6 +2,8 @@ from abc import abstractmethod
 
 from autoregistry import Registry
 
+TransferErrors = set()
+
 
 class OCDBackend(Registry, suffix="Backend"):
     """Abstraction for handling lower level memory read/writes."""

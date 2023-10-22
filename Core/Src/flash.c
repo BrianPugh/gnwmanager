@@ -354,8 +354,7 @@ const jedec_config_t jedec_map[] = {
     JEDEC_CONFIG_DEF(0x01, 0x02, 0x20, "S25FS512S",   &config_quad_32b_s, 64 << 20), // 64 MB
     JEDEC_CONFIG_DEF(0x34, 0x2B, 0x1A, "S25FS512S",   &config_quad_32b_s, 64 << 20), // 64 MB
 
-    // ISSI 24 bit *untested*
-    // TODO: Test and uncomment when it's confirmed they work well.
+    // ISSI 24 bit
     JEDEC_CONFIG_DEF(0x9D, 0x70, 0x18, "IS25WP128F",  &config_quad_24b_issi, 16 << 20), // 16MB
 
 	// Winbond 24 bit address

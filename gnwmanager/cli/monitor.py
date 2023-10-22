@@ -3,11 +3,11 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Optional
 
-from pyocd.core.exceptions import TransferFaultError, TransferTimeoutError
 from typer import Option
 from typing_extensions import Annotated
 
 from gnwmanager.elf import SymTab
+from gnwmanager.ocdbackend import TransferErrors
 
 
 def monitor(
@@ -40,7 +40,7 @@ def monitor(
 
     last_idx = 0
     while True:
-        with suppress(TransferFaultError, TransferTimeoutError):  # TODO: abstract this out to ocdbackend
+        with suppress(*TransferErrors):
             log_idx = gnw.read_uint32(logidx_addr)
 
             if log_idx > last_idx:
