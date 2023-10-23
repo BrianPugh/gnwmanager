@@ -8,7 +8,7 @@ from autoregistry import Registry
 from typer import Argument, Context, Option
 from typing_extensions import Annotated
 
-installable_programs = Registry()
+installable_programs = Registry(hyphen=True)
 
 
 def _install_from_available_package_manager(install_cmds: Dict[str, List[List[str]]]):
@@ -40,6 +40,26 @@ def openocd(platform: str):
         },
     }
 
+    _install_from_available_package_manager(install_cmds[platform])
+
+
+@installable_programs
+def arm_toolchain(platform: str):
+    install_cmds = {
+        "linux": {
+            "apt-get": [["sudo", "apt-get", "update"], ["sudo", "apt-get", "install", "gcc-arm-none-eabi"]],
+            "pacman": [["sudo", "pacman", "-Sy", "arm-none-eabi-gcc"]],
+            "yum": [["sudo", "yum", "install", "arm-none-eabi-newlib", "arm-none-eabi-gcc-cs"]],
+            "dnf": [["sudo", "dnf", "install", "arm-none-eabi-newlib", "arm-none-eabi-gcc-cs"]],
+            "zypper": [["sudo", "zypper", "install", "cross-arm-none-gcc-cs"]],
+        },
+        "darwin": {
+            "brew": [["brew", "install", "arm-gcc-bin"]],
+        },
+        "win32": {
+            "choco": [["choco", "install", "gcc-arm-embedded"]],
+        },
+    }
     _install_from_available_package_manager(install_cmds[platform])
 
 
