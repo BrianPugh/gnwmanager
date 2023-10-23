@@ -1,4 +1,7 @@
+import os
 import socket
+import subprocess
+from time import sleep
 
 from gnwmanager.ocdbackend.base import OCDBackend
 
@@ -8,12 +11,23 @@ _BUFFER_SIZE = 4096
 
 
 class OpenOCDBackend(OCDBackend):
-    def __init__(self, connect_mode="attach", host="localhost", port=6666):
+    def __init__(self, connect_mode="attach", port=6666):
         super().__init__()
-        self._address = (host, port)
+        self._address = ("localhost", port)
+
+        openocd_executable = os.environ.get("OPENOCD", "openocd")
+        self._openocd_cmd = [
+            openocd_executable,
+            "-c",
+            f"tcl_port {port}",
+        ]
+
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._openocd_process = None
 
     def open(self) -> OCDBackend:
+        self._openocd_process = subprocess.Popen(self._openocd_cmd)
+        sleep(5.0)
         self._socket.connect(self._address)
         return self
 
@@ -22,6 +36,10 @@ class OpenOCDBackend(OCDBackend):
             self("exit")
         finally:
             self._socket.close()
+            if self._openocd_process and self._openocd_process.poll() is None:
+                self._openocd_process.terminate()
+                self._openocd_process.wait()
+            self._openocd_process = None
 
     def __call__(self, cmd: str) -> bytes:
         """Invoke an OpenOCD command."""
