@@ -329,7 +329,7 @@ class GnW:
                 raise ValueError("Data cannot fit into external flash.")
 
             self._flash_ext(offset, data, progress=progress)
-        elif bank in (0, 1):
+        elif bank in (1, 2):
             data = pad_bytes(data, 8192)
             if len(data) > (256 << 10):
                 raise ValueError("Data cannot fit into internal flash.")
