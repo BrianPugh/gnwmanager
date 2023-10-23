@@ -4,18 +4,26 @@ import subprocess
 from time import sleep
 from typing import Generator, List
 
-from gnwmanager.ocdbackend.base import OCDBackend
+from gnwmanager.ocdbackend.base import OCDBackend, TransferErrors
 
 _COMMAND_TOKEN_STR = "\x1a"
 _COMMAND_TOKEN_BYTES = _COMMAND_TOKEN_STR.encode("utf-8")
 _BUFFER_SIZE = 4096
 
 
-class OpenOCDAutoDetectError(Exception):
+class OpenOCDError(Exception):
+    pass
+
+
+class OpenOCDAutoDetectError(OpenOCDError):
     """Was unable to detect a debugging probe."""
 
 
+TransferErrors.add(OpenOCDError)
+
+
 def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
+    """Generate possible openocd launch commands for different debugging probes."""
     openocd_executable = os.environ.get("OPENOCD", "openocd")
     base_cmd = [
         openocd_executable,
@@ -60,13 +68,18 @@ def _launch_openocd(port: int) -> subprocess.Popen[bytes]:
     for cmd in _openocd_launch_commands(port):
         print(cmd)
         # TODO: swallow IO
-        process = subprocess.Popen(cmd)
-        sleep(0.3)
+        process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        sleep(0.1)
         if process.poll() is None:
             # Process is still running
             # it didn't immediately close due to not detecting probe.
             return process
     raise OpenOCDAutoDetectError
+
+
+def _convert_hex_string_to_bytes(hex_string: bytes) -> bytes:
+    res = bytes(int(h, 16) for h in hex_string.decode().split())
+    return res
 
 
 class OpenOCDBackend(OCDBackend):
@@ -107,7 +120,11 @@ class OpenOCDBackend(OCDBackend):
                 responses[-1] = responses[-1][:-1]
                 break
 
-        return b"".join(responses)
+        response = b"".join(responses)
+        if b"fail" in response:
+            raise OpenOCDError(f"Bad response: {response}")
+
+        return _convert_hex_string_to_bytes(response)
 
     def read_memory(self, addr: int, size: int) -> bytes:
         """Reads a block of memory."""
@@ -116,7 +133,7 @@ class OpenOCDBackend(OCDBackend):
     def write_memory(self, addr: int, data: bytes):
         """Writes a block of memory."""
         tcl_list = "{" + " ".join([hex(x) for x in data]) + "}"
-        return self(f"write_memory 0x{addr:08X} 32 {tcl_list}")
+        self(f"write_memory 0x{addr:08X} 32 {tcl_list}")
 
     def read_register(self, name: str) -> int:
         """Read from a 32-bit core register."""
