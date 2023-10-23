@@ -66,20 +66,17 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
 
 def _launch_openocd(port: int) -> subprocess.Popen[bytes]:
     for cmd in _openocd_launch_commands(port):
-        print(cmd)
-        # TODO: swallow IO
         process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         sleep(0.1)
         if process.poll() is None:
             # Process is still running
-            # it didn't immediately close due to not detecting probe.
+            # it didn't immediately close (probably due to not detecting probe).
             return process
     raise OpenOCDAutoDetectError
 
 
-def _convert_hex_string_to_bytes(hex_string: bytes) -> bytes:
-    res = bytes(int(h, 16) for h in hex_string.decode().split())
-    return res
+def _convert_hex_str_to_bytes(hex_str: bytes) -> bytes:
+    return bytes(int(h, 16) for h in hex_str.decode().split())
 
 
 class OpenOCDBackend(OCDBackend):
@@ -104,12 +101,12 @@ class OpenOCDBackend(OCDBackend):
                 self._openocd_process.wait()
             self._openocd_process = None
 
-    def __call__(self, cmd: str) -> bytes:
+    def __call__(self, cmd: str, *, decode=True) -> bytes:
         """Invoke an OpenOCD command."""
         self._socket.send(cmd.encode("utf-8") + _COMMAND_TOKEN_BYTES)
-        return self._receive_response()
+        return self._receive_response(decode=decode)
 
-    def _receive_response(self) -> bytes:
+    def _receive_response(self, *, decode=True) -> bytes:
         responses = []
 
         while True:
@@ -124,7 +121,10 @@ class OpenOCDBackend(OCDBackend):
         if b"fail" in response:
             raise OpenOCDError(f"Bad response: {response}")
 
-        return _convert_hex_string_to_bytes(response)
+        if decode:
+            response = _convert_hex_str_to_bytes(response)
+
+        return response
 
     def read_memory(self, addr: int, size: int) -> bytes:
         """Reads a block of memory."""
@@ -137,16 +137,17 @@ class OpenOCDBackend(OCDBackend):
 
     def read_register(self, name: str) -> int:
         """Read from a 32-bit core register."""
-        raise NotImplementedError
+        response = self(f"reg {name.lower()}", decode=False).decode()
+        return int(response.split()[-1], 16)
 
     def write_register(self, name: str, val: int):
         """Write to a 32-bit core register."""
-        return self(f"set {name.upper()} {val}")
+        self(f"reg {name.lower()} {val}", decode=False)
 
     def set_frequency(self, freq: int):
         """Set probe frequency in hertz."""
         freq_khz = round(freq / 1000)
-        self(f"adapter speed {freq_khz}")
+        self(f"adapter speed {freq_khz}", decode=False)
 
     def reset(self):
         """Reset target."""
