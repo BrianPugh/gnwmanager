@@ -66,7 +66,7 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
 
 def _launch_openocd(port: int) -> subprocess.Popen[bytes]:
     for cmd in _openocd_launch_commands(port):
-        process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        process = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         sleep(0.1)
         if process.poll() is None:
             # Process is still running
