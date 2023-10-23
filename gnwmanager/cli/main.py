@@ -36,7 +36,12 @@ from . import (
 
 gnw: GnW
 
-app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False, add_completion=False)
+app = typer.Typer(
+    no_args_is_help=True,
+    pretty_exceptions_enable=False,
+    add_completion=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
 app.add_typer(debug.app, name="debug")
 app.add_typer(screenshot.app, name="screenshot")
 app.command()(disable_debug.disable_debug)
@@ -134,7 +139,7 @@ def run_app():
 
     for i, args in enumerate(commands_args):
         is_last = i == (len(commands_args) - 1)
-        if not args or "--help" in args or "--version" in args:
+        if not args or {"-v", "--version", "-h", "--help"}.intersection(args):
             # Early help and version print without having to session
             app(args=args, prog_name="gnwmanager")
 
