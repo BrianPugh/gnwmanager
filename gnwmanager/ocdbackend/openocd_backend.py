@@ -167,4 +167,7 @@ class OpenOCDBackend(OCDBackend):
 
     def start_gdbserver(self, port, logging=True, blocking=True):
         """Start a blocking GDB Server."""
-        raise NotImplementedError
+        # openocd already starts a gdb server
+        if blocking:
+            while True:
+                sleep(1)
