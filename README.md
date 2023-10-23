@@ -110,6 +110,7 @@ $ gnwmanager --help
 │ format            Format device's filesystem.                                      │
 │ gdb               Launch a gdbserver and connect to it with gdb.                   │
 │ gdbserver         Launch a gdbserver.                                              │
+│ install           Install third party executables, like openocd.                   │
 │ ls                List contents of device directory.                               │
 │ mkdir             Create a directory on device.                                    │
 │ monitor           Monitor the device's stdout logging buffer.                      │
