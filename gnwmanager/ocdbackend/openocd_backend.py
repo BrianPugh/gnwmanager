@@ -1,11 +1,12 @@
 import os
 import socket
 import subprocess
+import tempfile
+from pathlib import Path
 from time import sleep
 from typing import Generator, List
 
 from gnwmanager.ocdbackend.base import OCDBackend, TransferErrors
-from gnwmanager.utils import chunk_bytes
 
 _COMMAND_TOKEN_STR = "\x1a"
 _COMMAND_TOKEN_BYTES = _COMMAND_TOKEN_STR.encode("utf-8")
@@ -129,15 +130,33 @@ class OpenOCDBackend(OCDBackend):
 
     def read_memory(self, addr: int, size: int) -> bytes:
         """Reads a block of memory."""
-        return self(f"read_memory 0x{addr:08X} 8 {size}")
+        if size <= 64:
+            return self(f"read_memory 0x{addr:08X} 8 {size}")
+        else:
+            with tempfile.NamedTemporaryFile() as temp_file:
+                temp_file = Path(temp_file.name)
+                res = self(f"dump_image {temp_file} 0x{addr:08X} {size}", decode=False).decode()
+                expected_str = f"dumped {size} bytes"
+                if expected_str not in res:
+                    raise OpenOCDError(f"Failed to read {size} bytes at 0x{addr:08X}.")
+                data = temp_file.read_bytes()
+            assert len(data) == size
+            return data
 
     def write_memory(self, addr: int, data: bytes):
         """Writes a block of memory."""
         # openocd can handle a max of 64K at a time
-        for chunk in chunk_bytes(data, 1 << 16):
-            tcl_list = "{" + " ".join([hex(x) for x in chunk]) + "}"
+        if len(data) <= 64:
+            tcl_list = "{" + " ".join([hex(x) for x in data]) + "}"
             self(f"write_memory 0x{addr:08X} 8 {tcl_list}")
-            addr += len(chunk)
+        else:
+            with tempfile.NamedTemporaryFile() as temp_file:
+                temp_file = Path(temp_file.name)
+                temp_file.write_bytes(data)
+                res = self(f"load_image {temp_file} 0x{addr:08X}", decode=False).decode()
+                expected_str = f"{len(data)} bytes written"
+                if expected_str not in res:
+                    raise OpenOCDError(f"Failed to write {len(data)} bytes at 0x{addr:08X}.")
 
     def read_register(self, name: str) -> int:
         """Read from a 32-bit core register."""
