@@ -133,7 +133,7 @@ class OpenOCDBackend(OCDBackend):
     def write_memory(self, addr: int, data: bytes):
         """Writes a block of memory."""
         tcl_list = "{" + " ".join([hex(x) for x in data]) + "}"
-        self(f"write_memory 0x{addr:08X} 32 {tcl_list}")
+        self(f"write_memory 0x{addr:08X} 8 {tcl_list}")
 
     def read_register(self, name: str) -> int:
         """Read from a 32-bit core register."""
