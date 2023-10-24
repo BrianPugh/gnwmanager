@@ -67,19 +67,8 @@ GnWManager is also compatible with the following probes:
 1. [Raspberry Pi Pico](https://www.raspberrypi.com/products/raspberry-pi-pico/) (Recommended)
 2. [STLink](https://www.st.com/en/development-tools/st-link-v2.html)
 3. [JLink](https://www.segger.com/products/debug-probes/j-link/#models)
-4. [DAPLink](https://daplink.io) (~10x slower than other probes)
-
-Unfortunately, GnWManager **is not** compatible with raspberry pi gpio.
-There is currently an effort to add support in [pyocd](https://github.com/pyocd/pyOCD), the underlying library that GnWManager uses for hardware interactions.
-
-
-#### STLink
-Hook up your STLink to your game and watch as follows:
-
-<div align="center">
-  <img width=512 src="https://github.com/BrianPugh/gnwmanager/blob/main/assets/stlinkv2.png">
-</div>
-
+4. [DAPLink](https://daplink.io)
+5. [Raspberry Pi (GPIO)](https://projects.raspberrypi.org/en/projects/physical-computing/1)
 
 #### Raspberry Pi Pico
 
@@ -93,6 +82,20 @@ All Raspberry Pi Picos can be transformed into programmers via the [picoprobe pr
   <img width=512 src="https://github.com/BrianPugh/gnwmanager/blob/main/assets/pi-pico.png">
 </div>
 
+
+#### STLink
+Hook up your STLink to your game and watch as follows:
+
+<div align="center">
+  <img width=512 src="https://github.com/BrianPugh/gnwmanager/blob/main/assets/stlinkv2.png">
+</div>
+
+#### Raspberry Pi (GPIO)
+Hook up your Raspberry Pi to your game and watch as follows:
+
+<div align="center">
+  <img width=512 src="https://github.com/BrianPugh/gnwmanager/blob/main/assets/raspberry-pi.png">
+</div>
 
 ## Usage
 To see available commands, run `gnwmanager --help`.
