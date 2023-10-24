@@ -38,7 +38,7 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
     # STLink
     cmd = base_cmd.copy()
     cmd.extend(["-c", "source [find interface/stlink.cfg]"])
-    cmd.extend(["-c", "adapter speed 500"])
+    cmd.extend(["-c", "adapter speed 4000"])
     cmd.extend(["-c", "transport select hla_swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
     yield cmd
@@ -54,7 +54,7 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
     # J-Link
     cmd = base_cmd.copy()
     cmd.extend(["-c", "source [find interface/jlink.cfg]"])
-    cmd.extend(["-c", "adapter speed 500"])
+    # cmd.extend(["-c", "adapter speed 500"])
     cmd.extend(["-c", "transport select swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
     yield cmd
@@ -62,7 +62,7 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
     # CMSIS-DAP
     cmd = base_cmd.copy()
     cmd.extend(["-c", "source [find interface/cmsis-dap.cfg]"])
-    cmd.extend(["-c", "adapter speed 500"])
+    # cmd.extend(["-c", "adapter speed 500"])
     cmd.extend(["-c", "transport select swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
     yield cmd
