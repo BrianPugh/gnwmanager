@@ -101,7 +101,12 @@ class OpenOCDBackend(OCDBackend):
         # In-case there's a previous openocd process still running.
         kill_processes_by_name("openocd")
         self._openocd_process = _launch_openocd(self._address[1])
-        self._socket.connect(self._address)
+        for _ in range(5):
+            try:
+                self._socket.connect(self._address)
+                break
+            except ConnectionRefusedError:
+                sleep(0.5)
         return self
 
     def close(self):
