@@ -148,9 +148,15 @@ class OpenOCDBackend(OCDBackend):
 
             return data
 
+    def write_uint32(self, addr: int, val: int):
+        """Writes a uint32 to addr."""
+        # This write IS atomic
+        self(f"write_memory 0x{addr:08X} 32 {{ {hex(val)} }}")
+
     def write_memory(self, addr: int, data: bytes):
         """Writes a block of memory."""
         # openocd can handle a max of 64K at a time
+        # Note: writes are not atomic!
         if len(data) <= 64:
             tcl_list = "{" + " ".join([hex(x) for x in data]) + "}"
             self(f"write_memory 0x{addr:08X} 8 {tcl_list}")
