@@ -3,6 +3,7 @@ from contextlib import suppress
 with suppress(ImportError):
     import readline  # Not available on windows
 
+import os
 import shlex
 
 from typer import Option
@@ -24,7 +25,10 @@ def shell(
     """Launch an interactive shell to browse device filesystem."""
     from .main import app, gnw
 
-    print("Interactive shell. Press Ctrl-D to exit.")
+    if os.name == "posix":
+        print("Interactive shell. Press Ctrl-D to exit.")
+    else:  # Windows
+        print("Interactive shell. Press Ctrl-Z followed by Enter to exit.")
 
     while True:
         try:
