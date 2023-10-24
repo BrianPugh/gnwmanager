@@ -140,7 +140,9 @@ class OpenOCDBackend(OCDBackend):
                 if expected_str not in res:
                     raise OpenOCDError(f"Failed to read {size} bytes at 0x{addr:08X}.")
                 data = temp_file.read_bytes()
-            assert len(data) == size
+            if len(data) != size:
+                raise OpenOCDError(f"Failed to read {size} bytes at 0x{addr:08X}.")
+
             return data
 
     def write_memory(self, addr: int, data: bytes):
