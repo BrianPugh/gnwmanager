@@ -21,6 +21,7 @@ from . import (
     format,
     gdb,
     gdbserver,
+    install,
     ls,
     mkdir,
     monitor,
@@ -50,6 +51,7 @@ app.command()(flash.flash)
 app.command()(format.format)
 app.command()(gdb.gdb)
 app.command()(gdbserver.gdbserver)
+app.command()(install.install)
 app.command()(ls.ls)
 app.command()(mkdir.mkdir)
 app.command()(monitor.monitor)
@@ -137,6 +139,7 @@ def run_app():
             current_command_args.append(arg)
     commands_args.append(current_command_args)
 
+    filtered_commands_args = []
     for i, args in enumerate(commands_args):
         is_last = i == (len(commands_args) - 1)
         if not args or {"-v", "--version", "-h", "--help"}.intersection(args):
@@ -144,19 +147,31 @@ def run_app():
             app(args=args, prog_name="gnwmanager")
 
         command = args[0]
+
+        # Commands that don't interact with device
+        if command in ("install",):
+            app(args=args, prog_name="gnwmanager")
+            continue
+
+        # Commands that must be standalone/last.
         if command in ("shell", "gdb", "monitor", "gdbserver", "unlock") and not is_last:
             raise ValueError(f'Command "{command}" must be the final chained command.')
 
+        filtered_commands_args.append(args)
+
+    if not filtered_commands_args:
+        return
+
     with OCDBackend[early_args.backend]() as backend:
         gnw = GnW(backend)
-        if len(commands_args) == 1 and (
-            (commands_args[0][0] in ("monitor", "gdb", "gdbserver", "start", "disable-debug"))
-            or (commands_args[0][:2] == ["screenshot", "capture"])
+        if len(filtered_commands_args) == 1 and (
+            (filtered_commands_args[0][0] in ("monitor", "gdb", "gdbserver", "start", "disable-debug"))
+            or (filtered_commands_args[0][:2] == ["screenshot", "capture"])
         ):
             # Do NOT start the on-device app
             pass
         else:
             start_gnwmanager()
 
-        for args in commands_args:
+        for args in filtered_commands_args:
             app(args=args, standalone_mode=False, prog_name="gnwmanager")
