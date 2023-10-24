@@ -5,6 +5,7 @@ from time import sleep
 from typing import Generator, List
 
 from gnwmanager.ocdbackend.base import OCDBackend, TransferErrors
+from gnwmanager.utils import chunk_bytes
 
 _COMMAND_TOKEN_STR = "\x1a"
 _COMMAND_TOKEN_BYTES = _COMMAND_TOKEN_STR.encode("utf-8")
@@ -132,8 +133,11 @@ class OpenOCDBackend(OCDBackend):
 
     def write_memory(self, addr: int, data: bytes):
         """Writes a block of memory."""
-        tcl_list = "{" + " ".join([hex(x) for x in data]) + "}"
-        self(f"write_memory 0x{addr:08X} 8 {tcl_list}")
+        # openocd can handle a max of 64K at a time
+        for chunk in chunk_bytes(data, 1 << 16):
+            tcl_list = "{" + " ".join([hex(x) for x in chunk]) + "}"
+            self(f"write_memory 0x{addr:08X} 8 {tcl_list}")
+            addr += len(chunk)
 
     def read_register(self, name: str) -> int:
         """Read from a 32-bit core register."""
