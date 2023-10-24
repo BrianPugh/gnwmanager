@@ -144,9 +144,9 @@ class OpenOCDBackend(OCDBackend):
         if size <= 64:
             return self(f"read_memory 0x{addr:08X} 8 {size}")
         else:
-            with tempfile.NamedTemporaryFile() as temp_file:
-                temp_file = Path(temp_file.name)
-                res = self(f"dump_image {temp_file} 0x{addr:08X} {size}", decode=False).decode()
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_file = Path(temp_dir) / "scratch.bin"
+                res = self(f"dump_image {temp_file.as_posix()} 0x{addr:08X} {size}", decode=False).decode()
                 expected_str = f"dumped {size} bytes"
                 if expected_str not in res:
                     raise OpenOCDError(f"Failed to read {size} bytes at 0x{addr:08X}.")
@@ -169,10 +169,10 @@ class OpenOCDBackend(OCDBackend):
             tcl_list = "{" + " ".join([hex(x) for x in data]) + "}"
             self(f"write_memory 0x{addr:08X} 8 {tcl_list}")
         else:
-            with tempfile.NamedTemporaryFile() as temp_file:
-                temp_file = Path(temp_file.name)
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_file = Path(temp_dir) / "scratch.bin"
                 temp_file.write_bytes(data)
-                res = self(f"load_image {temp_file} 0x{addr:08X}", decode=False).decode()
+                res = self(f"load_image {temp_file.as_posix()} 0x{addr:08X}", decode=False).decode()
                 expected_str = f"{len(data)} bytes written"
                 if expected_str not in res:
                     raise OpenOCDError(f"Failed to write {len(data)} bytes at 0x{addr:08X}.")
