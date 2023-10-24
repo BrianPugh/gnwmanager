@@ -124,7 +124,7 @@ def run_app():
         "--backend",
         "-b",
         type=str.lower,
-        default=OCDBackendEnum.pyocd.value,  # pyright: ignore [reportGeneralTypeIssues]
+        default=OCDBackendEnum.openocd.value,  # pyright: ignore [reportGeneralTypeIssues]
     )
     early_args, sys_args = early_parser.parse_known_args()
 
