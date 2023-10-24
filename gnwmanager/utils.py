@@ -1,8 +1,10 @@
 import hashlib
 import lzma
 import struct
+from contextlib import suppress
 from enum import Enum
 
+import psutil
 from PIL import Image
 
 
@@ -82,3 +84,15 @@ def pad_bytes(data: bytes, mod: int, fill: int = 0xFF) -> bytes:
     if pad_size == 0:
         return data
     return data + (fill.to_bytes(length=1, byteorder="little") * pad_size)
+
+
+def kill_processes_by_name(name) -> int:
+    """Kills all processes by a name (cross-platform friendly)."""
+    count = 0
+    for proc in psutil.process_iter(attrs=["pid", "name"]):
+        with suppress(psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            # Check whether the process name matches the name provided
+            if name.lower() in proc.info["name"].lower():  # pyright: ignore [reportGeneralTypeIssues]
+                psutil.Process(proc.info["pid"]).terminate()  # pyright: ignore [reportGeneralTypeIssues]
+                count += 1
+    return count

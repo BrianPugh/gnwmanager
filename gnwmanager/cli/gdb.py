@@ -35,7 +35,7 @@ def gdb(
     gnw.backend.start_gdbserver(port, logging=False, blocking=False)
 
     cmd = [gdb_executable, str(elf), "-ex", f"target extended-remote :{port}"]
-    process = subprocess.Popen(
+    gdb_process = subprocess.Popen(
         cmd,
         stdin=sys.stdin,
         stdout=sys.stdout,
@@ -45,13 +45,13 @@ def gdb(
 
     def handle_signal(signum, frame):
         # Forward the signal to the subprocess
-        if process.poll() is None:  # Check if process is still running
-            process.send_signal(signum)
+        if gdb_process.poll() is None:  # Check if process is still running
+            gdb_process.send_signal(signum)
 
     # Set up signal handlers
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
 
-    exit_code = process.wait()
+    exit_code = gdb_process.wait()
 
     sys.exit(exit_code)

@@ -1,2 +1,3 @@
-from .base import OCDBackend
-from .pyocd_backend import PyOCDBackend, TransferErrors
+from .base import OCDBackend, TransferErrors
+from .openocd_backend import OpenOCDBackend
+from .pyocd_backend import PyOCDBackend
