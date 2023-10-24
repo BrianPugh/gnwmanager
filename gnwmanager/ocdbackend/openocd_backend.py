@@ -1,4 +1,5 @@
 import os
+import shutil
 import socket
 import subprocess
 import tempfile
@@ -6,6 +7,7 @@ from pathlib import Path
 from time import sleep
 from typing import Generator, List
 
+from gnwmanager.exceptions import MissingThirdPartyError
 from gnwmanager.ocdbackend.base import OCDBackend, TransferErrors
 from gnwmanager.utils import kill_processes_by_name
 
@@ -27,9 +29,8 @@ TransferErrors.add(OpenOCDError)
 
 def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
     """Generate possible openocd launch commands for different debugging probes."""
-    openocd_executable = os.environ.get("OPENOCD", "openocd")
     base_cmd = [
-        openocd_executable,
+        find_openocd_executable(),
         "-c",
         f"tcl_port {port}",
     ]
@@ -80,6 +81,13 @@ def _launch_openocd(port: int):  # -> subprocess.Popen[bytes]:  # This type anno
 
 def _convert_hex_str_to_bytes(hex_str: bytes) -> bytes:
     return bytes(int(h, 16) for h in hex_str.decode().split())
+
+
+def find_openocd_executable() -> Path:
+    openocd_executable = os.environ.get("OPENOCD", "openocd")
+    if shutil.which(openocd_executable) is None:
+        raise MissingThirdPartyError("Cannot find OpenOCD. Install via:\n    gnwmanager install openocd")
+    return Path(openocd_executable)
 
 
 class OpenOCDBackend(OCDBackend):
