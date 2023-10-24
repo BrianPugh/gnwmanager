@@ -20,8 +20,10 @@ executed from the STM32's RAM.
 
 ## Features
 
-* Standalone and simple to install.
-    * No more installing many different tools with various patches!
+* Simple installation.
+* Works on all operating systems (Linux, MacOS, Windows).
+* Automatic debugging probe detection.
+  * No need to specify if you have a stlink, jlink, CMSIS-DAP, or Raspberry Pi.
 * Fast internal and external flash firmware flashing.
     * Hardware-accelerated hashing for rapid duplicate discovery.
         * Only syncs changed data.
@@ -37,13 +39,20 @@ executed from the STM32's RAM.
 
 ## Installation
 
-It is **highly** recommended to use [pipx](https://pypa.github.io/pipx/installation/) to install GnWManager.
+To ensure a seamless experience, we **strongly** recommend using [pipx](https://pypa.github.io/pipx/installation/) for installing GnWManager.
 
 ```bash
 pipx install gnwmanager
 ```
 
-That's it!
+Upon successful installation, you will have access to the `gnwmanager` command-line tool.
+GnWManager relies on several third-party tools.
+Thankfully, it simplifies the installation process across different operating systems.
+For example, to install `openocd`:
+
+```bash
+gnwmanager install openocd
+```
 
 #### Updating
 Update GnWManager as you would any python command line tool installed by `pipx`:
