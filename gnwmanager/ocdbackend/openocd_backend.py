@@ -7,6 +7,7 @@ from time import sleep
 from typing import Generator, List
 
 from gnwmanager.ocdbackend.base import OCDBackend, TransferErrors
+from gnwmanager.utils import kill_processes_by_name
 
 _COMMAND_TOKEN_STR = "\x1a"
 _COMMAND_TOKEN_BYTES = _COMMAND_TOKEN_STR.encode("utf-8")
@@ -69,7 +70,7 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
 def _launch_openocd(port: int):  # -> subprocess.Popen[bytes]:  # This type annotation is >=3.9
     for cmd in _openocd_launch_commands(port):
         process = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        sleep(0.1)
+        sleep(0.05)
         if process.poll() is None:
             # Process is still running
             # it didn't immediately close (probably due to not detecting probe).
@@ -89,6 +90,8 @@ class OpenOCDBackend(OCDBackend):
         self._openocd_process = None
 
     def open(self) -> OCDBackend:
+        # In-case there's a previous openocd process still running.
+        kill_processes_by_name("openocd")
         self._openocd_process = _launch_openocd(self._address[1])
         self._socket.connect(self._address)
         return self
