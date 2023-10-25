@@ -61,7 +61,7 @@ app.command()(push.push)
 app.command()(shell.shell)
 app.command()(start.start)
 app.command()(tree.tree)
-# app.command()(unlock.unlock)  # TODO: The ``unlock`` command doesn't fully work yet.
+app.command()(unlock.unlock)
 
 
 def version_callback(value: bool):

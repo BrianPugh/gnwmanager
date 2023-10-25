@@ -11,13 +11,16 @@ from datetime import datetime
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
+from time import sleep
 from typing import Optional
 
 from autoregistry import Registry
 from typer import Argument, Option
 from typing_extensions import Annotated
 
+from gnwmanager.cli._start_gnwmanager import start_gnwmanager
 from gnwmanager.gnw import GnW
+from gnwmanager.ocdbackend import PyOCDBackend
 
 _payload_flash_msg = """
 
@@ -220,6 +223,9 @@ def unlock(
     """Backs up and unlocks a stock Game & Watch console."""
     from .main import gnw
 
+    if isinstance(gnw.backend, PyOCDBackend):
+        raise TypeError("Device unlocking requires using --backend=openocd")
+
     if backup_dir is None:
         backup_dir = Path(f"backups-{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
     backup_dir.mkdir(exist_ok=True)
@@ -274,37 +280,65 @@ def unlock(
             raise FileExistsError(f"Cannot backup to existing {internal_flash}")
 
     if interactive:
-        print(f"Detected {model} game and watch.")
+        print(f"Detected {model.upper()} game and watch.")
 
-    if not skip_itcm:
+    if skip_itcm:
+        itcm_data = itcm.read_bytes()
+        device.validate_itcm(itcm_data)
+    else:
         with message(f'Backing up itcm to "{itcm}"'):
-            itcm.write_bytes(device.read_itcm())
+            itcm_data = device.read_itcm()
+            itcm.write_bytes(itcm_data)
 
-    if not skip_external:
+    if skip_external:
+        external_flash_data = external_flash.read_bytes()
+        device.validate_external_flash(external_flash_data)
+    else:
         with message(f'Backing up external flash to "{external_flash}"'):
-            external_flash.write_bytes(device.read_extflash())
+            external_flash_data = device.read_external_flash()
+            external_flash.write_bytes(external_flash_data)
 
-    # Read back in all data in-case we skipped backup.
-    itcm_data = itcm.read_bytes()
-    external_flash_data = external_flash.read_bytes()
-
-    if not skip_internal:
+    if skip_internal:
+        internal_flash_data = internal_flash.read_bytes()
+        device.validate_internal_flash(internal_flash_data)
+    else:
         payload = device.create_encrypted_payload(itcm_data, external_flash_data, unlock_firmware_data)
         Path("enc_payload.bin").write_bytes(payload)  # TODO: remove
 
-        with message("Flashing payload to external flash."):
+        with message("Flashing payload to external flash"):
             gnw.flash(0, 0, payload)
 
         # Close connection in preparation for power removal
         gnw.backend.close()
 
         print(_payload_flash_msg)
-        input('Press the "enter" key to continue: ')
+        input('Press the "enter" key when the screen is blue: ')
 
         gnw.backend.open()
         gnw.backend.halt()
 
         with message(f'Backing up internal flash to "{internal_flash}"'):
-            internal_flash.write_bytes(device.read_internal_from_ram())
+            internal_flash_data = device.read_internal_from_ram()
+            internal_flash.write_bytes(internal_flash_data)
 
-    raise NotImplementedError
+    with message("Unlocking device"):
+        gnw.backend.halt()
+        gnw.write_uint32(0x52002008, 0x08192A3B)
+        sleep(0.1)
+        gnw.write_uint32(0x52002008, 0x4C5D6E7F)
+        sleep(0.1)
+        gnw.write_memory(0x52002021, b"\xAA")
+        sleep(0.1)
+        gnw.write_memory(0x52002018, b"\x02")
+        sleep(0.2)
+
+    with message("Restoring firmware"):
+        start_gnwmanager(force=True)
+        sleep(0.3)
+        gnw.flash(0, 0, external_flash_data)
+        gnw.flash(1, 0, internal_flash_data)
+        gnw.backend.reset()
+
+    if interactive:
+        print("Unlocking complete!")
+        print("Pressing the power button should launch the original firmware.")
