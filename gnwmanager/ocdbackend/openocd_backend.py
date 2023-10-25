@@ -106,7 +106,7 @@ class OpenOCDBackend(OCDBackend):
             try:
                 self._socket.connect(self._address)
                 break
-            except ConnectionRefusedError:
+            except (OSError, ConnectionRefusedError):
                 sleep(0.5)
         return self
 
