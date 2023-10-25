@@ -79,7 +79,7 @@ All Raspberry Pi Picos can be transformed into programmers via the [picoprobe pr
 3. Hook up the 3 wires (GND, GP2, GP3) to (GND, SDCLK, SWDIO), respectively.
 
 <div align="center">
-  <img width=512 src="https://github.com/BrianPugh/gnwmanager/blob/main/assets/pi-pico.png">
+  <img width=512 src="https://raw.githubusercontent.com/BrianPugh/gnwmanager/main/assets/pi-pico.png">
 </div>
 
 
@@ -87,14 +87,14 @@ All Raspberry Pi Picos can be transformed into programmers via the [picoprobe pr
 Hook up your STLink to your game and watch as follows:
 
 <div align="center">
-  <img width=512 src="https://github.com/BrianPugh/gnwmanager/blob/main/assets/stlinkv2.png">
+  <img width=512 src="https://raw.githubusercontent.com/BrianPugh/gnwmanager/main/assets/stlinkv2.png">
 </div>
 
 #### Raspberry Pi (GPIO)
 Hook up your Raspberry Pi to your game and watch as follows:
 
 <div align="center">
-  <img width=512 src="https://github.com/BrianPugh/gnwmanager/blob/main/assets/raspberry-pi.png">
+  <img width=512 src="https://raw.githubusercontent.com/BrianPugh/gnwmanager/main/assets/raspberry-pi.png">
 </div>
 
 ## Usage
