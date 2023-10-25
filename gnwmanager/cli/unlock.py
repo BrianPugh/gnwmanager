@@ -171,7 +171,7 @@ class MarioModel(DeviceModel):
 
 
 class ZeldaModel(DeviceModel):
-    itcm_offset = 20
+    itcm_offset = 0x20
     itcm_size = 1300
 
     itcm_hash = "2f70156235ffd871599facf64457040d549353b4"
@@ -218,7 +218,10 @@ def unlock(
         ),
     ] = None,
 ):
-    """Backs up and unlocks a stock Game & Watch console."""
+    """Backs up and unlocks a stock Game & Watch console.
+
+    Device must be *on* before running ``gnwmanager unlock``.
+    """
     from .main import gnw
 
     if isinstance(gnw.backend, PyOCDBackend):
