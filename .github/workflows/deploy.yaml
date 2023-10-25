@@ -39,6 +39,9 @@ jobs:
       - name: Install project
         run: poetry install --no-interaction --no-dev
 
+      - name: Build stm32 firmwares
+        run: make -j4
+
       - name: Build package
         run: poetry build
 
