@@ -123,6 +123,7 @@ $ gnwmanager --help
 │ gdb               Launch a gdbserver and connect to it with gdb.                   │
 │ gdbserver         Launch a gdbserver.                                              │
 │ install           Install third party executables, like openocd.                   │
+│ lock              Re-lock your device.                                             │
 │ ls                List contents of device directory.                               │
 │ mkdir             Create a directory on device.                                    │
 │ monitor           Monitor the device's stdout logging buffer.                      │
@@ -133,6 +134,7 @@ $ gnwmanager --help
 │ shell             Launch an interactive shell to browse device filesystem.         │
 │ start             Start firmware at location.                                      │
 │ tree              List contents of device directory and its descendants.           │
+│ unlock            Backs up and unlocks a stock Game & Watch console.               │
 ╰────────────────────────────────────────────────────────────────────────────────────╯
 ```
 

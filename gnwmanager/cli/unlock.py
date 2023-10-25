@@ -11,13 +11,16 @@ from datetime import datetime
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
+from time import sleep
 from typing import Optional
 
 from autoregistry import Registry
 from typer import Argument, Option
 from typing_extensions import Annotated
 
+from gnwmanager.cli._start_gnwmanager import start_gnwmanager
 from gnwmanager.gnw import GnW
+from gnwmanager.ocdbackend import PyOCDBackend
 
 _payload_flash_msg = """
 
@@ -26,6 +29,16 @@ Payload successfully flashed. Perform the following steps:
 1. Fully remove power, then re-apply power.
 2. Press the power button to turn on the device; the screen should turn blue.
 """
+
+
+def is_gnw_locked(gnw) -> bool:
+    """Returns ``True`` if the device is locked."""
+    try:
+        # See if reading from bank 1 is possible.
+        gnw.read_uint32(0x0800_0000)
+    except Exception:
+        return True
+    return False
 
 
 class HashMismatchError(Exception):
@@ -76,10 +89,11 @@ class DeviceModel(Registry, suffix="Model"):
         self.validate_itcm(data)
         return data
 
-    def validate_itcm(self, data):
+    @classmethod
+    def validate_itcm(cls, data):
         actual_hash = _sha1(data)
-        if actual_hash != self.itcm_hash:
-            raise HashMismatchError(self.itcm_hash, actual_hash)
+        if actual_hash != cls.itcm_hash:
+            raise HashMismatchError(cls.itcm_hash, actual_hash)
 
     @lru_cache  # noqa: B019
     def read_external_flash(self) -> bytes:
@@ -92,11 +106,12 @@ class DeviceModel(Registry, suffix="Model"):
         self.validate_external_flash(data)
         return data
 
-    def validate_external_flash(self, data: bytes):
-        hash_data = data[self.external_flash_hash_start : self.external_flash_hash_end]
+    @classmethod
+    def validate_external_flash(cls, data: bytes):
+        hash_data = data[cls.external_flash_hash_start : cls.external_flash_hash_end]
         actual_hash = _sha1(hash_data)
-        if actual_hash != self.external_flash_hash:
-            raise HashMismatchError(self.external_flash_hash, actual_hash)
+        if actual_hash != cls.external_flash_hash:
+            raise HashMismatchError(cls.external_flash_hash, actual_hash)
 
     def read_internal_from_ram(self):
         """Reads flash dump from RAM (put there by payload).
@@ -112,10 +127,11 @@ class DeviceModel(Registry, suffix="Model"):
         self.validate_internal_flash(data)
         return data
 
-    def validate_internal_flash(self, data):
+    @classmethod
+    def validate_internal_flash(cls, data):
         actual_hash = _sha1(data)
-        if actual_hash != self.internal_flash_hash:
-            raise HashMismatchError(self.internal_flash_hash, actual_hash)
+        if actual_hash != cls.internal_flash_hash:
+            raise HashMismatchError(cls.internal_flash_hash, actual_hash)
 
     def create_encrypted_payload(self, itcm: bytes, extflash: bytes, payload: bytes) -> bytes:
         self.validate_itcm(itcm)
@@ -175,6 +191,15 @@ class GnWModel(str, Enum):
     zelda = "zelda"
 
 
+@contextmanager
+def _message(msg: str):
+    print(msg + "... ", end="", flush=True)
+    try:
+        yield
+    finally:
+        print("complete!")
+
+
 def unlock(
     backup_dir: Annotated[
         Optional[Path],
@@ -186,53 +211,22 @@ def unlock(
             help="Output directory for backed up files.",
         ),
     ] = None,
-    interactive: Annotated[
-        bool,
-        Option(
-            help="Enable/Disable interactive prompts.",
-        ),
-    ] = True,
     model: Annotated[  # pyright: ignore [reportGeneralTypeIssues]
         Optional[GnWModel],
         Option(
             help="Defaults to autodetecting.",
         ),
     ] = None,
-    skip_itcm: Annotated[
-        bool,
-        Option(
-            help="Skip backing up itcm ram. Existing backup must be present.",
-        ),
-    ] = False,
-    skip_internal: Annotated[
-        bool,
-        Option(
-            help="Skip backing up internal flash. Existing backup must be present.",
-        ),
-    ] = False,
-    skip_external: Annotated[
-        bool,
-        Option(
-            help="Skip backing up external flash. Existing backup must be present.",
-        ),
-    ] = False,
 ):
     """Backs up and unlocks a stock Game & Watch console."""
     from .main import gnw
 
+    if isinstance(gnw.backend, PyOCDBackend):
+        raise TypeError("Device unlocking requires using --backend=openocd")
+
     if backup_dir is None:
         backup_dir = Path(f"backups-{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
     backup_dir.mkdir(exist_ok=True)
-
-    @contextmanager
-    def message(msg):
-        if interactive:
-            print(msg + "... ", end="", flush=True)
-        try:
-            yield
-        finally:
-            if interactive:
-                print("complete!")
 
     if model is not None:
         model: str = model.value
@@ -248,63 +242,68 @@ def unlock(
     else:
         device = DeviceModel[model](gnw)
 
+    print(f"\nIf interrupted, resume unlocking with:\n    gnwmanager unlock --backup-dir={backup_dir}\n")
+
     itcm = backup_dir / f"itcm_backup_{model}.bin"
     external_flash = backup_dir / f"flash_backup_{model}.bin"
     internal_flash = backup_dir / f"internal_flash_backup_{model}.bin"
 
-    if skip_itcm:
-        if not itcm.exists():
-            raise ValueError("No backup of itcm is present.")
+    print(f"Detected {model.upper()} game and watch.")
+
+    if itcm.exists():
+        itcm_data = itcm.read_bytes()
+        device.validate_itcm(itcm_data)
     else:
-        if itcm.exists():
-            raise FileExistsError(f"Cannot backup to existing {itcm}")
+        with _message(f'Backing up itcm to "{itcm}"'):
+            itcm_data = device.read_itcm()
+            itcm.write_bytes(itcm_data)
 
-    if skip_external:
-        if not external_flash.exists():
-            raise ValueError("No backup of external flash is present.")
+    if external_flash.exists():
+        external_flash_data = external_flash.read_bytes()
+        device.validate_external_flash(external_flash_data)
     else:
-        if external_flash.exists():
-            raise FileExistsError(f"Cannot backup to existing {external_flash}")
+        with _message(f'Backing up external flash to "{external_flash}"'):
+            external_flash_data = device.read_external_flash()
+            external_flash.write_bytes(external_flash_data)
 
-    if skip_internal:
-        if not internal_flash.exists():
-            raise ValueError("No backup of internal flash is present.")
+    if internal_flash.exists():
+        internal_flash_data = internal_flash.read_bytes()
+        device.validate_internal_flash(internal_flash_data)
     else:
-        if internal_flash.exists():
-            raise FileExistsError(f"Cannot backup to existing {internal_flash}")
-
-    if interactive:
-        print(f"Detected {model} game and watch.")
-
-    if not skip_itcm:
-        with message(f'Backing up itcm to "{itcm}"'):
-            itcm.write_bytes(device.read_itcm())
-
-    if not skip_external:
-        with message(f'Backing up external flash to "{external_flash}"'):
-            external_flash.write_bytes(device.read_extflash())
-
-    # Read back in all data in-case we skipped backup.
-    itcm_data = itcm.read_bytes()
-    external_flash_data = external_flash.read_bytes()
-
-    if not skip_internal:
         payload = device.create_encrypted_payload(itcm_data, external_flash_data, unlock_firmware_data)
-        Path("enc_payload.bin").write_bytes(payload)  # TODO: remove
 
-        with message("Flashing payload to external flash."):
+        with _message("Flashing payload to external flash"):
             gnw.flash(0, 0, payload)
 
         # Close connection in preparation for power removal
         gnw.backend.close()
 
         print(_payload_flash_msg)
-        input('Press the "enter" key to continue: ')
+        input('Press the "enter" key when the screen is blue: ')
 
         gnw.backend.open()
         gnw.backend.halt()
 
-        with message(f'Backing up internal flash to "{internal_flash}"'):
-            internal_flash.write_bytes(device.read_internal_from_ram())
+        with _message(f'Backing up internal flash to "{internal_flash}"'):
+            internal_flash_data = device.read_internal_from_ram()
+            internal_flash.write_bytes(internal_flash_data)
 
-    raise NotImplementedError
+    with _message("Unlocking device"):
+        gnw.backend.halt()
+        gnw.write_uint32(0x52002008, 0x08192A3B)
+        sleep(0.1)
+        gnw.write_uint32(0x52002008, 0x4C5D6E7F)
+        sleep(0.1)
+        gnw.write_memory(0x52002021, b"\xAA")
+        sleep(0.1)
+        gnw.write_memory(0x52002018, b"\x02")
+        sleep(0.2)
+
+    with _message("Restoring firmware"):
+        start_gnwmanager(force=True)
+        gnw.flash(0, 0, external_flash_data)
+        gnw.flash(1, 0, internal_flash_data)
+        gnw.backend.reset()
+
+    print("Unlocking complete!")
+    print("Pressing the power button should launch the original firmware.")
