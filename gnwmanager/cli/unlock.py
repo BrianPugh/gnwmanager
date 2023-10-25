@@ -79,10 +79,11 @@ class DeviceModel(Registry, suffix="Model"):
         self.validate_itcm(data)
         return data
 
-    def validate_itcm(self, data):
+    @classmethod
+    def validate_itcm(cls, data):
         actual_hash = _sha1(data)
-        if actual_hash != self.itcm_hash:
-            raise HashMismatchError(self.itcm_hash, actual_hash)
+        if actual_hash != cls.itcm_hash:
+            raise HashMismatchError(cls.itcm_hash, actual_hash)
 
     @lru_cache  # noqa: B019
     def read_external_flash(self) -> bytes:
@@ -95,11 +96,12 @@ class DeviceModel(Registry, suffix="Model"):
         self.validate_external_flash(data)
         return data
 
-    def validate_external_flash(self, data: bytes):
-        hash_data = data[self.external_flash_hash_start : self.external_flash_hash_end]
+    @classmethod
+    def validate_external_flash(cls, data: bytes):
+        hash_data = data[cls.external_flash_hash_start : cls.external_flash_hash_end]
         actual_hash = _sha1(hash_data)
-        if actual_hash != self.external_flash_hash:
-            raise HashMismatchError(self.external_flash_hash, actual_hash)
+        if actual_hash != cls.external_flash_hash:
+            raise HashMismatchError(cls.external_flash_hash, actual_hash)
 
     def read_internal_from_ram(self):
         """Reads flash dump from RAM (put there by payload).
@@ -115,10 +117,11 @@ class DeviceModel(Registry, suffix="Model"):
         self.validate_internal_flash(data)
         return data
 
-    def validate_internal_flash(self, data):
+    @classmethod
+    def validate_internal_flash(cls, data):
         actual_hash = _sha1(data)
-        if actual_hash != self.internal_flash_hash:
-            raise HashMismatchError(self.internal_flash_hash, actual_hash)
+        if actual_hash != cls.internal_flash_hash:
+            raise HashMismatchError(cls.internal_flash_hash, actual_hash)
 
     def create_encrypted_payload(self, itcm: bytes, extflash: bytes, payload: bytes) -> bytes:
         self.validate_itcm(itcm)
