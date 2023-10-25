@@ -71,7 +71,7 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
 def _launch_openocd(port: int):  # -> subprocess.Popen[bytes]:  # This type annotation is >=3.9
     for cmd in _openocd_launch_commands(port):
         process = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        sleep(0.05)
+        sleep(0.1)
         if process.poll() is None:
             # Process is still running
             # it didn't immediately close (probably due to not detecting probe).
@@ -137,12 +137,8 @@ class OpenOCDBackend(OCDBackend):
                 break
 
         response = b"".join(responses)
-        if b"fail" in response:
-            raise OpenOCDError(f"Bad response: {response}")
-
         if decode:
             response = _convert_hex_str_to_bytes(response)
-
         return response
 
     def read_memory(self, addr: int, size: int) -> bytes:
@@ -152,13 +148,10 @@ class OpenOCDBackend(OCDBackend):
         else:
             with tempfile.TemporaryDirectory() as temp_dir:
                 temp_file = Path(temp_dir) / "scratch.bin"
-                res = self(f"dump_image {temp_file.as_posix()} 0x{addr:08X} {size}", decode=False).decode()
-                expected_str = f"dumped {size} bytes"
-                if expected_str not in res:
-                    raise OpenOCDError(f"Failed to read {size} bytes at 0x{addr:08X}.")
+                self(f"dump_image {temp_file.as_posix()} 0x{addr:08X} {size}", decode=False).decode()
                 data = temp_file.read_bytes()
             if len(data) != size:
-                raise OpenOCDError(f"Failed to read {size} bytes at 0x{addr:08X}.")
+                raise OpenOCDError(f"Failed to read {size} bytes at 0x{addr:08X}. Received {len(data)} bytes.")
 
             return data
 
@@ -178,10 +171,7 @@ class OpenOCDBackend(OCDBackend):
             with tempfile.TemporaryDirectory() as temp_dir:
                 temp_file = Path(temp_dir) / "scratch.bin"
                 temp_file.write_bytes(data)
-                res = self(f"load_image {temp_file.as_posix()} 0x{addr:08X}", decode=False).decode()
-                expected_str = f"{len(data)} bytes written"
-                if expected_str not in res:
-                    raise OpenOCDError(f"Failed to write {len(data)} bytes at 0x{addr:08X}.")
+                self(f"load_image {temp_file.as_posix()} 0x{addr:08X}", decode=False).decode()
 
     def read_register(self, name: str) -> int:
         """Read from a 32-bit core register."""
@@ -199,19 +189,19 @@ class OpenOCDBackend(OCDBackend):
 
     def reset(self):
         """Reset target."""
-        self("reset run")
+        self("reset run", decode=False)
 
     def halt(self):
         """Halt target."""
-        self("halt")
+        self("halt", decode=False)
 
     def reset_and_halt(self):
         """Reset and halt target."""
-        self("reset halt")
+        self("reset halt", decode=False)
 
     def resume(self):
         """Resume target execution."""
-        self("resume")
+        self("resume", decode=False)
 
     def start_gdbserver(self, port, logging=True, blocking=True):
         """Start a blocking GDB Server."""
