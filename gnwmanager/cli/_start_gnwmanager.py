@@ -19,6 +19,7 @@ def start_gnwmanager(force=False):
     from .main import gnw
 
     gnw.backend.reset_and_halt()
+    gnw.reset_context_counter()
 
     # TODO: this is deprecated, but the replacement was introduced in python3.9.
     # Migrate to ``as_file`` once python3.8 hits EOL.

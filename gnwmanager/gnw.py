@@ -94,6 +94,7 @@ class GnW:
     def __init__(self, backend: OCDBackend):
         self.backend = backend
         self.contexts = deepcopy(_contexts)
+        self.context_counter = 1
         self._external_flash_size = 0
         self._external_flash_block_size = 0
 
@@ -166,10 +167,10 @@ class GnW:
                 sleep(0.05)
         self.wait_for_idle(timeout=t_deadline - time())
 
-    def get_context(self, timeout=20):
-        if not hasattr(self, "context_counter"):
-            self.context_counter = 1
+    def reset_context_counter(self):
+        self.context_counter = 1
 
+    def get_context(self, timeout=20):
         t_deadline = time() + timeout
         while True:
             for context in _contexts:
