@@ -100,6 +100,7 @@ class OpenOCDBackend(OCDBackend):
     def open(self) -> OCDBackend:
         # In-case there's a previous openocd process still running.
         kill_processes_by_name("openocd")
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._openocd_process = _launch_openocd(self._address[1])
         for _ in range(5):
             try:
