@@ -140,3 +140,22 @@ $ gnwmanager --help
 
 ## Need Help?
 If you need any help, either open up a github issue here, or join the [stacksmashing discord](https://discord.gg/zBN3ex8v4p) for live help.
+
+## Developer Installation
+If developing for GnWManager, perform the following steps to setup your local environment.
+We use [pre-commit](https://pre-commit.com/) to run linting, and [poetry](https://python-poetry.org/) for python management.
+
+```bash
+git clone git@github.com:BrianPugh/gnwmanager.git
+cd gnwmanager
+pre-commit install  # Ensures linting passes prior to committing
+poetry install
+make -j4  # Builds stm32 firmware binaries.
+```
+
+When changing C sources, `make` must be re-ran to update the binaries located at:
+
+```bash
+gnwmanager/firmware.bin
+gnwmanager/unlock.bin
+```
