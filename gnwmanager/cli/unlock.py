@@ -31,6 +31,16 @@ Payload successfully flashed. Perform the following steps:
 """
 
 
+def is_gnw_locked(gnw) -> bool:
+    """Returns ``True`` if the device is locked."""
+    try:
+        # See if reading from bank 1 is possible.
+        gnw.read_uint32(0x0800_0000)
+    except Exception:
+        return True
+    return False
+
+
 class HashMismatchError(Exception):
     """Data did not match expected hash."""
 

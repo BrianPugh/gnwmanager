@@ -22,6 +22,7 @@ from . import (
     gdb,
     gdbserver,
     install,
+    lock,
     ls,
     mkdir,
     monitor,
@@ -52,6 +53,7 @@ app.command()(format.format)
 app.command()(gdb.gdb)
 app.command()(gdbserver.gdbserver)
 app.command()(install.install)
+app.command()(lock.lock)
 app.command()(ls.ls)
 app.command()(mkdir.mkdir)
 app.command()(monitor.monitor)
@@ -154,7 +156,7 @@ def run_app():
             continue
 
         # Commands that must be standalone/last.
-        if command in ("shell", "gdb", "monitor", "gdbserver", "unlock") and not is_last:
+        if command in ("shell", "gdb", "monitor", "gdbserver", "unlock", "lock") and not is_last:
             raise ValueError(f'Command "{command}" must be the final chained command.')
 
         filtered_commands_args.append(args)
