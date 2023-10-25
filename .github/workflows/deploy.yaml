@@ -46,6 +46,7 @@ jobs:
         run: poetry build
 
       - name: Publish package
+        if: github.event_name != 'workflow_dispatch'
         run: poetry publish
 
       - uses: actions/upload-artifact@v3
