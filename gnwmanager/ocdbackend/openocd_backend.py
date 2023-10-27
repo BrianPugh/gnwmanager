@@ -4,7 +4,7 @@ import socket
 import subprocess
 import tempfile
 from pathlib import Path
-from time import sleep
+from time import sleep, time
 from typing import Generator, List
 
 from gnwmanager.exceptions import MissingThirdPartyError
@@ -37,14 +37,15 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
 
     # STLink
     cmd = base_cmd.copy()
-    cmd.extend(["-c", "source [find interface/stlink.cfg]"])
     cmd.extend(["-c", "adapter speed 4000"])
+    cmd.extend(["-c", "source [find interface/stlink.cfg]"])
     cmd.extend(["-c", "transport select hla_swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
     yield cmd
 
     # Raspberry Pi GPIO
     cmd = base_cmd.copy()
+    cmd.extend(["-c", "adapter speed 100"])  # TODO: tweak value
     cmd.extend(["-c", "source [find interface/sysfsgpio-raspberrypi.cfg]"])
     cmd.extend(["-c", "source [find openocd/rpi.cfg]"])
     cmd.extend(["-c", "transport select swd"])
@@ -53,30 +54,45 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
 
     # J-Link
     cmd = base_cmd.copy()
+    cmd.extend(["-c", "adapter speed 500"])  # TODO: tweak value
     cmd.extend(["-c", "source [find interface/jlink.cfg]"])
-    # cmd.extend(["-c", "adapter speed 500"])
     cmd.extend(["-c", "transport select swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
     yield cmd
 
     # CMSIS-DAP
     cmd = base_cmd.copy()
+    cmd.extend(["-c", "adapter speed 500"])  # TODO: tweak value
     cmd.extend(["-c", "source [find interface/cmsis-dap.cfg]"])
-    # cmd.extend(["-c", "adapter speed 500"])
     cmd.extend(["-c", "transport select swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
     yield cmd
 
 
-def _launch_openocd(port: int):  # -> subprocess.Popen[bytes]:  # This type annotation is >=3.9
+def _is_port_open(port, host="localhost", timeout=1) -> bool:
+    """Check if a given port is open."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(timeout)
+        try:
+            s.connect((host, port))
+        except Exception:
+            return False
+        return True
+
+
+def _launch_openocd(port: int, timeout: float = 10.0):  # -> subprocess.Popen[bytes]:  # This type annotation is >=3.9
     for cmd in _openocd_launch_commands(port):
         process = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        sleep(0.1)
-        if process.poll() is None:
-            # Process is still running
-            # it didn't immediately close (probably due to not detecting probe).
-            return process
-    raise OpenOCDAutoDetectError
+
+        deadline = time() + timeout
+        while time() < deadline:
+            if process.poll() is not None:  # openocd terminated, probe not detected
+                break
+            elif _is_port_open(port):  # openocd is successfully running
+                return process
+            sleep(0.1)
+
+    raise OpenOCDAutoDetectError("Unable to connect to to debugging probe.")
 
 
 def _convert_hex_str_to_bytes(hex_str: bytes) -> bytes:
@@ -91,10 +107,11 @@ def find_openocd_executable() -> Path:
 
 
 class OpenOCDBackend(OCDBackend):
+    _socket: socket.socket
+
     def __init__(self, connect_mode="attach", port=6666):
         super().__init__()
         self._address = ("localhost", port)
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._openocd_process = None
 
     def open(self) -> OCDBackend:
