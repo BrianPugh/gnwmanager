@@ -14,12 +14,14 @@ def push(
     gnw_path: Annotated[
         Path,
         Argument(
+            show_default=False,
             help="Game-and-watch file or folder to write to.",
         ),
     ],
     local_paths: Annotated[
         List[Path],
         Argument(
+            show_default=False,
             help="Local file or folder to copy data from.",
         ),
     ],
@@ -37,7 +39,7 @@ def push(
 
     fs = gnw.filesystem(offset=offset)
 
-    gnw_path_is_dir = is_existing_gnw_dir(fs, gnw_path)
+    gnw_path_is_dir = True if len(local_paths) > 1 else is_existing_gnw_dir(fs, gnw_path)
 
     for local_path in local_paths:
         if not local_path.exists():
