@@ -41,9 +41,11 @@ executed from the STM32's RAM.
 Tutorials useful for typical end-users
  - [Installation](tutorials/installation.md)
  - [Device Unlocking](tutorials/unlock.md)
+ - [Binary Flashing](tutorials/flash.md)
 
 Tutorials useful for developers
  - [Device Locking](tutorials/lock.md)
+ - [Stdout Monitoring](tutorials/monitor.md)
 
 ## Compatibility
 GnWManager works with all major operating systems: Windows, Mac, and Linux.
