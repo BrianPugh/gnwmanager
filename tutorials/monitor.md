@@ -1,5 +1,5 @@
 # Stdout Monitoring
-Printing to `stdout` is a common debugging technique to gain insight on your program.
+Printing to `stdout` is a common debugging technique to gain insight on the state of your program.
 Unfortunately, due to the game & watch's hardware configuration, we don't have an independent communication channel for `stdout`.
 We can get around this by rerouting `stdout` to a circular buffer on-device, and monitoring this region of memory for changes.
 
@@ -45,12 +45,12 @@ $ gnwmanager monitor --help
 
  Monitor the device's stdout logging buffer.
 
-╭─ Options ─────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --elf             PATH  Project's ELF file. Defaults to searching "build/" directory. [default: None] │
-│ --buffer          TEXT  Log buffer variable name. [default: logbuf]                                   │
-│ --index           TEXT  Log buffer index variable name. [default: log_idx]                            │
-│ --help    -h            Show this message and exit.                                                   │
-╰───────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────────────╮
+│ --elf             PATH  Project's ELF file. Defaults to searching "build/" directory.│
+│ --buffer          TEXT  Log buffer variable name. [default: logbuf]                  │
+│ --index           TEXT  Log buffer index variable name. [default: log_idx]           │
+│ --help    -h            Show this message and exit.                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 `gnwmanager monitor` works by reading your projects ELF file, and searches for the defined variables `logbuf` and `log_idx`.
