@@ -3,9 +3,9 @@ GnWManager supports interactions with a [LittleFS](https://github.com/littlefs-p
 
 In general, the external SPI flash layout is as follows:
 
-<center>
+<div align="center">
     <img src="../assets/tutorials/filesystem/address-space-overview.png">
-</center>
+</div>
 
 #### Format
 Format a new filesystem partition.

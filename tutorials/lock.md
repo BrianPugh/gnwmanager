@@ -1,9 +1,9 @@
 # Locking a Game & Watch Device
 Why would you want to re-lock a Game & Watch Device? So you can unlock it again!
 
-<center>
-    <img src="../assets/tutorials/lock/dwight.jpg">
-</center>
+<div align="center">
+  <img src="../assets/tutorials/lock/dwight.jpg">
+</div>
 
 To lock your device, run:
 
