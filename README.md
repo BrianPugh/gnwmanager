@@ -42,10 +42,13 @@ Tutorials useful for typical end-users
  - [Installation](tutorials/installation.md)
  - [Device Unlocking](tutorials/unlock.md)
  - [Binary Flashing](tutorials/flash.md)
+ - [Filesystem Management](tutorials/filesystem.md)
+ - [Extracting Screenshots](tutorials/screenshot.md)
 
 Tutorials useful for developers
  - [Device Locking](tutorials/lock.md)
  - [Stdout Monitoring](tutorials/monitor.md)
+ - [Flash Erasing](tutorials/erase.md)
 
 ## Compatibility
 GnWManager works with all major operating systems: Windows, Mac, and Linux.
