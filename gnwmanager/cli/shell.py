@@ -40,6 +40,9 @@ def shell(
 
         split_user_input = shlex.split(user_input)
 
+        if split_user_input[0] in ("q", "quit"):
+            break
+
         if "--offset" not in split_user_input:
             split_user_input.extend(["--offset", str(offset)])
 
