@@ -65,7 +65,13 @@ def arm_toolchain(platform: str):
 
 def install(
     ctx: Context,
-    programs: Annotated[Optional[List[Path]], Argument(help="Programs to install")] = None,
+    programs: Annotated[
+        Optional[List[Path]],
+        Argument(
+            show_default=False,
+            help="Programs to install",
+        ),
+    ] = None,
     show: Annotated[
         bool,
         Option(

@@ -34,6 +34,7 @@ def capture(
     elf: Annotated[
         Optional[Path],
         Option(
+            show_default=False,
             help='Project\'s ELF file. Defaults to searching "build/" directory.',
         ),
     ] = None,
@@ -63,7 +64,12 @@ def capture(
 
 @app.command()
 def dump(
-    src: Annotated[Path, Option()] = Path("/SCREENSHOT"),
+    src: Annotated[
+        Path,
+        Option(
+            help="Path to screenshot file.",
+        ),
+    ] = Path("/SCREENSHOT"),
     dst: Annotated[
         Path,
         Option(
@@ -84,7 +90,10 @@ def dump(
         ),
     ] = 0,
 ):
-    """Decode a saved screenshot from device filesystem."""
+    """Decode a saved screenshot from device filesystem.
+
+    GnWManager assumes the file represents a Tamp-compressed 320*240 RGB565 framebuffer.
+    """
     from .main import gnw
 
     fs = gnw.filesystem(offset=offset)
