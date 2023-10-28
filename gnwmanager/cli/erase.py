@@ -12,7 +12,14 @@ class EraseLocation(str, Enum):
 
 
 def erase(
-    location: Annotated[EraseLocation, Argument(case_sensitive=False, help="Section to erase.")],
+    location: Annotated[
+        EraseLocation,
+        Argument(
+            case_sensitive=False,
+            show_default=False,
+            help="Section to erase.",
+        ),
+    ],
 ):
     """Erase a section of flash."""
     from .main import gnw
