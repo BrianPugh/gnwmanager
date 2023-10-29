@@ -7,6 +7,11 @@ In general, the external SPI flash layout is as follows:
     <img src="../assets/tutorials/filesystem/address-space-overview.png">
 </div>
 
+If running multiple firmwares, typically:
+
+1. Firmware 1 is the patched factory firmware.
+2. Firmware 2 is retro-go
+
 #### Format
 Format a new filesystem partition.
 
