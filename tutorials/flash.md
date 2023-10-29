@@ -2,11 +2,8 @@
 GnWManager can efficiently flash compiled binaries to the following locations:
 
 1. Internal Flash Bank 1 (`bank1`)
-
 2. Internal Flash Bank 2 (`bank2`)
-
 3. External SPI Flash (`ext`)
-
 4. An exact virtual memory address (e.g. `0x08000000` for bank 1)
 
 When flashing data, GnWManager will only flash chunks of data that have changed,
