@@ -12,7 +12,11 @@ from gnwmanager.ocdbackend import TransferErrors
 
 def monitor(
     elf: Annotated[
-        Optional[Path], Option(help='Project\'s ELF file. Defaults to searching "build/" directory.')
+        Optional[Path],
+        Option(
+            show_default=False,
+            help='Project\'s ELF file. Defaults to searching "build/" directory.',
+        ),
     ] = None,
     buffer: Annotated[str, Option(help="Log buffer variable name.")] = "logbuf",
     index: Annotated[str, Option(help="Log buffer index variable name.")] = "log_idx",

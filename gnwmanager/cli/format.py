@@ -21,7 +21,8 @@ def format(
         Option(
             min=0,
             parser=int_parser,
-            help="Size of filesystem. Defaults to 0 (previous filesystem size).",
+            show_default=False,
+            help="Size of filesystem. Defaults to previous filesystem size.",
         ),
     ] = 0,
     offset: Annotated[

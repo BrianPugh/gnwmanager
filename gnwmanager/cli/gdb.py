@@ -15,6 +15,7 @@ def gdb(
     elf: Annotated[
         Optional[Path],
         Option(
+            show_default=False,
             help='Project\'s ELF file. Defaults to searching "build/" directory.',
         ),
     ] = None,

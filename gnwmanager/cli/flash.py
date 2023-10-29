@@ -9,7 +9,10 @@ from gnwmanager.cli._parsers import int_parser
 def flash(
     location: Annotated[
         str,
-        Argument(help="Either an absolute flash address (e.g. 0x08000000) or one of {bank1, bank2, ext}"),
+        Argument(
+            show_default=False,
+            help="Either an absolute flash address (e.g. 0x08000000) or one of {bank1, bank2, ext}",
+        ),
     ],
     file: Annotated[
         Path,
@@ -20,6 +23,7 @@ def flash(
             writable=False,
             readable=True,
             resolve_path=True,
+            show_default=False,
             help="Binary file to flash.",
         ),
     ],

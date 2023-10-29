@@ -37,28 +37,18 @@ executed from the STM32's RAM.
     * Easily monitor device ``printf`` statements and launch GDB sessions.
     * Capture screenshots, regardless of the running firmware.
 
-## Installation
+## Tutorials
+Tutorials useful for typical end-users
+ - [Installation](tutorials/installation.md)
+ - [Device Unlocking](tutorials/unlock.md)
+ - [Binary Flashing](tutorials/flash.md)
+ - [Filesystem Management](tutorials/filesystem.md)
+ - [Extracting Screenshots](tutorials/screenshot.md)
 
-To ensure a seamless experience, we **strongly** recommend using [pipx](https://pypa.github.io/pipx/installation/) for installing GnWManager.
-
-```bash
-pipx install gnwmanager
-```
-
-Upon successful installation, you will have access to the `gnwmanager` command-line tool.
-GnWManager relies on several third-party tools.
-Thankfully, it simplifies the installation process across different operating systems.
-For example, to install `openocd`:
-
-```bash
-gnwmanager install openocd
-```
-
-#### Updating
-Update GnWManager as you would any python command line tool installed by `pipx`:
-```bash
-pipx upgrade gnwmanager
-```
+Tutorials useful for developers
+ - [Device Locking](tutorials/lock.md)
+ - [Stdout Monitoring](tutorials/monitor.md)
+ - [Flash Erasing](tutorials/erase.md)
 
 ## Compatibility
 GnWManager works with all major operating systems: Windows, Mac, and Linux.

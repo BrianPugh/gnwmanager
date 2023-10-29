@@ -11,12 +11,14 @@ def pull(
     gnw_path: Annotated[
         Path,
         Argument(
+            show_default=False,
             help="Game-and-watch file or folder to copy to computer.",
         ),
     ],
     local_path: Annotated[
         Path,
         Argument(
+            show_default=False,
             help="Local file or folder to copy data to.",
         ),
     ],

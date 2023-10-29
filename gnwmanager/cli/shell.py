@@ -1,11 +1,13 @@
 from contextlib import suppress
 
 with suppress(ImportError):
+    # By importing, makes things like the arrow-keys work.
     import readline  # Not available on windows
 
 import os
 import shlex
 
+from littlefs import LittleFSError
 from typer import Option
 from typing_extensions import Annotated
 
@@ -40,11 +42,18 @@ def shell(
 
         split_user_input = shlex.split(user_input)
 
+        if split_user_input[0] in ("q", "quit"):
+            break
+
         if "--offset" not in split_user_input:
             split_user_input.extend(["--offset", str(offset)])
 
         try:
             app(args=split_user_input, standalone_mode=False)
+        except LittleFSError as e:
+            if e.code == LittleFSError.Error.LFS_ERR_CORRUPT:
+                print("Missing or Corrupt filesystem; please format the filesystem.")
+            else:
+                print(e)
         except Exception as e:
             print(e)
-            continue

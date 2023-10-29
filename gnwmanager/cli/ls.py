@@ -36,7 +36,7 @@ def ls(
     path: Annotated[
         Path,
         Argument(
-            help="On-device folder path to list. Defaults to root",
+            help="On-device folder path to list.",
         ),
     ] = Path(),
     offset: Annotated[

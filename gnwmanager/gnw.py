@@ -2,7 +2,7 @@ from collections import namedtuple
 from copy import deepcopy
 from math import ceil
 from time import sleep, time
-from typing import Dict, List, Literal, NamedTuple, Optional, Tuple, Union
+from typing import Dict, List, Literal, NamedTuple, Optional, Union
 
 from tqdm import tqdm
 

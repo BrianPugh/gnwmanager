@@ -1,5 +1,3 @@
-from enum import Enum
-
 from typer import Argument, Option
 from typing_extensions import Annotated
 
@@ -7,7 +5,7 @@ from typing_extensions import Annotated
 def start(
     location: Annotated[
         str,
-        Argument(help="Either an absolute address (e.g. 0x08000000) or one of {bank1, bank2}"),
+        Argument(show_default=False, help="Either an absolute address (e.g. 0x08000000) or one of {bank1, bank2}"),
     ],
     offset: Annotated[
         int,

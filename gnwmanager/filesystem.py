@@ -90,7 +90,7 @@ def is_existing_gnw_dir(fs: LittleFS, path: Union[str, Path]) -> bool:
     try:
         stat = fs.stat(path)
     except LittleFSError as e:
-        if e.code == -2:  # LFS_ERR_NOENT
+        if e.code == LittleFSError.Error.LFS_ERR_NOENT:
             return False
         raise
     return stat.type == 2
@@ -107,7 +107,7 @@ def gnw_sha256(fs: LittleFS, path: Union[str, Path]):
     except FileNotFoundError:
         return bytes(32)
     except LittleFSError as e:
-        if e.code == -20:
+        if e.code == LittleFSError.Error.LFS_ERR_NOTDIR:
             return bytes(32)
         raise
 
