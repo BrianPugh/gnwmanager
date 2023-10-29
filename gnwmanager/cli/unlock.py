@@ -231,19 +231,29 @@ def unlock(
         backup_dir = Path(f"backups-{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
     backup_dir.mkdir(exist_ok=True)
 
-    if model is not None:
+    if model is None:
+        # Try and detect model based on available files.
+        # If resuming a previous interrupted unlocking procedure, on-device firmware may not be factory.
+        backup_files = list(backup_dir.glob("itcm_backup_*.bin"))
+        if len(backup_files) > 1:
+            # Too many backup files; cannot interpret model type.
+            raise ValueError("Too many backup files in provided directory.")
+        elif len(backup_files) == 1:
+            # Interpret model type from file
+            model = backup_files[0].stem.split("_")[-1]
+            device = DeviceModel[model](gnw)
+        else:
+            # No itcm backup found, attempt to autodetect based on on-device firmware.
+            device = DeviceModel.autodetect(gnw)
+            model = str(device)
+    else:
         model: str = model.value
+        device = DeviceModel[model](gnw)
 
     # TODO: this is deprecated, but the replacement was introduced in python3.9.
     # Migrate to ``as_file`` once python3.8 hits EOL.
     with importlib.resources.path("gnwmanager", "unlock.bin") as f:
         unlock_firmware_data = f.read_bytes()
-
-    if model is None:
-        device = DeviceModel.autodetect(gnw)
-        model = str(device)
-    else:
-        device = DeviceModel[model](gnw)
 
     print(f"\nIf interrupted, resume unlocking with:\n    gnwmanager unlock --backup-dir={backup_dir}\n")
 
