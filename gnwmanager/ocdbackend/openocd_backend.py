@@ -45,9 +45,10 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
 
     # Raspberry Pi GPIO
     cmd = base_cmd.copy()
-    cmd.extend(["-c", "adapter speed 100"])  # TODO: tweak value
+    cmd.extend(["-c", "adapter speed 1000"])
     cmd.extend(["-c", "source [find interface/sysfsgpio-raspberrypi.cfg]"])
-    cmd.extend(["-c", "source [find openocd/rpi.cfg]"])
+    cmd.extend(["-c", "sysfsgpio_swd_nums 25 24"])  # SWCLK - GPIO25, physical pin 22
+    # SWDIO - GPIO24, physical pin 18
     cmd.extend(["-c", "transport select swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
     yield cmd
