@@ -111,3 +111,7 @@ class PyOCDBackend(OCDBackend):
         if blocking:
             while gdb.is_alive():
                 sleep(0.1)
+
+    @property
+    def probe_name(self) -> str:
+        return self.probe.product_name

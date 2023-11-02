@@ -81,3 +81,8 @@ class OCDBackend(Registry, suffix="Backend"):
     def start_gdbserver(self, port, logging=True, blocking=True):
         """Start a blocking GDB Server."""
         raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def probe_name(self) -> str:
+        raise NotImplementedError

@@ -51,9 +51,9 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
     yield cmd
 
-    # CMSIS-DAP
+    # CMSIS-DAP (pi pico)
     cmd = base_cmd.copy()
-    cmd.extend(["-c", "adapter speed 500"])
+    cmd.extend(["-c", "adapter speed 4000"])
     cmd.extend(["-c", "source [find interface/cmsis-dap.cfg]"])
     cmd.extend(["-c", "transport select swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
@@ -127,6 +127,7 @@ class OpenOCDBackend(OCDBackend):
                 break
             except (OSError, ConnectionRefusedError):
                 sleep(0.5)
+
         return self
 
     def close(self):
@@ -228,3 +229,7 @@ class OpenOCDBackend(OCDBackend):
         if blocking:
             while True:
                 sleep(1)
+
+    @property
+    def probe_name(self) -> str:
+        return self("adapter name", decode=False).decode()
