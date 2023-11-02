@@ -85,4 +85,4 @@ class OCDBackend(Registry, suffix="Backend"):
     @property
     @abstractmethod
     def probe_name(self) -> str:
-        pass
+        raise NotImplementedError
