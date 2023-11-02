@@ -1,5 +1,8 @@
 import argparse
 import logging
+import platform
+import shutil
+import sys
 from enum import Enum
 from typing import Optional
 
@@ -8,6 +11,7 @@ from typer import Option
 from typing_extensions import Annotated
 
 import gnwmanager
+from gnwmanager import __version__
 from gnwmanager.cli._parsers import int_parser
 from gnwmanager.cli._start_gnwmanager import start_gnwmanager
 from gnwmanager.gnw import GnW
@@ -21,6 +25,7 @@ from . import (
     format,
     gdb,
     gdbserver,
+    info,
     install,
     lock,
     ls,
@@ -50,6 +55,7 @@ app.command()(disable_debug.disable_debug)
 app.command()(erase.erase)
 app.command()(flash.flash)
 app.command()(format.format)
+app.command()(info.info)
 app.command()(gdb.gdb)
 app.command()(gdbserver.gdbserver)
 app.command()(install.install)
@@ -74,6 +80,18 @@ def version_callback(value: bool):
 
 
 OCDBackendEnum = Enum("OCDBackendEnum", ((x, x) for x in OCDBackend))
+
+
+def _display_host_info(backend):
+    """Display Host-side information.
+
+    Useful for debugging
+    """
+    info.display("Platform:", platform.platform(aliased=True))
+    info.display("Python Version:", sys.version)
+    info.display("GnWManager Executable:", shutil.which(sys.argv[0]))
+    info.display("GnWManager Version:", __version__)
+    info.display("OCD Backend:", backend)
 
 
 @app.callback()
@@ -151,18 +169,21 @@ def run_app():
         command = args[0]
 
         # Commands that don't interact with device
-        if command in ("install",):
+        if command in ("install"):
             app(args=args, prog_name="gnwmanager")
             continue
 
         # Commands that must be standalone/last.
-        if command in ("shell", "gdb", "monitor", "gdbserver", "unlock", "lock") and not is_last:
+        if command in ("shell", "gdb", "monitor", "gdbserver", "unlock", "lock", "info") and not is_last:
             raise ValueError(f'Command "{command}" must be the final chained command.')
 
         filtered_commands_args.append(args)
 
     if not filtered_commands_args:
         return
+
+    if filtered_commands_args[-1][0] == "info":
+        _display_host_info(early_args.backend)
 
     with OCDBackend[early_args.backend]() as backend:
         gnw = GnW(backend)

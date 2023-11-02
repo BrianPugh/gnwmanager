@@ -228,3 +228,7 @@ class OpenOCDBackend(OCDBackend):
         if blocking:
             while True:
                 sleep(1)
+
+    @property
+    def probe_name(self) -> str:
+        return self("adapter name", decode=False).decode()
