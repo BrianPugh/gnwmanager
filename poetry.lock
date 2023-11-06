@@ -52,13 +52,13 @@ test = ["astroid", "pytest"]
 
 [[package]]
 name = "autoregistry"
-version = "1.1.0"
+version = "1.1.1"
 description = "Automatic registry design-pattern for mapping names to functionality."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "autoregistry-1.1.0-py3-none-any.whl", hash = "sha256:01fdafcdac8a2fbec484f45a5a395a49b96bc6fa74f4c2f3d07912b6b0d89898"},
-    {file = "autoregistry-1.1.0.tar.gz", hash = "sha256:b4d9ab95a64a2cc71eeb100367175f22241785bc0c12462f2591c901dfb5b1cb"},
+    {file = "autoregistry-1.1.1-py3-none-any.whl", hash = "sha256:2efb7ff26edd941736a004061aa8e7a519f4611b000b77d4233d412e51ab58c9"},
+    {file = "autoregistry-1.1.1.tar.gz", hash = "sha256:2ad9850d74e1a88c154c43c81469684472d84623d3b4903b8e4b5fc0365d1ba4"},
 ]
 
 [[package]]
