@@ -6,6 +6,7 @@ import sys
 from enum import Enum
 from typing import Optional
 
+import cyclopts
 import typer
 from typer import Option
 from typing_extensions import Annotated
@@ -43,33 +44,33 @@ from . import (
 
 gnw: GnW
 
-app = typer.Typer(
+typer_app = typer.Typer(
     no_args_is_help=True,
     pretty_exceptions_enable=False,
     add_completion=False,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
-app.add_typer(debug.app, name="debug")
-app.add_typer(screenshot.app, name="screenshot")
-app.command()(disable_debug.disable_debug)
-app.command()(erase.erase)
-app.command()(flash.flash)
-app.command()(format.format)
-app.command()(info.info)
-app.command()(gdb.gdb)
-app.command()(gdbserver.gdbserver)
-app.command()(install.install)
-app.command()(lock.lock)
-app.command()(ls.ls)
-app.command()(mkdir.mkdir)
-app.command()(monitor.monitor)
-app.command()(mv.mv)
-app.command()(pull.pull)
-app.command()(push.push)
-app.command()(shell.shell)
-app.command()(start.start)
-app.command()(tree.tree)
-app.command()(unlock.unlock)
+typer_app.add_typer(debug.app, name="debug")
+typer_app.add_typer(screenshot.app, name="screenshot")
+typer_app.command()(disable_debug.disable_debug)
+typer_app.command()(erase.erase)
+typer_app.command()(flash.flash)
+typer_app.command()(format.format)
+typer_app.command()(info.info)
+typer_app.command()(gdb.gdb)
+typer_app.command()(gdbserver.gdbserver)
+typer_app.command()(install.install)
+typer_app.command()(lock.lock)
+typer_app.command()(ls.ls)
+typer_app.command()(mkdir.mkdir)
+typer_app.command()(monitor.monitor)
+typer_app.command()(mv.mv)
+typer_app.command()(pull.pull)
+typer_app.command()(push.push)
+typer_app.command()(shell.shell)
+typer_app.command()(start.start)
+typer_app.command()(tree.tree)
+typer_app.command()(unlock.unlock)
 
 
 def version_callback(value: bool):
@@ -94,7 +95,7 @@ def _display_host_info(backend):
     info.display("OCD Backend:", backend)
 
 
-@app.callback()
+@typer_app.callback()
 def common(
     ctx: typer.Context,
     version: Annotated[
@@ -164,13 +165,13 @@ def run_app():
         is_last = i == (len(commands_args) - 1)
         if not args or {"-v", "--version", "-h", "--help"}.intersection(args):
             # Early help and version print without having to session
-            app(args=args, prog_name="gnwmanager")
+            typer_app(args=args, prog_name="gnwmanager")
 
         command = args[0]
 
         # Commands that don't interact with device
         if command in ("install"):
-            app(args=args, prog_name="gnwmanager")
+            typer_app(args=args, prog_name="gnwmanager")
             continue
 
         # Commands that must be standalone/last.
@@ -197,4 +198,4 @@ def run_app():
             start_gnwmanager()
 
         for args in filtered_commands_args:
-            app(args=args, standalone_mode=False, prog_name="gnwmanager")
+            typer_app(args=args, standalone_mode=False, prog_name="gnwmanager")

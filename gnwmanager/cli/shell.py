@@ -25,7 +25,7 @@ def shell(
     ] = 0,
 ):
     """Launch an interactive shell to browse device filesystem."""
-    from .main import app, gnw
+    from .main import gnw, typer_app
 
     if os.name == "posix":
         print("Interactive shell. Press Ctrl-D to exit.")
@@ -49,7 +49,7 @@ def shell(
             split_user_input.extend(["--offset", str(offset)])
 
         try:
-            app(args=split_user_input, standalone_mode=False)
+            typer_app(args=split_user_input, standalone_mode=False)
         except LittleFSError as e:
             if e.code == LittleFSError.Error.LFS_ERR_CORRUPT:
                 print("Missing or Corrupt filesystem; please format the filesystem.")
