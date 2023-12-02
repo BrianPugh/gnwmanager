@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
+from cyclopts import Parameter, validators
 from littlefs import LittleFS, LittleFSError
-from typer import Argument, Option
 from typing_extensions import Annotated
 
-from gnwmanager.cli._parsers import int_parser
+from gnwmanager.cli._parsers import GnWType, OffsetType
+from gnwmanager.cli.main import app
 from gnwmanager.utils import Color, colored
 
 
@@ -51,32 +52,24 @@ def _tree(fs: LittleFS, path: str, depth: int, max_depth: int, prefix: str = "")
         print(f"ls {path}: No such directory")
 
 
+@app.command
 def tree(
-    path: Annotated[
-        Path,
-        Argument(
-            help="On-device folder path to list. Defaults to root",
-        ),
-    ] = Path(),
-    depth: Annotated[
-        int,
-        Option(
-            min=0,
-            parser=int_parser,
-            help="Maximum depth of the directory tree.",
-        ),
-    ] = 2,
-    offset: Annotated[
-        int,
-        Option(
-            min=0,
-            parser=int_parser,
-            help="Distance in bytes from the END of the filesystem, to the END of flash.",
-        ),
-    ] = 0,
+    path: Path = Path(),
+    depth: Annotated[int, Parameter(validator=validators.Number(gte=0))] = 2,
+    offset: OffsetType = 0,
+    *,
+    gnw: GnWType,
 ):
-    """List contents of device directory and its descendants."""
-    from .main import gnw
+    """List contents of device directory and its descendants.
 
+    Parameters
+    ----------
+    path
+        On-device folder path to list. Defaults to root.
+    depth
+        Maximum depth of the directory tree.
+    offset
+        Distance in bytes from the END of the filesystem, to the END of flash.
+    """
     fs = gnw.filesystem(offset=offset)
     _tree(fs, path.as_posix(), 0, depth)
