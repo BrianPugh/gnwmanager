@@ -2,10 +2,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from littlefs import LittleFS, LittleFSError
-from typer import Argument, Option
-from typing_extensions import Annotated
 
-from gnwmanager.cli._parsers import int_parser
+from gnwmanager.cli._parsers import GnWType, OffsetType
+from gnwmanager.cli.main import app
 
 
 def _ls(fs: LittleFS, path: str):
@@ -32,24 +31,22 @@ def _ls(fs: LittleFS, path: str):
         print(f"ls {path}: No such directory")
 
 
+@app.command
 def ls(
-    path: Annotated[
-        Path,
-        Argument(
-            help="On-device folder path to list.",
-        ),
-    ] = Path(),
-    offset: Annotated[
-        int,
-        Option(
-            min=0,
-            parser=int_parser,
-            help="Distance in bytes from the END of the filesystem, to the END of flash.",
-        ),
-    ] = 0,
+    path: Path = Path(),
+    offset: OffsetType = 0,
+    *,
+    gnw: GnWType,
 ):
-    """List contents of device directory."""
-    from .main import gnw
+    """List contents of device directory.
 
+    Parameters
+    ----------
+    path: Path
+        On-device folder path to list.
+    offset: int
+        Distance from the END of the filesystem, to the END of flash.
+    """
+    gnw.start_gnwmanager()
     fs = gnw.filesystem(offset=offset)
     _ls(fs, path.as_posix())

@@ -1,10 +1,6 @@
-from cyclopts import Parameter
-from typing_extensions import Annotated
-
-from gnwmanager.gnw import GnW
-
-from .main import app
-from .unlock import AutodetectError, DeviceModel
+from gnwmanager.cli._parsers import GnWType
+from gnwmanager.cli.main import app
+from gnwmanager.cli.unlock import AutodetectError, DeviceModel
 
 
 def display(field, value):
@@ -12,7 +8,7 @@ def display(field, value):
 
 
 @app.command
-def info(*, gnw: Annotated[GnW, Parameter(parse=False)]):
+def info(*, gnw: GnWType):
     """Displays environment & device info."""
     # Note: part of this command exists in ``gnwmanager/cli/main.py``
     gnw.start_gnwmanager()

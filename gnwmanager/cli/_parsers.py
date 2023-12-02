@@ -1,3 +1,8 @@
+from cyclopts import Parameter, validators
+from typing_extensions import Annotated
+
+from gnwmanager.gnw import GnW
+
 # Dictionary mapping suffixes to their size in bytes
 _suffix_map = {
     # bytes
@@ -36,3 +41,7 @@ def int_parser(type_, *tokens: str):
 
     # If no suffix, assume it's in bytes
     return int(size_str, base)
+
+
+OffsetType = Annotated[int, Parameter(validator=validators.Number(gte=0), converter=int_parser)]
+GnWType = Annotated[GnW, Parameter(parse=False)]
