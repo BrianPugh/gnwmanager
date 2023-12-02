@@ -12,8 +12,8 @@ _suffix_map = {
 }
 
 
-def int_parser(size_str):
-    size_str = str(size_str).lower()
+def int_parser(type_, *tokens: str):
+    size_str = str(tokens[0]).lower()
 
     # Check if the string starts with '0x', which indicates a hexadecimal number
     if size_str.startswith("0x"):

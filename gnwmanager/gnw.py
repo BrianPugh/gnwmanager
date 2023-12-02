@@ -1,3 +1,4 @@
+import importlib.resources
 from collections import namedtuple
 from copy import deepcopy
 from math import ceil
@@ -9,6 +10,7 @@ from tqdm import tqdm
 from gnwmanager.exceptions import DataError
 from gnwmanager.ocdbackend import OCDBackend
 from gnwmanager.status import flashapp_status_enum_to_str
+from gnwmanager.time import timestamp_now
 from gnwmanager.utils import EMPTY_HASH_DIGEST, chunk_bytes, compress_lzma, pad_bytes, sha256
 from gnwmanager.validation import validate_extflash_offset, validate_intflash_offset
 
@@ -97,6 +99,7 @@ class GnW:
         self.context_counter = 1
         self._external_flash_size = 0
         self._external_flash_block_size = 0
+        self._gnwmanager_started = False
 
     @property
     def external_flash_size(self) -> int:
@@ -433,3 +436,32 @@ class GnW:
             self.write_uint32("progress", int(26 * (i + 1) / len(packets)))
 
         self.wait_for_all_contexts_complete()
+
+    def start_gnwmanager(self, force=False):
+        if not force and self._gnwmanager_started:
+            return
+
+        self.backend.reset_and_halt()
+        self.reset_context_counter()
+
+        # TODO: this is deprecated, but the replacement was introduced in python3.9.
+        # Migrate to ``as_file`` once python3.8 hits EOL.
+        with importlib.resources.path("gnwmanager", "firmware.bin") as f:
+            firmware = f.read_bytes()
+
+        self.write_memory(0x240E_6800, firmware)  # See STM32H7B0VBTx_FLASH.ld
+
+        self.write_uint32("status", 0)  # To be 100% sure there's nothing residual in RAM.
+        self.write_uint32("status_override", 0)  # To be 100% sure there's nothing residual in RAM.
+
+        msp = int.from_bytes(firmware[:4], byteorder="little")
+        pc = int.from_bytes(firmware[4:8], byteorder="little")
+        self.backend.write_register("msp", msp)
+        self.backend.write_register("pc", pc)
+
+        self.backend.resume()
+        self.wait_for_idle()
+
+        self.write_uint32("utc_timestamp", timestamp_now())
+
+        self._gnwmanager_started = True

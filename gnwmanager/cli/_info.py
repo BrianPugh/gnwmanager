@@ -1,3 +1,9 @@
+from cyclopts import Parameter
+from typing_extensions import Annotated
+
+from gnwmanager.gnw import GnW
+
+from .main import app
 from .unlock import AutodetectError, DeviceModel
 
 
@@ -5,13 +11,11 @@ def display(field, value):
     print(f"{field:<28} {value}")
 
 
-def info():
-    """Displays environment & device info.
-
-    Note: part of this command exists in ``gnwmanager/cli/main.py``
-    """
-    from .main import gnw
-
+@app.command
+def info(*, gnw: Annotated[GnW, Parameter(parse=False)]):
+    """Displays environment & device info."""
+    # Note: part of this command exists in ``gnwmanager/cli/main.py``
+    gnw.start_gnwmanager()
     display("Debug Probe:", gnw.backend.probe_name)
 
     try:
