@@ -8,4 +8,5 @@ from gnwmanager.cli._filesystem import (
 )
 from gnwmanager.cli._flash import flash
 from gnwmanager.cli._pull import pull
+from gnwmanager.cli._push import push
 from gnwmanager.cli._start import start

@@ -1,41 +1,36 @@
 from pathlib import Path
 from typing import List
 
-from typer import Argument, Option
+from cyclopts import Parameter
 from typing_extensions import Annotated
 
-from gnwmanager.cli._parsers import int_parser
-from gnwmanager.filesystem import get_filesystem, gnw_sha256, is_existing_gnw_dir
+from gnwmanager.cli._parsers import GnWType, OffsetType
+from gnwmanager.cli.main import app
+from gnwmanager.filesystem import gnw_sha256, is_existing_gnw_dir
 from gnwmanager.time import timestamp_now
 from gnwmanager.utils import sha256
 
 
+@app.command
 def push(
-    gnw_path: Annotated[
-        Path,
-        Argument(
-            show_default=False,
-            help="Game-and-watch file or folder to write to.",
-        ),
-    ],
-    local_paths: Annotated[
-        List[Path],
-        Argument(
-            show_default=False,
-            help="Local file or folder to copy data from.",
-        ),
-    ],
-    offset: Annotated[
-        int,
-        Option(
-            min=0,
-            parser=int_parser,
-            help="Distance in bytes from the END of the filesystem, to the END of flash.",
-        ),
-    ] = 0,
+    gnw_path: Path,
+    local_paths: Annotated[List[Path], Parameter(negative=[])],
+    offset: OffsetType = 0,
+    *,
+    gnw: GnWType,
 ):
-    """Push file(s) and folder(s) to device."""
-    from .main import gnw
+    """Push file(s) and folder(s) to device.
+
+    Parameters
+    ----------
+    gnw_path: Path
+        Game-and-watch file or folder to write to.
+    local_paths: Path
+        Local file(s) or folder to copy data to.
+    offset: int
+        Distance from the END of the filesystem, to the END of flash.
+    """
+    gnw.start_gnwmanager()
 
     fs = gnw.filesystem(offset=offset)
 
