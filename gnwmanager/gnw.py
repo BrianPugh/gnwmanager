@@ -100,6 +100,7 @@ class GnW:
         self._external_flash_size = 0
         self._external_flash_block_size = 0
         self._gnwmanager_started = False
+        self.default_filesystem_offset = 0
 
     @property
     def external_flash_size(self) -> int:
@@ -191,10 +192,13 @@ class GnW:
 
             sleep(0.05)
 
-    def filesystem(self, **kwargs):
+    def filesystem(self, offset: Optional[int] = None, **kwargs):
         from gnwmanager.filesystem import get_filesystem
 
-        return get_filesystem(self, **kwargs)
+        if offset is None:
+            offset = self.default_filesystem_offset
+
+        return get_filesystem(self, offset=offset, **kwargs)
 
     def read_hashes(self, offset, size) -> List[bytes]:
         """Blocking call to get the hashes of external flash chunks.

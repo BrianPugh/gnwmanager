@@ -4,15 +4,22 @@ import logging
 import platform
 import shutil
 import sys
-from typing import Literal, Optional
+import traceback
+from contextlib import suppress
+from typing import Any, Dict, Literal, Optional
 
 from cyclopts import App, Parameter
+from littlefs import LittleFSError
 from typing_extensions import Annotated
 
 from gnwmanager import __version__
-from gnwmanager.cli._parsers import int_parser
+from gnwmanager.cli._parsers import GnWType, OffsetType, int_parser
 from gnwmanager.gnw import GnW
 from gnwmanager.ocdbackend import OCDBackend
+
+with suppress(ImportError):
+    # By importing, makes things like the arrow-keys work.
+    import readline  # Not available on windows
 
 app = App()
 
@@ -31,6 +38,34 @@ def _display_host_info(backend):
     _info.display("OCD Backend:", backend)
 
 
+@app.command
+def shell(
+    offset: OffsetType = 0,
+    *,
+    gnw: GnWType,
+):
+    """Launch an interactive shell to browse device filesystem.
+
+    Parameters
+    ----------
+    offset
+        Distance from the END of the filesystem, to the END of flash.
+    """
+    gnw.default_filesystem_offset = offset
+
+    def dispatcher(command, bound):
+        # ``command`` is always ``main`` since we used the meta-app.
+        try:
+            return command(*bound.args, **bound.kwargs, gnw=gnw)
+        except LittleFSError as e:
+            if e.code == LittleFSError.Error.LFS_ERR_CORRUPT:
+                print("Missing or Corrupt filesystem; please format the filesystem.")
+            else:
+                print(traceback.format_exc())
+
+    app.meta.interactive_shell(dispatcher=dispatcher, prompt="gnw$ ")
+
+
 @app.meta.default
 def main(
     *tokens: Annotated[str, Parameter(show=False)],
@@ -38,6 +73,7 @@ def main(
     frequency: Annotated[
         Optional[int], Parameter(name=["--frequency", "-f"], converter=int_parser, show_default=False)
     ] = None,
+    gnw: Optional[GnWType] = None,
 ):
     """An All-in-One Game & Watch flasher, debugger, filemanager, and more.
 
@@ -51,7 +87,7 @@ def main(
     delimiter = "--"
     groups = [list(group) for key, group in itertools.groupby(tokens, lambda x: x == delimiter) if not key]
 
-    gnw = None
+    close_on_exit = gnw is None
     try:
         for group in groups:
             additional_kwargs = {}
@@ -72,7 +108,7 @@ def main(
 
             command(*bound.args, **bound.kwargs, **additional_kwargs)
     finally:
-        if gnw is not None:
+        if close_on_exit and gnw is not None:
             gnw.backend.close()
 
 

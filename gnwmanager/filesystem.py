@@ -66,6 +66,8 @@ def get_filesystem(gnw: GnW, offset: int = 0, block_count=0, mount=True) -> Litt
     block_count: int
         Number of blocks in filesystem.
         Defaults to ``0`` (infer from existing filesystem).
+    mount: bool
+        Mount the filesystem.
     """
     filesystem_end = gnw.external_flash_size - offset
     lfs_context = LfsDriverContext(gnw, filesystem_end)
