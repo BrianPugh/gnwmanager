@@ -6,4 +6,5 @@ from gnwmanager.cli._filesystem import (
     mv,
     tree,
 )
+from gnwmanager.cli._flash import flash
 from gnwmanager.cli._start import start

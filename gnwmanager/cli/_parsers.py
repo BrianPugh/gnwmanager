@@ -58,3 +58,9 @@ def convert_location(type_, *values) -> int:
         return 0x9000_0000
     else:
         return int_parser(type_, *values)
+
+
+def validate_flash_range(type_, value):
+    if (0x0800_0000 <= value <= 0x0804_0000) or (0x0810_0000 <= value <= 0x0814_0000) or (value >= 0x9000_0000):
+        return
+    raise ValueError(f"Invalid flash address 0x{value:08X}.")

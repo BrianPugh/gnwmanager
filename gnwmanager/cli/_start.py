@@ -6,9 +6,7 @@ from gnwmanager.cli.main import app
 
 
 def validate_internal_code(type_, value):
-    if 0x0800_0000 <= value <= 0x0804_0000:
-        return
-    if 0x0810_0000 <= value <= 0x0814_0000:
+    if (0x0800_0000 <= value <= 0x0804_0000) or (0x0810_0000 <= value <= 0x0814_0000):
         return
     raise ValueError("Invalid start address.")
 
