@@ -7,4 +7,5 @@ from gnwmanager.cli._filesystem import (
     tree,
 )
 from gnwmanager.cli._flash import flash
+from gnwmanager.cli._pull import pull
 from gnwmanager.cli._start import start

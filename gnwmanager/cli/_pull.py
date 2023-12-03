@@ -1,38 +1,31 @@
 from pathlib import Path
 
 from littlefs import LittleFSError
-from typer import Argument, Option
-from typing_extensions import Annotated
 
-from gnwmanager.cli._parsers import int_parser
+from gnwmanager.cli._parsers import GnWType, OffsetType
+from gnwmanager.cli.main import app
 
 
+@app.command
 def pull(
-    gnw_path: Annotated[
-        Path,
-        Argument(
-            show_default=False,
-            help="Game-and-watch file or folder to copy to computer.",
-        ),
-    ],
-    local_path: Annotated[
-        Path,
-        Argument(
-            show_default=False,
-            help="Local file or folder to copy data to.",
-        ),
-    ],
-    offset: Annotated[
-        int,
-        Option(
-            min=0,
-            parser=int_parser,
-            help="Distance in bytes from the END of the filesystem, to the END of flash.",
-        ),
-    ] = 0,
+    gnw_path: Path,
+    local_path: Path,
+    offset: OffsetType = 0,
+    *,
+    gnw: GnWType,
 ):
-    """Pull a file or folder from device."""
-    from .main import gnw
+    """Pull a file or folder from device.
+
+    Parameters
+    ----------
+    gnw_path: Path
+        Game-and-watch file or folder to copy to computer.
+    local_path: Path
+        Local file or folder to copy data to.
+    offset: int
+        Distance from the END of the filesystem, to the END of flash.
+    """
+    gnw.start_gnwmanager()
 
     fs = gnw.filesystem(offset=offset)
 
