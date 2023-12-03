@@ -6,7 +6,7 @@ import shutil
 import sys
 import traceback
 from contextlib import suppress
-from typing import Any, Dict, Literal, Optional
+from typing import Literal, Optional
 
 from cyclopts import App, Parameter
 from littlefs import LittleFSError
@@ -14,6 +14,7 @@ from typing_extensions import Annotated
 
 from gnwmanager import __version__
 from gnwmanager.cli._parsers import GnWType, OffsetType, int_parser
+from gnwmanager.cli.devices import AutodetectError, DeviceModel
 from gnwmanager.gnw import GnW
 from gnwmanager.ocdbackend import OCDBackend
 
@@ -43,8 +44,6 @@ def _display_host_info(backend):
 @app.command
 def info(*, gnw: GnWType):
     """Displays environment & device info."""
-    from gnwmanager.cli.unlock import AutodetectError, DeviceModel
-
     gnw.start_gnwmanager()
     _display("Debug Probe:", gnw.backend.probe_name)
 

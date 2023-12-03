@@ -174,6 +174,10 @@ class GnW:
     def reset_context_counter(self):
         self.context_counter = 1
 
+    def reset(self):
+        self.backend.reset()
+        self._gnwmanager_started = False
+
     def get_context(self, timeout=20):
         t_deadline = time() + timeout
         while True:
@@ -469,3 +473,12 @@ class GnW:
         self.write_uint32("utc_timestamp", timestamp_now())
 
         self._gnwmanager_started = True
+
+    def is_locked(self) -> bool:
+        """Returns ``True`` if the device is locked."""
+        try:
+            # See if reading from bank 1 is possible.
+            self.read_uint32(0x0800_0000)
+        except Exception:
+            return True
+        return False

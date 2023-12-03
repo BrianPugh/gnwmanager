@@ -1,10 +1,12 @@
 from pathlib import Path
 from time import sleep
 
-from typer import Argument, Option
+from cyclopts import Parameter, validators
 from typing_extensions import Annotated
 
-from .unlock import DeviceModel, is_gnw_locked
+from gnwmanager.cli._parsers import GnWType
+from gnwmanager.cli.devices import DeviceModel
+from gnwmanager.cli.main import app
 
 
 class BadBackupError(Exception):
@@ -30,22 +32,25 @@ def _verify_backups(backup_dir) -> str:
     raise BadBackupError
 
 
+@app.command
 def lock(
-    backup_dir: Annotated[
-        Path,
-        Argument(
-            file_okay=False,
-            dir_okay=True,
-            resolve_path=True,
-            help="Directory of backed up files.",
-        ),
-    ],
-    interactive: Annotated[bool, Option(help="Display interactive prompts.")] = True,
+    backup_dir: Annotated[Path, Parameter(validator=validators.Path(exists=True, file_okay=False))],
+    *,
+    interactive: bool = True,
+    gnw: GnWType,
 ):
-    """Re-lock your device."""
-    from .main import gnw
+    """Re-lock your device.
 
-    if is_gnw_locked(gnw):
+    Parameters
+    ----------
+    backup_dir: Path
+        Directory of backed up files.
+    interactive: bool
+        Display interactive prompts.
+    """
+    gnw.start_gnwmanager()
+
+    if gnw.is_locked():
         print("Device already locked. Skipping. Completely power cycle your device.")
         gnw.backend.reset()
         return
