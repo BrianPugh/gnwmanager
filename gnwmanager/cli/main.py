@@ -24,18 +24,38 @@ with suppress(ImportError):
 app = App()
 
 
+def _display(field, value):
+    print(f"{field:<28} {value}")
+
+
 def _display_host_info(backend):
     """Display Host-side information.
 
     Useful for debugging
     """
-    from gnwmanager.cli import _info
+    _display("Platform:", platform.platform(aliased=True))
+    _display("Python Version:", sys.version)
+    _display("GnWManager Executable:", shutil.which(sys.argv[0]))
+    _display("GnWManager Version:", __version__)
+    _display("OCD Backend:", backend)
 
-    _info.display("Platform:", platform.platform(aliased=True))
-    _info.display("Python Version:", sys.version)
-    _info.display("GnWManager Executable:", shutil.which(sys.argv[0]))
-    _info.display("GnWManager Version:", __version__)
-    _info.display("OCD Backend:", backend)
+
+@app.command
+def info(*, gnw: GnWType):
+    """Displays environment & device info."""
+    from gnwmanager.cli.unlock import AutodetectError, DeviceModel
+
+    gnw.start_gnwmanager()
+    _display("Debug Probe:", gnw.backend.probe_name)
+
+    try:
+        device = DeviceModel.autodetect(gnw)
+    except AutodetectError:
+        device = "unknown"
+
+    _display("Detected Device:", str(device).upper())
+
+    _display("External Flash Size (MB):", str(gnw.external_flash_size / (1 << 20)))
 
 
 @app.command
