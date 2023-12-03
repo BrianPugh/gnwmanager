@@ -71,6 +71,7 @@ def tree(
     offset
         Distance in bytes from the END of the filesystem, to the END of flash.
     """
+    gnw.start_gnwmanager()
     fs = gnw.filesystem(offset=offset)
     _tree(fs, path.as_posix(), 0, depth)
 
@@ -209,5 +210,6 @@ def mv(
     offset:
         Distance from the END of the filesystem, to the END of flash.
     """
+    gnw.start_gnwmanager()
     fs = gnw.filesystem(offset=offset)
     fs.rename(src.as_posix(), dst.as_posix())

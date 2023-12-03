@@ -45,3 +45,16 @@ def int_parser(type_, *tokens: str):
 
 OffsetType = Annotated[int, Parameter(validator=validators.Number(gte=0), converter=int_parser)]
 GnWType = Annotated[GnW, Parameter(parse=False)]
+
+
+def convert_location(type_, *values) -> int:
+    location = values[0]
+
+    if location == "bank1":
+        return 0x0800_0000
+    elif location == "bank2":
+        return 0x0810_0000
+    elif location == "ext":
+        return 0x9000_0000
+    else:
+        return int_parser(type_, *values)
