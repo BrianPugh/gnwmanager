@@ -8,26 +8,30 @@ from typing import Optional
 from typer import Option
 from typing_extensions import Annotated
 
+from gnwmanager.cli._parsers import GnWType, OffsetType
+from gnwmanager.cli.main import app
 from gnwmanager.elf import find_elf
 
 
+@app.command
 def gdb(
-    elf: Annotated[
-        Optional[Path],
-        Option(
-            show_default=False,
-            help='Project\'s ELF file. Defaults to searching "build/" directory.',
-        ),
-    ] = None,
-    port: Annotated[int, Option(help="GDB Server Port")] = 3333,
+    elf: Optional[Path] = None,
+    port: int = 3333,
+    *,
+    gnw: GnWType,
 ):
     """Launch a gdbserver and connect to it with gdb.
 
     Checks the environment variable ``GDB`` for gdb executable.
     Defaults to ``arm-none-eabi-gdb``.
-    """
-    from .main import gnw
 
+    Parameters
+    ----------
+    elf: Optional[Path]
+        Project's ELF file. Defaults to searching "build/" directory.
+    port: int
+        GDB Server Port.
+    """
     if elf is None:
         elf = find_elf()
 
@@ -56,3 +60,19 @@ def gdb(
     exit_code = gdb_process.wait()
 
     sys.exit(exit_code)
+
+
+@app.command
+def gdbserver(
+    port: int = 3333,
+    *,
+    gnw: GnWType,
+):
+    """Launch a gdbserver.
+
+    Parameters
+    ----------
+    port: int
+        GDB Server Port.
+    """
+    gnw.backend.start_gdbserver(port)
