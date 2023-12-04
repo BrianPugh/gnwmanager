@@ -85,6 +85,12 @@ def shell(
     app.meta.interactive_shell(dispatcher=dispatcher, prompt="gnw$ ")
 
 
+@app.command
+def disable_debug(*, gnw: GnWType):
+    """Disable the microcontroller's debug block."""
+    gnw.write_uint32(0xE00E1004, 0x00000000)
+
+
 @app.meta.default
 def main(
     *tokens: Annotated[str, Parameter(show=False)],

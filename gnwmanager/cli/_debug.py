@@ -12,7 +12,7 @@ from littlefs import LittleFSError
 from gnwmanager.cli._parsers import GnWType, OffsetType
 from gnwmanager.cli.main import app
 
-app.command(debug := App(name="debug"))
+app.command(debug := App(name="debug", help="GnWManager internal debugging tools."))
 
 
 @debug.command
