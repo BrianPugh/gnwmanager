@@ -2,11 +2,13 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from autoregistry import Registry
-from typer import Argument, Context, Option
+from cyclopts import Parameter
 from typing_extensions import Annotated
+
+from gnwmanager.cli.main import app
 
 installable_programs = Registry(hyphen=True)
 
@@ -63,34 +65,27 @@ def arm_toolchain(platform: str):
     _install_from_available_package_manager(install_cmds[platform])
 
 
+@app.command
 def install(
-    ctx: Context,
-    programs: Annotated[
-        Optional[List[Path]],
-        Argument(
-            show_default=False,
-            help="Programs to install",
-        ),
-    ] = None,
-    show: Annotated[
-        bool,
-        Option(
-            "--show",
-            help="Display available packages to install.",
-        ),
-    ] = False,
+    *programs: Path,
+    show: Annotated[bool, Parameter(negative=[])] = False,
 ):
-    """Install third party executables, like openocd."""
+    """Install third party executables, like openocd.
+
+    Parameters
+    ----------
+    programs: Optional[List[Path]]
+        Programs to install.
+    show:
+        Display available packages to install.
+    """
     if show:
         for program in sorted(installable_programs):
             print(program)
         return
 
-    if programs is None:
-        programs = []
-
     if not programs:
-        ctx.get_help()
+        app.help_print(["install"])
         return
 
     # First, make sure all provided programs are valid
