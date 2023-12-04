@@ -3,27 +3,31 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Optional
 
-from typer import Option
-from typing_extensions import Annotated
-
+from gnwmanager.cli._parsers import GnWType
+from gnwmanager.cli.main import app
 from gnwmanager.elf import SymTab
 from gnwmanager.ocdbackend import TransferErrors
 
 
+@app.command
 def monitor(
-    elf: Annotated[
-        Optional[Path],
-        Option(
-            show_default=False,
-            help='Project\'s ELF file. Defaults to searching "build/" directory.',
-        ),
-    ] = None,
-    buffer: Annotated[str, Option(help="Log buffer variable name.")] = "logbuf",
-    index: Annotated[str, Option(help="Log buffer index variable name.")] = "log_idx",
+    elf: Optional[Path] = None,
+    buffer: str = "logbuf",
+    index: str = "log_idx",
+    *,
+    gnw: GnWType,
 ):
-    """Monitor the device's stdout logging buffer."""
-    from .main import gnw
+    """Monitor the device's stdout logging buffer.
 
+    Parameters
+    ----------
+    elf: Optional[Path]
+        Project's ELF file. Defaults to searching "build/" directory.
+    buffer: str
+        Log buffer variable name.
+    index: str
+        Log buffer index variable name.
+    """
     with SymTab(elf) if elf else SymTab.find() as symtab:
         logbuf_sym = symtab[buffer]
         logbuf_addr = logbuf_sym.entry.st_value
