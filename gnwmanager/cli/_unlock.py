@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from time import sleep
-from typing import Literal, Optional
+from typing import Literal, Optional, cast
 
 from cyclopts import Parameter, validators
 from typing_extensions import Annotated
@@ -37,15 +37,13 @@ def _message(msg: str):
         print("complete!")
 
 
+model_literals = Literal["mario", "zelda"]
+
+
 @app.command
 def unlock(
-    backup_dir: Annotated[
-        Optional[Path], Parameter(validator=validators.Path(file_okay=False), show_default=False)
-    ] = None,
-    model: Annotated[  # pyright: ignore [reportGeneralTypeIssues]
-        Optional[Literal["mario", "zelda"]],
-        Parameter(show_default=False),
-    ] = None,
+    backup_dir: Annotated[Optional[Path], Parameter(validator=validators.Path(file_okay=False))] = None,
+    model: Optional[model_literals] = None,
     *,
     gnw: GnWType,
 ):
@@ -81,12 +79,12 @@ def unlock(
             raise ValueError("Too many backup files in provided directory.")
         elif len(backup_files) == 1:
             # Interpret model type from file
-            model: str = backup_files[0].stem.split("_")[-1]
+            model = cast(model_literals, backup_files[0].stem.split("_")[-1])
             device = DeviceModel[model](gnw)
         else:
             # No itcm backup found, attempt to autodetect based on on-device firmware.
             device = DeviceModel.autodetect(gnw)
-            model = str(device)
+            model = cast(model_literals, device)
     else:
         device = DeviceModel[model](gnw)
 

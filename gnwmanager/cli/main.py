@@ -89,9 +89,7 @@ def shell(
 def main(
     *tokens: Annotated[str, Parameter(show=False)],
     backend: Annotated[Literal["openocd", "pyocd"], Parameter(name=["--backend", "-b"])] = "openocd",
-    frequency: Annotated[
-        Optional[int], Parameter(name=["--frequency", "-f"], converter=int_parser, show_default=False)
-    ] = None,
+    frequency: Annotated[Optional[int], Parameter(name=["--frequency", "-f"], converter=int_parser)] = None,
     gnw: Optional[GnWType] = None,
 ):
     """An All-in-One Game & Watch flasher, debugger, filemanager, and more.
