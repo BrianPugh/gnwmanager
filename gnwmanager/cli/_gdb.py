@@ -5,10 +5,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from typer import Option
-from typing_extensions import Annotated
-
-from gnwmanager.cli._parsers import GnWType, OffsetType
+from gnwmanager.cli._parsers import GnWType
 from gnwmanager.cli.main import app
 from gnwmanager.elf import find_elf
 
