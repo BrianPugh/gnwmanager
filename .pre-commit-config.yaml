@@ -42,7 +42,7 @@ repos:
       - id: check-xml
       - id: check-yaml
       - id: debug-statements
-        exclude: ^(gnwmanager/cli/debug.py)
+        exclude: ^(gnwmanager/cli/_debug.py)
       - id: destroyed-symlinks
       - id: detect-private-key
       - id: end-of-file-fixer

@@ -6,58 +6,29 @@ from pathlib import Path
 from time import time
 from typing import Optional
 
-import typer
+from cyclopts import App
 from littlefs import LittleFSError
-from typer import Option
-from typing_extensions import Annotated
 
-from gnwmanager.cli._parsers import int_parser
-from gnwmanager.utils import convert_framebuffer
+from gnwmanager.cli._parsers import GnWType, OffsetType
+from gnwmanager.cli.main import app
 
-app = typer.Typer(
-    no_args_is_help=True,
-    pretty_exceptions_enable=False,
-    add_completion=False,
-    help="GnWManager internal debugging tools",
-)
+app.command(debug := App(name="debug"))
 
 
-@app.command()
-def screenshot(
-    dst: Annotated[
-        Path,
-        Option(
-            exists=False,
-            file_okay=True,
-            dir_okay=True,
-            resolve_path=True,
-            writable=True,
-            help="Destination file or directory",
-        ),
-    ] = Path("screenshot.png"),
-):
-    """Get a screenshot of the gnwmanager app."""
-    from .main import gnw
-
-    framebuffer = gnw.read_memory("framebuffer")
-    img = convert_framebuffer(framebuffer)
-    img.save(dst)
-
-
-@app.command()
+@debug.command
 def pdb(
-    offset: Annotated[
-        int,
-        Option(
-            min=0,
-            parser=int_parser,
-            help="Distance in bytes from the END of the filesystem, to the END of flash.",
-        ),
-    ] = 0,
+    offset: OffsetType = 0,
+    *,
+    gnw: GnWType,
 ):
-    """Drop into debugging with app launched."""
-    from .main import gnw
+    """Drop into debugging with app launched.
 
+    Parameters
+    ----------
+    offset
+        Distance from the END of the filesystem, to the END of flash.
+    """
+    gnw.start_gnwmanager()
     try:
         fs = gnw.filesystem(offset=offset)  # noqa: F841
     except LittleFSError as e:
@@ -68,10 +39,13 @@ def pdb(
     breakpoint()
 
 
-@app.command()
-def hash():
+@debug.command
+def hash(
+    *,
+    gnw: GnWType,
+):
     """Evaluates on-device hashing performance."""
-    from .main import gnw
+    gnw.start_gnwmanager()
 
     flash_size = gnw.read_uint32("flash_size")
 
@@ -87,23 +61,25 @@ def hash():
     print(f"Hashed {len(device_hashes)} 256KB chunks in {t_delta:.3f}s ({kbs:.1f} KB/s).")
 
 
-@app.command()
+@debug.command
 def gdb(
-    elf: Annotated[
-        Optional[Path],
-        Option(
-            help='Project\'s ELF file. Defaults to searching "build/" directory.',
-        ),
-    ] = None,
-    port: Annotated[int, Option(help="GDB Server Port")] = 3333,
+    elf: Optional[Path] = None,
+    port: int = 3333,
+    *,
+    gnw: GnWType,
 ):
     """Launch a gdbserver and connect to it with gdb.
 
     Checks the environment variable ``GDB`` for gdb executable.
     Defaults to ``arm-none-eabi-gdb``.
-    """
-    from .main import gnw
 
+    Parameters
+    ----------
+    elf: Optional[Path]
+        Project's ELF file. Defaults to searching "build/" directory.
+    port: int
+        GDB Server Port.
+    """
     if elf is None:
         elf = Path("build/gnwmanager.elf")
 
