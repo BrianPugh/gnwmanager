@@ -62,7 +62,7 @@ repos:
       - id: codespell
 
   - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.337
+    rev: v1.1.338
     hooks:
       - id: pyright
 
