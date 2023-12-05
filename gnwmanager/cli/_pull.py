@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from littlefs import LittleFSError
+from littlefs.errors import LittleFSError
 
 from gnwmanager.cli._parsers import GnWType, OffsetType
 from gnwmanager.cli.main import app
