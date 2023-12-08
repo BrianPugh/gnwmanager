@@ -2,8 +2,10 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Union
 
-from littlefs import LittleFS, LittleFSError
-from littlefs.lfs import LFSConfig, UserContext
+from littlefs import LittleFS
+from littlefs.context import UserContext
+from littlefs.errors import LittleFSError
+from littlefs.lfs import LFSConfig
 
 from gnwmanager.gnw import GnW
 from gnwmanager.utils import sha256
@@ -20,15 +22,15 @@ class LfsDriverContext(UserContext):
         self.filesystem_end = filesystem_end
         self.cache = _gnw_cache if cache is None else cache
 
-    def read(self, cfg: LFSConfig, block: int, off: int, size: int) -> bytes:
+    def read(self, cfg: LFSConfig, block: int, off: int, size: int) -> bytearray:
         try:
-            return bytes(self.cache[block][off : off + size])
+            return bytearray(self.cache[block][off : off + size])
         except KeyError:
             pass
         self.gnw.wait_for_all_contexts_complete()  # if a prog/erase is being performed, chip is not in memory-mapped-mode
         addr = 0x9000_0000 + self.filesystem_end - ((block + 1) * cfg.block_size)
         self.cache[block] = bytearray(self.gnw.read_memory(addr, size))
-        return bytes(self.cache[block][off : off + size])
+        return bytearray(self.cache[block][off : off + size])
 
     def prog(self, cfg: LFSConfig, block: int, off: int, data: bytes) -> int:
         # Update the local block if it has previously been read
@@ -43,13 +45,13 @@ class LfsDriverContext(UserContext):
 
         return 0
 
-    def erase(self, cfg: "LFSConfig", block: int) -> int:
+    def erase(self, cfg: LFSConfig, block: int) -> int:
         self.cache[block] = bytearray([0xFF] * cfg.block_size)
         offset = self.filesystem_end - ((block + 1) * cfg.block_size)
         self.gnw.erase(0, offset, cfg.block_size)
         return 0
 
-    def sync(self, cfg: "LFSConfig") -> int:
+    def sync(self, cfg: LFSConfig) -> int:
         return 0
 
 

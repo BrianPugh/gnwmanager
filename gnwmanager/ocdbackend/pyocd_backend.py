@@ -4,6 +4,7 @@ from time import sleep
 from gnwmanager.ocdbackend.base import OCDBackend, TransferErrors
 
 with suppress(ImportError):
+    import pyocd
     from pyocd.core.exceptions import TransferFaultError, TransferTimeoutError
 
     TransferErrors.add(TransferFaultError)
@@ -29,6 +30,10 @@ class PyOCDBackend(OCDBackend):
         assert session is not None
         self.session = session
         self._frequency_override = 0
+
+        version = tuple(int(x) for x in pyocd.__version__.split("."))
+        assert len(version) == 3
+        self.version = version
 
     @property
     def target(self):

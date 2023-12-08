@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import Tuple
 
 from autoregistry import Registry
 
@@ -7,6 +8,8 @@ TransferErrors = set()
 
 class OCDBackend(Registry, suffix="Backend"):
     """Abstraction for handling lower level memory read/writes."""
+
+    version: Tuple[int, int, int]
 
     def __init__(self):
         pass

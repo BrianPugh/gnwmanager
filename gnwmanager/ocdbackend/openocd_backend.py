@@ -1,11 +1,12 @@
 import os
+import re
 import shutil
 import socket
 import subprocess
 import tempfile
 from pathlib import Path
 from time import sleep, time
-from typing import Generator, List
+from typing import Generator, List, Tuple
 
 from gnwmanager.exceptions import MissingThirdPartyError
 from gnwmanager.ocdbackend.base import OCDBackend, TransferErrors
@@ -25,6 +26,8 @@ class OpenOCDAutoDetectError(OpenOCDError):
 
 
 TransferErrors.add(OpenOCDError)
+
+_ramdisk = Path("/dev/shm")
 
 
 def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
@@ -98,7 +101,10 @@ def _launch_openocd(port: int, timeout: float = 10.0):  # -> subprocess.Popen[by
 
 
 def _convert_hex_str_to_bytes(hex_str: bytes) -> bytes:
-    return bytes(int(h, 16) for h in hex_str.decode().split())
+    try:
+        return bytes(int(h, 16) for h in hex_str.decode().split())
+    except ValueError:
+        raise ValueError(f"Error decoding expected hex response: {hex_str}") from None
 
 
 def find_openocd_executable() -> Path:
@@ -108,6 +114,23 @@ def find_openocd_executable() -> Path:
     return Path(openocd_executable)
 
 
+def _get_openocd_version() -> Tuple[int, int, int]:
+    # Run the command and capture the output
+    openocd = find_openocd_executable()
+    result = subprocess.run([openocd, "--version"], capture_output=True, text=True, check=True)
+    # Use regular expression to find the version number
+    match = re.search(r"(\d+\.\d+\.\d+)", result.stderr)
+    if not match:
+        raise ValueError("Unable to determine OpenOCD Version.")
+
+    # Extract and parse the version number into a tuple
+    version_str = match.group(1)
+    version_tuple = tuple(int(x) for x in version_str.split("."))
+    assert len(version_tuple) == 3
+
+    return version_tuple
+
+
 class OpenOCDBackend(OCDBackend):
     _socket: socket.socket
 
@@ -115,6 +138,7 @@ class OpenOCDBackend(OCDBackend):
         super().__init__()
         self._address = ("localhost", port)
         self._openocd_process = None
+        self.version = _get_openocd_version()
 
     def open(self) -> OCDBackend:
         # In-case there's a previous openocd process still running.
@@ -161,37 +185,33 @@ class OpenOCDBackend(OCDBackend):
             response = _convert_hex_str_to_bytes(response)
         return response
 
+    def read_uint32(self, addr: int):
+        """Reads a uint32 from addr."""
+        res = self(f"mdw 0x{addr:08X}", decode=False)
+        return int(res.strip().split(b": ")[-1], 16)
+
     def read_memory(self, addr: int, size: int) -> bytes:
         """Reads a block of memory."""
-        if size <= 64:
-            return self(f"read_memory 0x{addr:08X} 8 {size}")
-        else:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_file = Path(temp_dir) / "scratch.bin"
-                self(f"dump_image {temp_file.as_posix()} 0x{addr:08X} {size}", decode=False).decode()
-                data = temp_file.read_bytes()
-            if len(data) != size:
-                raise OpenOCDError(f"Failed to read {size} bytes at 0x{addr:08X}. Received {len(data)} bytes.")
+        with tempfile.TemporaryDirectory(dir=_ramdisk if _ramdisk.exists() else None) as temp_dir:
+            temp_file = Path(temp_dir) / "scratch.bin"
+            self(f"dump_image {temp_file.as_posix()} 0x{addr:08X} {size}", decode=False).decode()
+            data = temp_file.read_bytes()
+        if len(data) != size:
+            raise OpenOCDError(f"Failed to read {size} bytes at 0x{addr:08X}. Received {len(data)} bytes.")
 
-            return data
+        return data
 
     def write_uint32(self, addr: int, val: int):
         """Writes a uint32 to addr."""
         # This write IS atomic
-        self(f"write_memory 0x{addr:08X} 32 {{ {hex(val)} }}")
+        self(f"mww 0x{addr:08X} 0x{val:02X}")
 
     def write_memory(self, addr: int, data: bytes):
         """Writes a block of memory."""
-        # openocd can handle a max of 64K at a time
-        # Note: writes are not atomic!
-        if len(data) <= 64:
-            tcl_list = "{" + " ".join([hex(x) for x in data]) + "}"
-            self(f"write_memory 0x{addr:08X} 8 {tcl_list}")
-        else:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_file = Path(temp_dir) / "scratch.bin"
-                temp_file.write_bytes(data)
-                self(f"load_image {temp_file.as_posix()} 0x{addr:08X}", decode=False).decode()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = Path(temp_dir) / "scratch.bin"
+            temp_file.write_bytes(data)
+            self(f"load_image {temp_file.as_posix()} 0x{addr:08X}", decode=False).decode()
 
     def read_register(self, name: str) -> int:
         """Read from a 32-bit core register."""
