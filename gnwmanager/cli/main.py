@@ -9,7 +9,7 @@ from contextlib import suppress
 from typing import Literal, Optional
 
 from cyclopts import App, Parameter
-from littlefs import LittleFSError
+from littlefs.errors import LittleFSError
 from typing_extensions import Annotated
 
 from gnwmanager import __version__
@@ -45,6 +45,7 @@ def _display_host_info(backend):
 def info(*, gnw: GnWType):
     """Displays environment & device info."""
     gnw.start_gnwmanager()
+    _display("OCD Backend Version:", ".".join(str(x) for x in gnw.backend.version))
     _display("Debug Probe:", gnw.backend.probe_name)
 
     try:
