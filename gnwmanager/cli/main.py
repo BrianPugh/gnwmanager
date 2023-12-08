@@ -53,7 +53,7 @@ def info(*, gnw: GnWType):
     except AutodetectError:
         device = "unknown"
 
-    _display("Detected Device:", str(device).upper())
+    _display("Detected Stock Firmware:", str(device).upper())
 
     _display("External Flash Size (MB):", str(gnw.external_flash_size / (1 << 20)))
 
