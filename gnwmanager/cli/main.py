@@ -79,7 +79,7 @@ def shell(
     def dispatcher(command, bound):
         # ``command`` is always ``main`` since we used the meta-app.
         try:
-            return command(*bound.args, **bound.kwargs, gnw=gnw)
+            return command(*bound.args, **bound.kwargs, gnw=gnw, exit_on_error=False)
         except LittleFSError as e:
             if e.code == LittleFSError.Error.LFS_ERR_CORRUPT:
                 print("Missing or Corrupt filesystem; please format the filesystem.")
@@ -115,6 +115,7 @@ def main(
     backend: Annotated[Literal["openocd", "pyocd"], Parameter(name=["--backend", "-b"])] = "openocd",
     frequency: Annotated[Optional[int], Parameter(name=["--frequency", "-f"], converter=int_parser)] = None,
     gnw: Optional[GnWType] = None,
+    exit_on_error: Annotated[bool, Parameter(parse=False)] = True,
 ):
     """An All-in-One Game & Watch flasher, debugger, filemanager, and more.
 
@@ -132,7 +133,7 @@ def main(
     try:
         for group in groups:
             additional_kwargs = {}
-            command, bound = app.parse_args(group)
+            command, bound = app.parse_args(group, exit_on_error=exit_on_error)
 
             if command.__name__ == "info":
                 # Special case: print some system information prior to attempting
