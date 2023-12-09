@@ -101,7 +101,7 @@ def unlock(
     external_flash = backup_dir / f"flash_backup_{model}.bin"
     internal_flash = backup_dir / f"internal_flash_backup_{model}.bin"
 
-    print(f"Detected {model.upper()} game and watch.")
+    print(f"Detected {str(model).upper()} game and watch.")
 
     if itcm.exists():
         itcm_data = itcm.read_bytes()

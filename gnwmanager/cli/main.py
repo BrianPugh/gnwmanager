@@ -58,6 +58,7 @@ def info(*, gnw: GnWType):
     _display("Detected Stock Firmware:", str(device).upper())
 
     _display("External Flash Size (MB):", str(gnw.external_flash_size / (1 << 20)))
+    _display("Locked?: ", "LOCKED" if gnw.is_locked() else "UNLOCKED")
 
 
 @app.command
@@ -141,9 +142,9 @@ def main(
             if "gnw" in inspect.signature(command).parameters:
                 if gnw is None:
                     gnw = GnW(OCDBackend[backend]())
+                    gnw.backend.open()
                     if frequency is not None:
                         gnw.backend.set_frequency(frequency)
-                    gnw.backend.open()
                 additional_kwargs["gnw"] = gnw
 
             command(*bound.args, **bound.kwargs, **additional_kwargs)
