@@ -3,6 +3,7 @@ import itertools
 import logging
 import platform
 import shutil
+import subprocess
 import sys
 import traceback
 from contextlib import suppress
@@ -90,6 +91,20 @@ def shell(
 def disable_debug(*, gnw: GnWType):
     """Disable the microcontroller's debug block."""
     gnw.write_uint32(0xE00E1004, 0x00000000)
+
+
+@app.command
+def upgrade():
+    """Update gnwmanager to latest stable version."""
+    old_version = __version__
+    subprocess.check_output([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
+    subprocess.check_output([sys.executable, "-m", "pip", "install", "--upgrade", "gnwmanager"])
+    res = subprocess.run([sys.executable, "-m", "gnwmanager", "--version"], stdout=subprocess.PIPE, check=True)
+    new_version = res.stdout.decode().strip()
+    if old_version == new_version:
+        print(f"GnWManager updated from v{old_version} to v{new_version}.")
+    else:
+        print(f"GnWManager up-to-date (v{new_version}).")
 
 
 @app.meta.default
