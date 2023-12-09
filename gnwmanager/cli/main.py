@@ -9,6 +9,7 @@ import traceback
 from contextlib import suppress
 from typing import Literal, Optional
 
+import rich
 from cyclopts import App, Parameter
 from littlefs.errors import LittleFSError
 from typing_extensions import Annotated
@@ -146,6 +147,9 @@ def main(
                 additional_kwargs["gnw"] = gnw
 
             command(*bound.args, **bound.kwargs, **additional_kwargs)
+    except BrokenPipeError:
+        rich.print("[red]Error communicating with device (BrokenPipeError). Is it ON and connected?[/red]")
+        close_on_exit = False
     finally:
         if close_on_exit and gnw is not None:
             gnw.backend.close()
