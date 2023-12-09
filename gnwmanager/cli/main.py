@@ -102,9 +102,9 @@ def upgrade():
     res = subprocess.run([sys.executable, "-m", "gnwmanager", "--version"], stdout=subprocess.PIPE, check=True)
     new_version = res.stdout.decode().strip()
     if old_version == new_version:
-        print(f"GnWManager updated from v{old_version} to v{new_version}.")
-    else:
         print(f"GnWManager up-to-date (v{new_version}).")
+    else:
+        print(f"GnWManager updated from v{old_version} to v{new_version}.")
 
 
 @app.meta.default
