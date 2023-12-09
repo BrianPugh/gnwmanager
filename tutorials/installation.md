@@ -99,7 +99,10 @@ gnwmanager install openocd
 ```
 
 ## Updating
-Update GnWManager as you would any python command line tool installed by `pipx`:
+As of version ``v0.5.0``, GnWManager provides the command ``gnwmanager upgrade`` to update
+itself.
+
+Alternatively, update GnWManager as you would any python command line tool installed by `pipx`:
 ```bash
 pipx upgrade gnwmanager
 ```
