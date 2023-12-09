@@ -185,33 +185,44 @@ class OpenOCDBackend(OCDBackend):
             response = _convert_hex_str_to_bytes(response)
         return response
 
-    def read_uint32(self, addr: int):
+    def read_uint32(self, addr: int) -> int:
         """Reads a uint32 from addr."""
         res = self(f"mdw 0x{addr:08X}", decode=False)
         return int(res.strip().split(b": ")[-1], 16)
 
+    def read_uint8(self, addr: int) -> int:
+        res = self(f"mdb 0x{addr:08X}", decode=False)
+        return int(res.strip().split(b": ")[-1], 16)
+
     def read_memory(self, addr: int, size: int) -> bytes:
         """Reads a block of memory."""
-        with tempfile.TemporaryDirectory(dir=_ramdisk if _ramdisk.exists() else None) as temp_dir:
-            temp_file = Path(temp_dir) / "scratch.bin"
-            self(f"dump_image {temp_file.as_posix()} 0x{addr:08X} {size}", decode=False).decode()
-            data = temp_file.read_bytes()
-        if len(data) != size:
-            raise OpenOCDError(f"Failed to read {size} bytes at 0x{addr:08X}. Received {len(data)} bytes.")
+        if size <= 64:
+            return bytearray(self.read_uint8(addr + offset) for offset in range(size))
+        else:
+            with tempfile.TemporaryDirectory(dir=_ramdisk if _ramdisk.exists() else None) as temp_dir:
+                temp_file = Path(temp_dir) / "scratch.bin"
+                self(f"dump_image {temp_file.as_posix()} 0x{addr:08X} {size}", decode=False).decode()
+                data = temp_file.read_bytes()
+            if len(data) != size:
+                raise OpenOCDError(f"Failed to read {size} bytes at 0x{addr:08X}. Received {len(data)} bytes.")
 
-        return data
+            return data
 
     def write_uint32(self, addr: int, val: int):
         """Writes a uint32 to addr."""
-        # This write IS atomic
-        self(f"mww 0x{addr:08X} 0x{val:02X}")
+        self(f"mww 0x{addr:08x} 0x{val:08x}")
 
     def write_memory(self, addr: int, data: bytes):
         """Writes a block of memory."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_file = Path(temp_dir) / "scratch.bin"
-            temp_file.write_bytes(data)
-            self(f"load_image {temp_file.as_posix()} 0x{addr:08X}", decode=False).decode()
+        if len(data) <= 64:
+            for i, b in enumerate(data):
+                self(f"mwb 0x{addr + i:08x} 0x{b:02X}")
+        else:
+            # For some reason, this doesn't handle small (single?) bytes well.
+            with tempfile.TemporaryDirectory(dir=_ramdisk if _ramdisk.exists() else None) as temp_dir:
+                temp_file = Path(temp_dir) / "scratch.bin"
+                temp_file.write_bytes(data)
+                self(f"load_image {temp_file.as_posix()} 0x{addr:08X}", decode=False).decode()
 
     def read_register(self, name: str) -> int:
         """Read from a 32-bit core register."""
