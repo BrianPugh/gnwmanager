@@ -77,7 +77,7 @@ This tutorial breaks it up by operating system in case you are really starting f
 
 ## Common
 #### Installing pipx
-`Install pipx, following the instructions on its website.<https://pipx.pypa.io/stable/#install-pipx>`_
+[Install pipx, following the instructions on its website.](<https://pipx.pypa.io/stable/#install-pipx>)
 
 #### Installing gnwmanager
 GnWManager can now be installed with pipx:
