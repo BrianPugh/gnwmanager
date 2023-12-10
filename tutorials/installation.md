@@ -77,11 +77,7 @@ This tutorial breaks it up by operating system in case you are really starting f
 
 ## Common
 #### Installing pipx
-Install pipx with the following command:
-
-```bash
-python -m pip install --user pipx
-```
+`Install pipx, following the instructions on its website.<https://pipx.pypa.io/stable/#install-pipx>`_
 
 #### Installing gnwmanager
 GnWManager can now be installed with pipx:
