@@ -163,6 +163,9 @@ def main(
     except (BrokenPipeError, DebugProbeConnectionError) as e:
         rich.print(f"[red]Error communicating with device ({e}). Is it ON and connected?[/red]")
         close_on_exit = False
+    except ConnectionResetError:
+        print(traceback.format_exc())
+        close_on_exit = False
     finally:
         if close_on_exit and gnw is not None:
             gnw.backend.close()
