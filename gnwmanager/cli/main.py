@@ -77,9 +77,13 @@ def shell(
     gnw.default_filesystem_offset = offset
 
     def dispatcher(command, bound):
-        # ``command`` is always ``main`` since we used the meta-app.
+        # ``command`` is usually ``main`` since we used the meta-app.
         try:
-            return command(*bound.args, **bound.kwargs, gnw=gnw, exit_on_error=False)
+            if command == main:
+                return command(*bound.args, **bound.kwargs, gnw=gnw, exit_on_error=False)
+            else:
+                # Handles special cases like ``help``
+                return command(*bound.args, **bound.kwargs)
         except LittleFSError as e:
             if e.code == LittleFSError.Error.LFS_ERR_CORRUPT:
                 print("Missing or Corrupt filesystem; please format the filesystem.")
@@ -107,6 +111,12 @@ def upgrade():
         print(f"GnWManager up-to-date (v{new_version}).")
     else:
         print(f"GnWManager updated from v{old_version} to v{new_version}.")
+
+
+@app.command
+def help():
+    """Display the help screen."""
+    app.help_print([])
 
 
 @app.meta.default
