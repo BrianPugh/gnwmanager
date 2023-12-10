@@ -8,7 +8,7 @@ from pathlib import Path
 from time import sleep, time
 from typing import Generator, List, Tuple
 
-from gnwmanager.exceptions import MissingThirdPartyError
+from gnwmanager.exceptions import DebugProbeConnectionError, MissingThirdPartyError
 from gnwmanager.ocdbackend.base import OCDBackend, TransferErrors
 from gnwmanager.utils import kill_processes_by_name
 
@@ -17,7 +17,7 @@ _COMMAND_TOKEN_BYTES = _COMMAND_TOKEN_STR.encode("utf-8")
 _BUFFER_SIZE = 4096
 
 
-class OpenOCDError(Exception):
+class OpenOCDError(DebugProbeConnectionError):
     pass
 
 
@@ -97,7 +97,7 @@ def _launch_openocd(port: int, timeout: float = 10.0):  # -> subprocess.Popen[by
                 return process
             sleep(0.1)
 
-    raise OpenOCDAutoDetectError("Unable to connect to to debugging probe.")
+    raise OpenOCDAutoDetectError("Unable to autodetect & connect to debugging probe.")
 
 
 def _convert_hex_str_to_bytes(hex_str: bytes) -> bytes:

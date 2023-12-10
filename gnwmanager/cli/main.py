@@ -17,6 +17,7 @@ from typing_extensions import Annotated
 from gnwmanager import __version__
 from gnwmanager.cli._parsers import GnWType, OffsetType, int_parser
 from gnwmanager.cli.devices import AutodetectError, DeviceModel
+from gnwmanager.exceptions import DebugProbeConnectionError
 from gnwmanager.gnw import GnW
 from gnwmanager.ocdbackend import OCDBackend
 
@@ -159,8 +160,8 @@ def main(
                 additional_kwargs["gnw"] = gnw
 
             command(*bound.args, **bound.kwargs, **additional_kwargs)
-    except BrokenPipeError:
-        rich.print("[red]Error communicating with device (BrokenPipeError). Is it ON and connected?[/red]")
+    except (BrokenPipeError, DebugProbeConnectionError) as e:
+        rich.print(f"[red]Error communicating with device ({e}). Is it ON and connected?[/red]")
         close_on_exit = False
     finally:
         if close_on_exit and gnw is not None:
