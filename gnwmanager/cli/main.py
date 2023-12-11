@@ -137,7 +137,7 @@ def main(
         Debug probe frequency. Defaults to a typically reasonable fast value.
     """
     delimiter = "--"
-    groups = [list(group) for key, group in itertools.groupby(tokens, lambda x: x == delimiter) if not key]
+    groups = [list(group) for key, group in itertools.groupby(tokens, lambda x: x == delimiter) if not key] or [[]]
 
     close_on_exit = gnw is None
     try:
