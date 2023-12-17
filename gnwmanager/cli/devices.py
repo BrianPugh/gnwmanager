@@ -1,4 +1,5 @@
 import hashlib
+import logging
 from contextlib import suppress
 from functools import lru_cache
 from pathlib import Path
@@ -6,6 +7,8 @@ from pathlib import Path
 from autoregistry import Registry
 
 from gnwmanager.gnw import GnW
+
+log = logging.getLogger(__name__)
 
 
 class AutodetectError(Exception):
@@ -59,6 +62,7 @@ class DeviceModel(Registry, suffix="Model"):
     @classmethod
     def validate_itcm(cls, data):
         actual_hash = _sha1(data)
+        log.debug(f"Actual ITCM Hash: {actual_hash}")
         if actual_hash != cls.itcm_hash:
             raise HashMismatchError(cls.itcm_hash, actual_hash)
 
@@ -77,6 +81,7 @@ class DeviceModel(Registry, suffix="Model"):
     def validate_external_flash(cls, data: bytes):
         hash_data = data[cls.external_flash_hash_start : cls.external_flash_hash_end]
         actual_hash = _sha1(hash_data)
+        log.debug(f"Actual External Flash Hash: {actual_hash}")
         if actual_hash != cls.external_flash_hash:
             raise HashMismatchError(cls.external_flash_hash, actual_hash)
 
@@ -97,6 +102,7 @@ class DeviceModel(Registry, suffix="Model"):
     @classmethod
     def validate_internal_flash(cls, data):
         actual_hash = _sha1(data)
+        log.debug(f"Actual Internal Flash Hash: {actual_hash}")
         if actual_hash != cls.internal_flash_hash:
             raise HashMismatchError(cls.internal_flash_hash, actual_hash)
 

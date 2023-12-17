@@ -201,7 +201,7 @@ def main(
                 additional_kwargs["gnw"] = gnw
 
             command(*bound.args, **bound.kwargs, **additional_kwargs)
-    except (BrokenPipeError, DebugProbeConnectionError) as e:
+    except DebugProbeConnectionError as e:
         rich.print(f"[red]Error communicating with device ({e}). Is it ON and connected?[/red]")
         close_on_exit = False
     except ConnectionResetError:

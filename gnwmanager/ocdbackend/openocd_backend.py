@@ -104,7 +104,7 @@ def _launch_openocd(port: int, timeout: float = 10.0):  # -> subprocess.Popen[by
                     raise OpenOCDAutoDetectError(f"Was able to connect to {name} probe, but unable to talk to device.")
 
                 break
-            elif _is_port_open(port):  # openocd is successfully running
+            elif _is_port_open(port):  # openocd is successfully running (but might actually still error out soon!)
                 return process
             sleep(0.1)
 
@@ -177,8 +177,20 @@ class OpenOCDBackend(OCDBackend):
 
     def __call__(self, cmd: str, *, decode=True) -> bytes:
         """Invoke an OpenOCD command."""
-        self._socket.send(cmd.encode("utf-8") + _COMMAND_TOKEN_BYTES)
-        return self._receive_response(decode=decode)
+        try:
+            self._socket.send(cmd.encode("utf-8") + _COMMAND_TOKEN_BYTES)
+            return self._receive_response(decode=decode)
+        except BrokenPipeError as e:
+            assert self._openocd_process is not None
+            _, err = self._openocd_process.communicate()
+            err = err.decode()
+            log.debug(err)
+            if "Error connecting DP: cannot read IDR" in err:
+                raise DebugProbeConnectionError(
+                    "Was able to connect to debug probe, but unable to talk to device; may need to fully powercycle device"
+                ) from e
+            else:
+                raise DebugProbeConnectionError from e
 
     def _receive_response(self, *, decode=True) -> bytes:
         responses = []

@@ -168,7 +168,7 @@ class GnW:
             if time() > t_deadline:
                 raise TimeoutError("wait_for_idle")
             sleep(0.05)
-        log.debug(f"Waited {time() - t_start} for device idle.")
+        log.debug(f"Waited {time() - t_start:.3}s for device idle.")
 
     def wait_for_all_contexts_complete(self, timeout=20):
         log.debug("Waiting for all contexts to complete.")
@@ -180,7 +180,7 @@ class GnW:
                     raise TimeoutError("wait_for_all_contexts_complete")
                 sleep(0.05)
             log.debug(f"Context {i} complete.")
-        log.debug(f"Waited {time() - t_start}s for all contexts to complete.")
+        log.debug(f"Waited {time() - t_start:.3}s for all contexts to complete.")
         self.wait_for_idle(timeout=t_deadline - time())
 
     def wait_for_context_response(self, context, timeout=20):
@@ -192,7 +192,7 @@ class GnW:
             if time() > t_deadline:
                 raise TimeoutError("wait_for_context_response")
             sleep(0.05)
-        log.debug(f"Waited {time() - t_start}s for context {context_index} response.")
+        log.debug(f"Waited {time() - t_start:.3}s for context {context_index} response.")
 
     def reset_context_counter(self):
         self.context_counter = 1
