@@ -163,7 +163,9 @@ def main(
     *tokens: Annotated[str, Parameter(show=False)],
     backend: Annotated[Literal["openocd", "pyocd"], Parameter(name=["--backend", "-b"])] = "openocd",
     frequency: Annotated[Optional[int], Parameter(name=["--frequency", "-f"], converter=int_parser)] = None,
-    verbosity: Literal["debug", "info", "warning", "error"] = "warning",
+    verbosity: Annotated[
+        Literal["debug", "info", "warning", "error"], Parameter(env_var="GNWMANAGER_VERBOSITY")
+    ] = "warning",
     gnw: Optional[GnWType] = None,
     exit_on_error: Annotated[bool, Parameter(parse=False)] = True,
 ):
