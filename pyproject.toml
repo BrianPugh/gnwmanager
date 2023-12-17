@@ -35,6 +35,7 @@ rich = "^13.5.2"
 pyelftools = ">=0.29"
 autoregistry = "^1.0.0"
 psutil = "^5.9.6"
+fuse-python = "^1.0.7"
 
 [tool.poetry.group.docs.dependencies]
 sphinx = ">=6.2.1,<7.2.0"
