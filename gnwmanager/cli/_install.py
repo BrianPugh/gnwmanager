@@ -1,3 +1,4 @@
+import logging
 import shutil
 import subprocess
 import sys
@@ -11,6 +12,8 @@ from typing_extensions import Annotated
 from gnwmanager.cli.main import app
 
 installable_programs = Registry(hyphen=True)
+
+log = logging.getLogger(__name__)
 
 
 def _install_from_available_package_manager(install_cmds: Dict[str, List[List[str]]]):
@@ -93,11 +96,13 @@ def install(
         if program.name not in installable_programs:
             raise ValueError(f'Unknown program "{program}"')
 
+    logging.debug(f"{sys.platform=}")
     for program in programs:
         location = shutil.which(program.name)
         if location is not None:
             print(f"{program.name} already installed at {location}. Skipping...")
             continue
+        logging.info(f"Installing {program.name}")
 
         # sys.platform is typically one of {"linux", "darwin", "win32"}
         installable_programs[program.name](sys.platform)

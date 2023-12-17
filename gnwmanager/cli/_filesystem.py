@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -9,6 +10,8 @@ from typing_extensions import Annotated
 from gnwmanager.cli._parsers import GnWType, OffsetType
 from gnwmanager.cli.main import app
 from gnwmanager.utils import Color, colored
+
+log = logging.getLogger(__name__)
 
 
 def _tree(fs: LittleFS, path: str, depth: int, max_depth: int, prefix: str = ""):
@@ -113,16 +116,22 @@ def format(
             f"--offset must be a multiple of gnw.external_flash_block_size {gnw.external_flash_block_size}."
         )
 
-    block_count = int(size / gnw.external_flash_block_size)
+    block_size = gnw.external_flash_block_size
+    block_count = int(size / block_size)
 
     if block_count == 0:
         # Attempt to infer block_count from a previous filesystem.
         block_count = _infer_block_count(gnw, offset)
+        if block_count > 0:
+            log.info(f"Previous filesystem had {block_count} blocks.")
+        else:
+            log.info("Unable to infer previous filesystem size.")
 
     if block_count < 2:  # Even a block_count of 2 would be silly
         raise ValueError("Too few block_count.")
 
     fs = gnw.filesystem(offset=offset, block_count=block_count, mount=False)
+    log.info(f"Formatting filesystem {block_count=} {block_size=} {offset=}.")
     fs.format()
 
 

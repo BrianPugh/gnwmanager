@@ -1,4 +1,5 @@
 import importlib.resources
+import logging
 from collections import namedtuple
 from copy import deepcopy
 from math import ceil
@@ -13,6 +14,8 @@ from gnwmanager.status import flashapp_status_enum_to_str
 from gnwmanager.time import timestamp_now
 from gnwmanager.utils import EMPTY_HASH_DIGEST, chunk_bytes, compress_lzma, pad_bytes, sha256
 from gnwmanager.validation import validate_extflash_offset, validate_intflash_offset
+
+log = logging.getLogger(__name__)
 
 
 class Variable(NamedTuple):
@@ -104,12 +107,14 @@ class GnW:
 
     @property
     def external_flash_size(self) -> int:
+        log.debug("Querying external flash size.")
         if self._external_flash_size == 0:
             self._external_flash_size = self.read_uint32("flash_size")
         return self._external_flash_size
 
     @property
     def external_flash_block_size(self) -> int:
+        log.debug("Querying external flash min erase size.")
         if self._external_flash_block_size == 0:
             self._external_flash_block_size = self.read_uint32("min_erase_size")
         return self._external_flash_block_size
@@ -148,7 +153,9 @@ class GnW:
 
     def wait_for_idle(self, timeout: float = 20):
         """Block until the on-device status is IDLE."""
-        t_deadline = time() + timeout
+        log.debug("Waiting for device to idle.")
+        t_start = time()
+        t_deadline = t_start + timeout
         error_mask = 0xFFFF_0000
 
         while True:
@@ -159,41 +166,61 @@ class GnW:
             elif (status_enum & error_mask) == 0xBAD0_0000:
                 raise DataError(status_str)
             if time() > t_deadline:
-                raise TimeoutError
+                raise TimeoutError("wait_for_idle")
             sleep(0.05)
+        log.debug(f"Waited {time() - t_start} for device idle.")
 
     def wait_for_all_contexts_complete(self, timeout=20):
-        t_deadline = time() + timeout
-        for context in _contexts:
+        log.debug("Waiting for all contexts to complete.")
+        t_start = time()
+        t_deadline = t_start + timeout
+        for i, context in enumerate(_contexts):
             while self.read_uint32(context["ready"]):
                 if time() > t_deadline:
-                    raise TimeoutError
+                    raise TimeoutError("wait_for_all_contexts_complete")
                 sleep(0.05)
+            log.debug(f"Context {i} complete.")
+        log.debug(f"Waited {time() - t_start}s for all contexts to complete.")
         self.wait_for_idle(timeout=t_deadline - time())
+
+    def wait_for_context_response(self, context, timeout=20):
+        context_index = _contexts.index(context)
+        log.debug(f"Waiting on context {context_index} for response.")
+        t_start = time()
+        t_deadline = t_start + timeout
+        while not self.read_uint32(context["response_ready"]):
+            if time() > t_deadline:
+                raise TimeoutError("wait_for_context_response")
+            sleep(0.05)
+        log.debug(f"Waited {time() - t_start}s for context {context_index} response.")
 
     def reset_context_counter(self):
         self.context_counter = 1
+        log.debug(f"context_counter reset to {self.context_counter}.")
 
     def reset(self):
+        log.debug("Performing device reset.")
         self.backend.reset()
+        self.reset_context_counter()
+        self._gnwmanager_started = False
+
+    def reset_and_halt(self):
+        log.debug("Performing device reset and halt.")
+        self.backend.reset_and_halt()
+        self.reset_context_counter()
         self._gnwmanager_started = False
 
     def get_context(self, timeout=20):
-        t_deadline = time() + timeout
+        t_start = time()
+        t_deadline = t_start + timeout
         while True:
-            for context in _contexts:
+            for i, context in enumerate(_contexts):
                 if not self.read_uint32(context["ready"]):
+                    log.debug(f"Got context {i} in {time() - t_start}s.")
                     return context
                 if time() > t_deadline:
+                    log.debug(f"Timeout ({timeout}s) reached waiting to get an available context.")
                     raise TimeoutError
-            sleep(0.05)
-
-    def wait_for_context_response(self, context, timeout=20):
-        t_deadline = time() + timeout
-        while not self.read_uint32(context["response_ready"]):
-            if time() > t_deadline:
-                raise TimeoutError
-
             sleep(0.05)
 
     def filesystem(self, offset: Optional[int] = None, **kwargs):
@@ -201,6 +228,7 @@ class GnW:
 
         if offset is None:
             offset = self.default_filesystem_offset
+            log.debug(f"Using GnW default offset {offset} for filesystem.")
 
         return get_filesystem(self, offset=offset, **kwargs)
 
@@ -223,6 +251,7 @@ class GnW:
         """
         validate_extflash_offset(offset)
         n_chunks = int(ceil(size / (256 << 10)))
+        log.debug(f"Hashing {size} bytes starting at {offset} in {n_chunks}x 256KB chunks.")
 
         context = self.get_context()
 
@@ -232,6 +261,7 @@ class GnW:
         self.write_uint32(context["size"], size)
         self.write_uint32(context["ready"], self.context_counter)
         self.context_counter += 1
+        log.debug(f"context_counter incremented to {self.context_counter}.")
 
         self.wait_for_context_response(context)
 
@@ -251,11 +281,13 @@ class GnW:
         blocking: bool = True,
         compress: bool = True,
     ) -> None:
-        """Write data to flash.
+        """Low-level write data to flash.
 
         Limited to RAM constraints (i.e. <256KB writes).
 
         ``program_chunk_idx`` must externally be set.
+
+        Does NOT check destination for a hash match prior to flashing.
 
         Parameters
         ----------
@@ -273,6 +305,7 @@ class GnW:
         blocking: bool
             Wait for action to be complete.
         """
+        log.debug(f"gnw.program: {bank=} {offset=} {len(data)=} {erase=} {blocking=} {compress=}")
         if bank not in (0, 1, 2):
             raise ValueError("Bank must be one of {0, 1, 2}.")
 
@@ -296,6 +329,7 @@ class GnW:
 
         context = self.get_context()
 
+        log.debug("setting upload_in_progress.")
         self.write_uint32("upload_in_progress", 1)
 
         self.write_uint32(context["action"], actions["ERASE_AND_FLASH"])
@@ -320,7 +354,9 @@ class GnW:
 
         self.write_uint32(context["ready"], self.context_counter)
         self.context_counter += 1
+        log.debug(f"context_counter incremented to {self.context_counter}.")
 
+        log.debug("clearing upload_in_progress.")
         self.write_uint32("upload_in_progress", 0)
 
         if blocking:
@@ -378,6 +414,7 @@ class GnW:
             If ``true``, perform a faster bulk erase and erase entire location.
             Set ``offset=0`` and ``size=0`` when using this option.
         """
+        log.debug(f"gnw.erase: {bank=} {offset=} {size=} {blocking=} {whole_chip=}")
         # Input validation
         if size < 0:
             raise ValueError
@@ -414,6 +451,7 @@ class GnW:
 
         self.write_uint32(context["ready"], self.context_counter)
         self.context_counter += 1
+        log.debug(f"context_counter incremented to {self.context_counter}.")
 
         if blocking:
             self.wait_for_all_contexts_complete(**kwargs)
@@ -434,12 +472,17 @@ class GnW:
         [sha256(chunk) for chunk in chunks]
 
         Packet = namedtuple("Packet", ["addr", "data"])
-        packets = [Packet(offset + i * chunk_size, chunk) for i, chunk in enumerate(chunks)]
+        all_packets = [Packet(offset + i * chunk_size, chunk) for i, chunk in enumerate(chunks)]
+        log.info(f"Data chunked into {len(all_packets)} packets.")
 
         # Remove packets where the hash already matches
-        packets = [packet for packet, device_hash in zip(packets, device_hashes) if sha256(packet.data) != device_hash]
+        packets = [
+            packet for packet, device_hash in zip(all_packets, device_hashes) if sha256(packet.data) != device_hash
+        ]
 
+        log.info(f"{len(packets)} packets need to be programmed.")
         for i, packet in enumerate(tqdm(packets) if progress else packets):
+            log.info(f"Programming packet {i + 1}/{len(packets)}.")
             self.program(0, packet.addr, packet.data, blocking=False)
             self.write_uint32("progress", int(26 * (i + 1) / len(packets)))
 
@@ -449,16 +492,18 @@ class GnW:
         if not force and self._gnwmanager_started:
             return
 
-        self.backend.reset_and_halt()
-        self.reset_context_counter()
+        self.reset_and_halt()
 
         # TODO: this is deprecated, but the replacement was introduced in python3.9.
         # Migrate to ``as_file`` once python3.8 hits EOL.
         with importlib.resources.path("gnwmanager", "firmware.bin") as f:
             firmware = f.read_bytes()
+            log.debug(f"Loaded {len(firmware)} bytes of gnwmanager firmware.")
 
+        log.debug("Loading gnwmanager firmware to device.")
         self.write_memory(0x240E_6800, firmware)  # See STM32H7B0VBTx_FLASH.ld
 
+        log.debug("Setting memory and registers.")
         self.write_uint32("status", 0)  # To be 100% sure there's nothing residual in RAM.
         self.write_uint32("status_override", 0)  # To be 100% sure there's nothing residual in RAM.
 
@@ -467,9 +512,11 @@ class GnW:
         self.backend.write_register("msp", msp)
         self.backend.write_register("pc", pc)
 
+        log.debug("Resuming chip execution.")
         self.backend.resume()
         self.wait_for_idle()
 
+        log.debug("Setting device time.")
         self.write_uint32("utc_timestamp", timestamp_now())
 
         self._gnwmanager_started = True
@@ -480,5 +527,7 @@ class GnW:
             # See if reading from bank 1 is possible.
             self.read_uint32(0x0800_0000)
         except Exception:
+            log.debug("device is locked.")
             return True
+        log.debug("device is unlocked.")
         return False

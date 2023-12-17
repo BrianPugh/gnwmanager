@@ -39,7 +39,7 @@ def start(
     # Do NOT start gnwmanager
     addr = location + offset
 
-    gnw.backend.reset_and_halt()
+    gnw.reset_and_halt()
     gnw.backend.write_register("msp", gnw.read_uint32(addr))
     gnw.backend.write_register("pc", gnw.read_uint32(addr + 4))
 

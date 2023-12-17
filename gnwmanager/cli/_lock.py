@@ -1,5 +1,6 @@
 from pathlib import Path
 from time import sleep
+from typing import Optional
 
 from cyclopts import Parameter, validators
 from typing_extensions import Annotated
@@ -34,8 +35,9 @@ def _verify_backups(backup_dir) -> str:
 
 @app.command
 def lock(
-    backup_dir: Annotated[Path, Parameter(validator=validators.Path(exists=True, file_okay=False))],
+    backup_dir: Annotated[Optional[Path], Parameter(validator=validators.Path(exists=True, file_okay=False))] = None,
     *,
+    skip_check: bool = False,
     interactive: bool = True,
     gnw: GnWType,
 ):
@@ -45,9 +47,14 @@ def lock(
     ----------
     backup_dir: Path
         Directory of backed up files.
+    skip_check: bool
+        Don't need to prove backed up files; skips check.
     interactive: bool
         Display interactive prompts.
     """
+    if skip_check and backup_dir:
+        raise ValueError("Only supply BACKUP_DIR or --skip-check.")
+
     gnw.start_gnwmanager()
 
     if gnw.is_locked():
@@ -55,7 +62,8 @@ def lock(
         gnw.backend.reset()
         return
 
-    _verify_backups(backup_dir)
+    if not skip_check:
+        _verify_backups(backup_dir)
 
     if interactive:
         print("This will lock your device!")

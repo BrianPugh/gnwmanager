@@ -1,9 +1,12 @@
+import logging
 from pathlib import Path
 
 from littlefs.errors import LittleFSError
 
 from gnwmanager.cli._parsers import GnWType, OffsetType
 from gnwmanager.cli.main import app
+
+log = logging.getLogger(__name__)
 
 
 @app.command
@@ -38,12 +41,16 @@ def pull(
         return
 
     if stat.type == 1:  # file
-        with fs.open(gnw_path.as_posix(), "rb") as f:
-            data = f.read()
         if local_path.is_dir():
             local_path = local_path / gnw_path.name
+        log.info(f"Pulling FILE {gnw_path.as_posix()}  ->  {str(local_path)}.")
+
+        with fs.open(gnw_path.as_posix(), "rb") as f:
+            data = f.read()
+
         local_path.write_bytes(data)
     elif stat.type == 2:  # dir
+        log.info(f"Pulling DIR {gnw_path.as_posix()}.")
         if local_path.is_file():
             raise ValueError(f'Cannot backup directory "{gnw_path.as_posix()}" to file "{local_path}"')
 
@@ -59,6 +66,8 @@ def pull(
                     full_dst_path = local_path / full_src_path
 
                 full_dst_path.parent.mkdir(exist_ok=True, parents=True)
+
+                log.info(f"Pulling FILE {gnw_path.as_posix()}  ->  {str(full_dst_path)}.")
 
                 with fs.open(full_src_path.as_posix(), "rb") as f:
                     data = f.read()

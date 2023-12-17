@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from cyclopts import Parameter, validators
@@ -5,6 +6,8 @@ from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import GnWType, OffsetType, convert_location, validate_flash_range
 from gnwmanager.cli.main import app
+
+log = logging.getLogger(__name__)
 
 
 @app.command
@@ -52,4 +55,5 @@ def flash(
     else:
         raise ValueError("Unsupported destination address.")
 
+    log.info(f"Flashing {len(data)} bytes to {'bank ' + str(bank) if bank else 'ext'} with relative-offset {offset}.")
     gnw.flash(bank, offset, data, progress=progress)
