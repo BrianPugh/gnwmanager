@@ -20,7 +20,6 @@ class LittleFSFuse(fuse.Fuse):
         self.lfs = lfs
 
     def getattr(self, path):
-        st_mode = 0o755
         try:
             st = self.lfs.stat(path)
         except LittleFSError as e:
@@ -32,13 +31,15 @@ class LittleFSFuse(fuse.Fuse):
         if st.type == 1:  # file
             st_mode = 0o666 | stat.S_IFREG
             st_size = st.size
+            st_nlinks = 1
         elif st.type == 2:  # dir
-            st_mode |= 0o755 | stat.S_IFDIR
+            st_mode = 0o755 | stat.S_IFDIR
             st_size = 4096
+            st_nlinks = 2
         else:
-            raise NotImplementedError
+            return -errno.ENOENT
 
-        return fuse.Stat(st_mode=st_mode, st_size=st_size, st_nlink=2)
+        return fuse.Stat(st_mode=st_mode, st_size=st_size, st_nlink=st_nlinks)
 
     def readdir(self, path, offset):
         for entry in [".", ".."] + self.lfs.listdir(path):
@@ -98,11 +99,15 @@ class LittleFSFuse(fuse.Fuse):
             else:
                 raise
 
+    def mknod(self, path, mode, dev):
+        self.lfs.open(path).close()
+
 
 @app.command
 def mount(
     mountpoint: Optional[Path] = None,
     offset: OffsetType = 0,
+    debug: bool = False,
     *,
     gnw: GnWType,
 ):
@@ -113,9 +118,13 @@ def mount(
     fs = gnw.filesystem(offset=offset)
     server = LittleFSFuse(fs, version="%prog " + fuse.__version__, dash_s_do="setsingle")
     server.fuse_args.mountpoint = str(mountpoint)  # pyright: ignore [reportGeneralTypeIssues]
-    server.fuse_args.setmod("foreground")
-    # server.fuse_args.add("debug")
+    # server.fuse_args.setmod("foreground")
+    if debug:
+        server.fuse_args.add("debug")
 
     # Start the FUSE main loop
     print(f"Mounting filesystem to {str(mountpoint)}")
-    server.main()
+    cmd = ["-oallow_other", "-ovolname=GameAndWatch", "-oumask", str(mountpoint)]
+    if debug:
+        cmd.append("-odebug")
+    server.main(cmd)
