@@ -28,6 +28,32 @@ with suppress(ImportError):
 app = App()
 
 
+class ColorCodes:
+    RED = "\033[31m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    BLUE = "\033[34m"
+    MAGENTA = "\033[35m"
+    CYAN = "\033[36m"
+    WHITE = "\033[37m"
+    RESET = "\033[0m"
+
+
+class ColoredFormatter(logging.Formatter):
+    LOG_COLORS = {
+        "DEBUG": ColorCodes.BLUE,
+        "INFO": ColorCodes.GREEN,
+        "WARNING": ColorCodes.YELLOW,
+        "ERROR": ColorCodes.RED,
+        "CRITICAL": ColorCodes.MAGENTA,
+    }
+
+    def format(self, record):
+        color = self.LOG_COLORS.get(record.levelname, ColorCodes.WHITE)
+        record.msg = color + record.msg + ColorCodes.RESET
+        return super().format(record)
+
+
 def _display(field, value):
     print(f"{field:<28} {value}")
 
@@ -115,9 +141,21 @@ def upgrade():
 
 
 @app.command
-def help():
+def help(verbosity):
     """Display the help screen."""
     app.help_print([])
+
+
+def _setup_logging(verbosity):
+    formatter = ColoredFormatter("%(asctime)s - %(levelname)s: %(message)s")
+    logging.basicConfig(stream=sys.stdout)
+    logging.getLogger().setLevel(verbosity.upper())
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+
+    logger = logging.getLogger()
+    logger.handlers.clear()
+    logger.addHandler(handler)
 
 
 @app.meta.default
@@ -125,6 +163,7 @@ def main(
     *tokens: Annotated[str, Parameter(show=False)],
     backend: Annotated[Literal["openocd", "pyocd"], Parameter(name=["--backend", "-b"])] = "openocd",
     frequency: Annotated[Optional[int], Parameter(name=["--frequency", "-f"], converter=int_parser)] = None,
+    verbosity: Literal["debug", "info", "warning", "error"] = "warning",
     gnw: Optional[GnWType] = None,
     exit_on_error: Annotated[bool, Parameter(parse=False)] = True,
 ):
@@ -137,6 +176,8 @@ def main(
     frequency
         Debug probe frequency. Defaults to a typically reasonable fast value.
     """
+    _setup_logging(verbosity)
+
     delimiter = "--"
     groups = [list(group) for key, group in itertools.groupby(tokens, lambda x: x == delimiter) if not key] or [[]]
 

@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import shutil
@@ -11,6 +12,8 @@ from typing import Generator, List, Tuple
 from gnwmanager.exceptions import DebugProbeConnectionError, MissingThirdPartyError
 from gnwmanager.ocdbackend.base import OCDBackend, TransferErrors
 from gnwmanager.utils import kill_processes_by_name
+
+log = logging.getLogger(__name__)
 
 _COMMAND_TOKEN_STR = "\x1a"
 _COMMAND_TOKEN_BYTES = _COMMAND_TOKEN_STR.encode("utf-8")
@@ -30,10 +33,10 @@ TransferErrors.add(OpenOCDError)
 _ramdisk = Path("/dev/shm")
 
 
-def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
+def _openocd_launch_commands(port: int) -> Generator[Tuple[str, List[str]], None, None]:
     """Generate possible openocd launch commands for different debugging probes."""
     base_cmd = [
-        find_openocd_executable(),
+        str(find_openocd_executable()),
         "-c",
         f"tcl_port {port}",
     ]
@@ -44,7 +47,7 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
     cmd.extend(["-c", "source [find interface/stlink.cfg]"])
     cmd.extend(["-c", "transport select hla_swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
-    yield cmd
+    yield "stlink", cmd
 
     # J-Link
     cmd = base_cmd.copy()
@@ -52,7 +55,7 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
     cmd.extend(["-c", "source [find interface/jlink.cfg]"])
     cmd.extend(["-c", "transport select swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
-    yield cmd
+    yield "jlink", cmd
 
     # CMSIS-DAP (pi pico)
     cmd = base_cmd.copy()
@@ -60,7 +63,7 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
     cmd.extend(["-c", "source [find interface/cmsis-dap.cfg]"])
     cmd.extend(["-c", "transport select swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
-    yield cmd
+    yield "cmsis-dap", cmd
 
     # Raspberry Pi GPIO
     cmd = base_cmd.copy()
@@ -71,7 +74,7 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
     cmd.extend(["-c", "sysfsgpio_swd_nums 25 24"])
     cmd.extend(["-c", "transport select swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
-    yield cmd
+    yield "rpi-gpio", cmd
 
 
 def _is_port_open(port, host="localhost", timeout=1) -> bool:
@@ -86,12 +89,20 @@ def _is_port_open(port, host="localhost", timeout=1) -> bool:
 
 
 def _launch_openocd(port: int, timeout: float = 10.0):  # -> subprocess.Popen[bytes]:  # This type annotation is >=3.9
-    for cmd in _openocd_launch_commands(port):
-        process = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for name, cmd in _openocd_launch_commands(port):
+        log.info(f"Attempting to launch openocd: {' '.join(cmd)}")
+        process = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
 
         deadline = time() + timeout
         while time() < deadline:
             if process.poll() is not None:  # openocd terminated, probe not detected
+                _, err = process.communicate()
+                err = err.decode()
+                log.debug(err)
+
+                if "Interface ready" in err:
+                    raise OpenOCDAutoDetectError(f"Was able to connect to {name} probe, but unable to talk to device.")
+
                 break
             elif _is_port_open(port):  # openocd is successfully running
                 return process
