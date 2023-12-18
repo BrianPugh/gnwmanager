@@ -429,13 +429,13 @@ toml = ["tomli"]
 
 [[package]]
 name = "cyclopts"
-version = "1.0.1"
+version = "1.1.0"
 description = ""
 optional = false
 python-versions = ">=3.8,<4.0"
 files = [
-    {file = "cyclopts-1.0.1-py3-none-any.whl", hash = "sha256:e6414bb8cba29c094d45cd28d20ae4ad5d1ce952fa220ccff962e4bdf6d27997"},
-    {file = "cyclopts-1.0.1.tar.gz", hash = "sha256:f53c1ef539ccf464de8e81ac56c966ad9e3fa8b11b6dde149c0cd301da9cd118"},
+    {file = "cyclopts-1.1.0-py3-none-any.whl", hash = "sha256:e50befae990abbd5fa9eb448ddcf72ea31cfe576fd3cdb6e0c60a44910dde685"},
+    {file = "cyclopts-1.1.0.tar.gz", hash = "sha256:b1cf881c6c60e18479ec9907776082701aaf74bf7e4c8fc2ffa9e08c9f59f7d7"},
 ]
 
 [package.dependencies]
