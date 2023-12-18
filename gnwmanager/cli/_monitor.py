@@ -1,5 +1,5 @@
+import logging
 import sys
-from contextlib import suppress
 from pathlib import Path
 from typing import Optional
 
@@ -7,6 +7,8 @@ from gnwmanager.cli._parsers import GnWType
 from gnwmanager.cli.main import app
 from gnwmanager.elf import SymTab
 from gnwmanager.ocdbackend import TransferErrors
+
+log = logging.getLogger(__name__)
 
 
 @app.command
@@ -48,12 +50,13 @@ def monitor(
 
     last_idx = 0
     while True:
-        with suppress(*TransferErrors):
+        try:
             log_idx = gnw.read_uint32(logidx_addr)
 
             if log_idx > last_idx:
                 # print the new data since last iteration
                 logbuf_str = read_and_decode(logbuf_addr + last_idx, log_idx - last_idx)
+                log.info(f"incoming: {logbuf_str}")
                 sys.stdout.write(logbuf_str)
             elif log_idx > 0 and log_idx < last_idx:
                 # Get new data from the end of the buffer until the first null byte
@@ -62,3 +65,5 @@ def monitor(
                 sys.stdout.write(logbuf_str)
 
             last_idx = log_idx
+        except tuple(TransferErrors) as e:
+            log.debug(e)

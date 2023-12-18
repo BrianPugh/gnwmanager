@@ -216,7 +216,7 @@ class GnW:
         while True:
             for i, context in enumerate(_contexts):
                 if not self.read_uint32(context["ready"]):
-                    log.debug(f"Got context {i} in {time() - t_start}s.")
+                    log.debug(f"Got context {i} in {time() - t_start:.3}s.")
                     return context
                 if time() > t_deadline:
                     log.debug(f"Timeout ({timeout}s) reached waiting to get an available context.")

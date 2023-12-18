@@ -9,7 +9,7 @@ from pathlib import Path
 from time import sleep, time
 from typing import Generator, List, Tuple
 
-from gnwmanager.exceptions import DebugProbeConnectionError, MissingThirdPartyError
+from gnwmanager.exceptions import DataError, DebugProbeConnectionError, MissingThirdPartyError
 from gnwmanager.ocdbackend.base import OCDBackend, TransferErrors
 from gnwmanager.utils import kill_processes_by_name
 
@@ -210,12 +210,18 @@ class OpenOCDBackend(OCDBackend):
 
     def read_uint32(self, addr: int) -> int:
         """Reads a uint32 from addr."""
-        res = self(f"mdw 0x{addr:08X}", decode=False)
-        return int(res.strip().split(b": ")[-1], 16)
+        res = self(f"mdw 0x{addr:08X}", decode=False).strip().decode()
+        try:
+            return int(res.split(": ")[-1], 16)
+        except ValueError:
+            raise DataError(f'Unable to parse read_uint32 response: "{res}"') from None
 
     def read_uint8(self, addr: int) -> int:
-        res = self(f"mdb 0x{addr:08X}", decode=False)
-        return int(res.strip().split(b": ")[-1], 16)
+        res = self(f"mdb 0x{addr:08X}", decode=False).strip().decode()
+        try:
+            return int(res.split(": ")[-1], 16)
+        except ValueError:
+            raise DataError(f'Unable to parse read_uint32 response: "{res}"') from None
 
     def read_memory(self, addr: int, size: int) -> bytes:
         """Reads a block of memory."""

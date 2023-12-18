@@ -17,7 +17,7 @@ from typing_extensions import Annotated
 from gnwmanager import __version__
 from gnwmanager.cli._parsers import GnWType, OffsetType, int_parser
 from gnwmanager.cli.devices import AutodetectError, DeviceModel
-from gnwmanager.exceptions import DebugProbeConnectionError
+from gnwmanager.exceptions import DataError, DebugProbeConnectionError
 from gnwmanager.gnw import GnW
 from gnwmanager.ocdbackend import OCDBackend
 
@@ -206,6 +206,8 @@ def main(
     except DebugProbeConnectionError as e:
         rich.print(f"[red]Error communicating with device ({e}). Is it ON and connected?[/red]")
         close_on_exit = False
+    except DataError as e:
+        rich.print(f"Unexpected response from debug probe. {e}")
     except ConnectionResetError:
         print(traceback.format_exc())
         close_on_exit = False
