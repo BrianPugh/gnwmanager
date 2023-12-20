@@ -84,8 +84,8 @@ def _infer_block_count(gnw, offset):
     fs = gnw.filesystem(offset=offset, block_count=0, mount=False)
     try:
         fs.mount()
-    except LittleFSError as e:
-        raise ValueError("Unable to infer filesystem size. Please specify --size.") from e
+    except LittleFSError:
+        return 0
 
     return fs.fs_stat().block_count
 
@@ -95,6 +95,7 @@ def format(
     size: OffsetType = 0,
     offset: OffsetType = 0,
     *,
+    only_if_shrinking: Annotated[bool, Parameter(negative="")] = False,
     gnw: GnWType,
 ):
     """Format device's filesystem.
@@ -105,6 +106,10 @@ def format(
         Size of filesystem. Defaults to previous filesystem size.
     offset
         Distance in bytes from the END of the filesystem, to the END of flash.
+    only_if_shrinking
+        Only format the filesystem if it's going to be smaller than a (possibly) existing filesystem.
+        If growing; data is retained.
+        Useful for just making sure there is a valid FS on the device.
     """
     gnw.start_gnwmanager()
     if size > gnw.external_flash_size:
@@ -119,13 +124,27 @@ def format(
     block_size = gnw.external_flash_block_size
     block_count = int(size / block_size)
 
+    existing_block_count = _infer_block_count(gnw, offset)
+
+    if existing_block_count > 0:
+        log.info(f"Previous filesystem had {existing_block_count} blocks.")
+    else:
+        log.info("Unable to infer previous filesystem size.")
+
+    if only_if_shrinking and existing_block_count > 0:
+        if existing_block_count == block_count:
+            log.info("Existing filesystem same size; skipping formatting.")
+            return
+        elif block_count > existing_block_count:
+            log.info(f"Growing filesystem {existing_block_count * block_size} -> {block_count * block_size}.")
+            fs = gnw.filesystem(offset=offset, block_count=0, mount=False)
+            fs.fs_grow(block_count)
+            return
+
     if block_count == 0:
-        # Attempt to infer block_count from a previous filesystem.
-        block_count = _infer_block_count(gnw, offset)
-        if block_count > 0:
-            log.info(f"Previous filesystem had {block_count} blocks.")
-        else:
-            log.info("Unable to infer previous filesystem size.")
+        if existing_block_count == 0:
+            raise ValueError("Unable to infer filesystem size. Please specify --size.")
+        block_count = existing_block_count
 
     if block_count < 2:  # Even a block_count of 2 would be silly
         raise ValueError("Too few block_count.")
