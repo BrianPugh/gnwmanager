@@ -1,3 +1,7 @@
+class DebugProbeConnectionError(Exception):
+    """Error connecting to debug probe."""
+
+
 class DataError(Exception):
     """Some data was not as expected."""
 

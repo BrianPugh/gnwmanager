@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Optional
 
@@ -8,6 +9,8 @@ from gnwmanager.cli._parsers import GnWType, OffsetType
 from gnwmanager.cli.main import app
 from gnwmanager.elf import SymTab
 from gnwmanager.utils import convert_framebuffer
+
+log = logging.getLogger(__name__)
 
 app.command(screenshot := App(name="screenshot", help="Capture and transfer screenshots from device."))
 
@@ -35,6 +38,7 @@ def capture(
         framebuffer_sym = symtab[framebuffer]
         framebuffer_addr = framebuffer_sym.entry.st_value
         framebuffer_size = framebuffer_sym.entry.st_size
+        log.debug(f'Using framebuffer variable "{framebuffer}" at 0x{framebuffer_addr:08X}.')
 
     expected_framebuffer_size = 320 * 240 * 2
     if framebuffer_size != expected_framebuffer_size:
@@ -72,7 +76,10 @@ def dump(
 
     with fs.open(src.as_posix(), "rb") as f:
         compressed_data = f.read()
+    log.info(f"Read {len(compressed_data)} bytes of tamp-compressed data.")
 
     data = tamp.decompress(compressed_data)
+    log.info(f"Decompressed data to {len(data)} bytes.")
     img = convert_framebuffer(data)
+    log.info(f"Saving screenshot dump to {dst}.")
     img.save(dst)

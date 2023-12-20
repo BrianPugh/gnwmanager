@@ -130,6 +130,10 @@ $ gnwmanager --help
 
 ## Need Help?
 If you need any help, either open up a github issue here, or join the [stacksmashing discord](https://discord.gg/zBN3ex8v4p) for live help.
+When sharing `gnwmanager` output, it is recommended to increase the verbosity level:
+
+* Via CLI argument: `gnwmanager --verbosity=debug`
+* Via environment variable `export GNWMANAGER_VERBOSITY=debug`
 
 ## Developer Installation
 If developing for GnWManager, perform the following steps to setup your local environment.

@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import shutil
@@ -8,16 +9,18 @@ from pathlib import Path
 from time import sleep, time
 from typing import Generator, List, Tuple
 
-from gnwmanager.exceptions import MissingThirdPartyError
+from gnwmanager.exceptions import DataError, DebugProbeConnectionError, MissingThirdPartyError
 from gnwmanager.ocdbackend.base import OCDBackend, TransferErrors
 from gnwmanager.utils import kill_processes_by_name
+
+log = logging.getLogger(__name__)
 
 _COMMAND_TOKEN_STR = "\x1a"
 _COMMAND_TOKEN_BYTES = _COMMAND_TOKEN_STR.encode("utf-8")
 _BUFFER_SIZE = 4096
 
 
-class OpenOCDError(Exception):
+class OpenOCDError(DebugProbeConnectionError):
     pass
 
 
@@ -30,10 +33,10 @@ TransferErrors.add(OpenOCDError)
 _ramdisk = Path("/dev/shm")
 
 
-def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
+def _openocd_launch_commands(port: int) -> Generator[Tuple[str, List[str]], None, None]:
     """Generate possible openocd launch commands for different debugging probes."""
     base_cmd = [
-        find_openocd_executable(),
+        str(find_openocd_executable()),
         "-c",
         f"tcl_port {port}",
     ]
@@ -44,7 +47,7 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
     cmd.extend(["-c", "source [find interface/stlink.cfg]"])
     cmd.extend(["-c", "transport select hla_swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
-    yield cmd
+    yield "stlink", cmd
 
     # J-Link
     cmd = base_cmd.copy()
@@ -52,7 +55,7 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
     cmd.extend(["-c", "source [find interface/jlink.cfg]"])
     cmd.extend(["-c", "transport select swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
-    yield cmd
+    yield "jlink", cmd
 
     # CMSIS-DAP (pi pico)
     cmd = base_cmd.copy()
@@ -60,7 +63,7 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
     cmd.extend(["-c", "source [find interface/cmsis-dap.cfg]"])
     cmd.extend(["-c", "transport select swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
-    yield cmd
+    yield "cmsis-dap", cmd
 
     # Raspberry Pi GPIO
     cmd = base_cmd.copy()
@@ -71,7 +74,7 @@ def _openocd_launch_commands(port: int) -> Generator[List[str], None, None]:
     cmd.extend(["-c", "sysfsgpio_swd_nums 25 24"])
     cmd.extend(["-c", "transport select swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
-    yield cmd
+    yield "rpi-gpio", cmd
 
 
 def _is_port_open(port, host="localhost", timeout=1) -> bool:
@@ -86,18 +89,26 @@ def _is_port_open(port, host="localhost", timeout=1) -> bool:
 
 
 def _launch_openocd(port: int, timeout: float = 10.0):  # -> subprocess.Popen[bytes]:  # This type annotation is >=3.9
-    for cmd in _openocd_launch_commands(port):
-        process = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for name, cmd in _openocd_launch_commands(port):
+        log.info(f"Attempting to launch openocd: {' '.join(cmd)}")
+        process = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
 
         deadline = time() + timeout
         while time() < deadline:
             if process.poll() is not None:  # openocd terminated, probe not detected
+                _, err = process.communicate()
+                err = err.decode()
+                log.debug(err)
+
+                if "Interface ready" in err:
+                    raise OpenOCDAutoDetectError(f"Was able to connect to {name} probe, but unable to talk to device.")
+
                 break
-            elif _is_port_open(port):  # openocd is successfully running
+            elif _is_port_open(port):  # openocd is successfully running (but might actually still error out soon!)
                 return process
             sleep(0.1)
 
-    raise OpenOCDAutoDetectError("Unable to connect to to debugging probe.")
+    raise OpenOCDAutoDetectError("Unable to autodetect & connect to debugging probe.")
 
 
 def _convert_hex_str_to_bytes(hex_str: bytes) -> bytes:
@@ -166,8 +177,20 @@ class OpenOCDBackend(OCDBackend):
 
     def __call__(self, cmd: str, *, decode=True) -> bytes:
         """Invoke an OpenOCD command."""
-        self._socket.send(cmd.encode("utf-8") + _COMMAND_TOKEN_BYTES)
-        return self._receive_response(decode=decode)
+        try:
+            self._socket.send(cmd.encode("utf-8") + _COMMAND_TOKEN_BYTES)
+            return self._receive_response(decode=decode)
+        except BrokenPipeError as e:
+            assert self._openocd_process is not None
+            _, err = self._openocd_process.communicate()
+            err = err.decode()
+            log.debug(err)
+            if "Error connecting DP: cannot read IDR" in err:
+                raise DebugProbeConnectionError(
+                    "Was able to connect to debug probe, but unable to talk to device; may need to fully powercycle device"
+                ) from e
+            else:
+                raise DebugProbeConnectionError from e
 
     def _receive_response(self, *, decode=True) -> bytes:
         responses = []
@@ -187,12 +210,18 @@ class OpenOCDBackend(OCDBackend):
 
     def read_uint32(self, addr: int) -> int:
         """Reads a uint32 from addr."""
-        res = self(f"mdw 0x{addr:08X}", decode=False)
-        return int(res.strip().split(b": ")[-1], 16)
+        res = self(f"mdw 0x{addr:08X}", decode=False).strip().decode()
+        try:
+            return int(res.split(": ")[-1], 16)
+        except ValueError:
+            raise DataError(f'Unable to parse read_uint32 response: "{res}"') from None
 
     def read_uint8(self, addr: int) -> int:
-        res = self(f"mdb 0x{addr:08X}", decode=False)
-        return int(res.strip().split(b": ")[-1], 16)
+        res = self(f"mdb 0x{addr:08X}", decode=False).strip().decode()
+        try:
+            return int(res.split(": ")[-1], 16)
+        except ValueError:
+            raise DataError(f'Unable to parse read_uint32 response: "{res}"') from None
 
     def read_memory(self, addr: int, size: int) -> bytes:
         """Reads a block of memory."""

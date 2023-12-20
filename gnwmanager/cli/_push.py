@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import List
 
@@ -9,6 +10,8 @@ from gnwmanager.cli.main import app
 from gnwmanager.filesystem import gnw_sha256, is_existing_gnw_dir
 from gnwmanager.time import timestamp_now
 from gnwmanager.utils import sha256
+
+log = logging.getLogger(__name__)
 
 
 @app.command
@@ -48,8 +51,11 @@ def push(
             if sha256(data) != gnw_sha256(fs, dst):
                 fs.makedirs(dst.parent.as_posix(), exist_ok=True)
 
+                log.info(f"Writing {len(data)} bytes to {dst.as_posix()}.")
                 with fs.open(dst.as_posix(), "wb") as f:
                     f.write(data)
+            else:
+                log.info(f"No data changed for {dst.as_posix()}.")
 
             fs.setattr(dst.as_posix(), "t", timestamp_now().to_bytes(4, "little"))
         else:
@@ -64,8 +70,11 @@ def push(
                 if sha256(data) != gnw_sha256(fs, dst):
                     fs.makedirs(dst.parent.as_posix(), exist_ok=True)
 
+                    log.info(f"Writing {len(data)} bytes to {dst.as_posix()}.")
                     with fs.open(dst.as_posix(), "wb") as f:
                         f.write(data)
+                else:
+                    log.info(f"No data changed for {dst.as_posix()}.")
 
                 fs.setattr(dst.as_posix(), "t", timestamp_now().to_bytes(4, "little"))
 
