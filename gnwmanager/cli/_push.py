@@ -13,6 +13,21 @@ from gnwmanager.utils import sha256
 
 log = logging.getLogger(__name__)
 
+_ignore_files = {
+    ".DS_Store",  # macOS folder settings
+    "Thumbs.db",  # Windows thumbnail cache
+    ".Spotlight-V100",  # macOS indexing file
+    ".Trashes",  # macOS trash directory
+    "ehthumbs.db",  # Windows Media Center Thumbs
+    "ehthumbs_vista.db",  # Alternate Windows Media Center Thumbs
+    "[Dd]esktop.ini",  # Windows desktop layout
+    "$RECYCLE.BIN/",  # Windows recycle bin
+    ".Trash-*",  # Linux trash directory
+    ".fuse_hidden*",  # Hidden files created by FUSE
+    ".directory",  # KDE directory settings
+    ".nfs*",  # Network File System related file
+}
+
 
 @app.command
 def push(
@@ -59,9 +74,10 @@ def push(
 
             fs.setattr(dst.as_posix(), "t", timestamp_now().to_bytes(4, "little"))
         else:
-            for file in local_path.rglob("*"):
-                if file.is_dir():
-                    continue
+            all_local_files = [
+                file for file in local_path.rglob("*") if file.name not in _ignore_files and not file.is_dir()
+            ]
+            for file in all_local_files:
                 data = file.read_bytes()
 
                 subpath = file.relative_to(local_path.parent)
