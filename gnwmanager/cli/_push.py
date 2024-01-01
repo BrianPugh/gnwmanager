@@ -1,4 +1,5 @@
 import logging
+import re
 from pathlib import Path
 from typing import List
 
@@ -13,20 +14,28 @@ from gnwmanager.utils import sha256
 
 log = logging.getLogger(__name__)
 
-_ignore_files = {
-    ".DS_Store",  # macOS folder settings
-    "Thumbs.db",  # Windows thumbnail cache
-    ".Spotlight-V100",  # macOS indexing file
-    ".Trashes",  # macOS trash directory
-    "ehthumbs.db",  # Windows Media Center Thumbs
-    "ehthumbs_vista.db",  # Alternate Windows Media Center Thumbs
-    "[Dd]esktop.ini",  # Windows desktop layout
-    "$RECYCLE.BIN/",  # Windows recycle bin
-    ".Trash-*",  # Linux trash directory
-    ".fuse_hidden*",  # Hidden files created by FUSE
-    ".directory",  # KDE directory settings
-    ".nfs*",  # Network File System related file
-}
+_ignore_patterns = [
+    r"\.DS_Store",  # macOS folder settings
+    r"Thumbs\.db",  # Windows thumbnail cache
+    r"\.Spotlight-V100",  # macOS indexing file
+    r"\.Trashes",  # macOS trash directory
+    r"ehthumbs\.db",  # Windows Media Center Thumbs
+    r"ehthumbs_vista\.db",  # Alternate Windows Media Center Thumbs
+    r"[Dd]esktop\.ini",  # Windows desktop layout
+    r"\$RECYCLE\.BIN/",  # Windows recycle bin
+    r"\.Trash-.*",  # Linux trash directory
+    r"\.fuse_hidden.*",  # Hidden files created by FUSE
+    r"\.directory",  # KDE directory settings
+    r"\.nfs.*",  # Network File System related file
+]
+
+# Compile the regular expressions
+ignore_regexes = [re.compile(pattern) for pattern in _ignore_patterns]
+
+
+# Function to check if a file should be ignored
+def _should_ignore(file_name):
+    return any(regex.search(file_name) for regex in ignore_regexes)
 
 
 @app.command
@@ -75,7 +84,7 @@ def push(
             fs.setattr(dst.as_posix(), "t", timestamp_now().to_bytes(4, "little"))
         else:
             all_local_files = [
-                file for file in local_path.rglob("*") if file.name not in _ignore_files and not file.is_dir()
+                file for file in local_path.rglob("*") if not _should_ignore(file.name) and not file.is_dir()
             ]
             for file in all_local_files:
                 data = file.read_bytes()
