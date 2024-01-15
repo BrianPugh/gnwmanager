@@ -25,7 +25,14 @@ with suppress(ImportError):
     # By importing, makes things like the arrow-keys work.
     import readline  # Not available on windows
 
-app = App()
+app = App(
+    group_commands="Miscellaneous",
+    help_flags=[],
+    version_flags=[],
+)
+
+app.meta["--help"].group = "Admin"
+app.meta["--version"].group = "Admin"
 
 
 class ColorCodes:
@@ -70,7 +77,7 @@ def _display_host_info(backend):
     _display("OCD Backend:", backend)
 
 
-@app.command
+@app.command(group="Admin")
 def info(*, gnw: GnWType):
     """Displays environment & device info."""
     gnw.start_gnwmanager()
@@ -88,13 +95,13 @@ def info(*, gnw: GnWType):
     _display("Locked?: ", "LOCKED" if gnw.is_locked() else "UNLOCKED")
 
 
-@app.command
+@app.command()
 def shell(
     offset: OffsetType = 0,
     *,
     gnw: GnWType,
 ):
-    """Launch an interactive shell to browse device filesystem.
+    """Launch an interactive shell to run gnwmanager commands.
 
     Parameters
     ----------
@@ -126,7 +133,7 @@ def disable_debug(*, gnw: GnWType):
     gnw.write_uint32(0xE00E1004, 0x00000000)
 
 
-@app.command
+@app.command(group="Admin")
 def upgrade():
     """Update gnwmanager to latest stable version."""
     old_version = __version__
@@ -140,7 +147,7 @@ def upgrade():
         print(f"GnWManager updated from v{old_version} to v{new_version}.")
 
 
-@app.command
+@app.command(group="Admin", show=False)
 def help(verbosity):
     """Display the help screen."""
     app.help_print([])
@@ -160,7 +167,7 @@ def _setup_logging(verbosity):
 
 @app.meta.default
 def main(
-    *tokens: Annotated[str, Parameter(show=False)],
+    *tokens: Annotated[str, Parameter(show=False, allow_leading_hyphen=True)],
     backend: Annotated[Literal["openocd", "pyocd"], Parameter(name=["--backend", "-b"])] = "openocd",
     frequency: Annotated[Optional[int], Parameter(name=["--frequency", "-f"], converter=int_parser)] = None,
     verbosity: Annotated[

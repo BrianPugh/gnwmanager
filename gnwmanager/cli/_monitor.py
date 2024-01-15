@@ -11,7 +11,7 @@ from gnwmanager.ocdbackend import TransferErrors
 log = logging.getLogger(__name__)
 
 
-@app.command
+@app.command(group="Developer")
 def monitor(
     elf: Optional[Path] = None,
     buffer: str = "logbuf",

@@ -10,7 +10,7 @@ from gnwmanager.cli.main import app
 from gnwmanager.elf import find_elf
 
 
-@app.command
+@app.command(group="Developer")
 def gdb(
     elf: Optional[Path] = None,
     port: int = 3333,
@@ -59,7 +59,7 @@ def gdb(
     sys.exit(exit_code)
 
 
-@app.command
+@app.command(group="Developer")
 def gdbserver(
     port: int = 3333,
     *,

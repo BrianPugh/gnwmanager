@@ -9,7 +9,7 @@ from gnwmanager.cli.main import app
 log = logging.getLogger(__name__)
 
 
-@app.command
+@app.command(group="Filesystem")
 def pull(
     gnw_path: Path,
     local_path: Path,

@@ -10,7 +10,7 @@ from gnwmanager.cli.main import app
 log = logging.getLogger(__name__)
 
 
-@app.command
+@app.command(group="Storage")
 def flash(
     location: Annotated[
         int,

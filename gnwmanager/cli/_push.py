@@ -38,7 +38,7 @@ def _should_ignore(file_name):
     return any(regex.search(file_name) for regex in ignore_regexes)
 
 
-@app.command
+@app.command(group="Filesystem")
 def push(
     gnw_path: Path,
     local_paths: Annotated[List[Path], Parameter(negative=[])],

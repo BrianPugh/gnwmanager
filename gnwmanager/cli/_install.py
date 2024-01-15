@@ -71,7 +71,7 @@ def arm_toolchain(platform: str):
 @app.command
 def install(
     *programs: Path,
-    show: Annotated[bool, Parameter(negative=[])] = False,
+    show: Annotated[bool, Parameter(negative=[], show_default=False)] = False,
 ):
     """Install third party executables, like openocd.
 
