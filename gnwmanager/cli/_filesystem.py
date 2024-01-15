@@ -56,7 +56,7 @@ def _tree(fs: LittleFS, path: str, depth: int, max_depth: int, prefix: str = "")
         print(f"ls {path}: No such directory")
 
 
-@app.command
+@app.command(group="Filesystem")
 def tree(
     path: Path = Path(),
     depth: Annotated[int, Parameter(validator=validators.Number(gte=0))] = 2,
@@ -90,7 +90,7 @@ def _infer_block_count(gnw, offset):
     return fs.fs_stat().block_count
 
 
-@app.command
+@app.command(group="Filesystem")
 def format(
     size: OffsetType = 0,
     offset: OffsetType = 0,
@@ -178,7 +178,7 @@ def _ls(fs: LittleFS, path: str):
         print(f"ls {path}: No such directory")
 
 
-@app.command
+@app.command(group="Filesystem")
 def ls(
     path: Path = Path(),
     offset: OffsetType = 0,
@@ -199,7 +199,7 @@ def ls(
     _ls(fs, path.as_posix())
 
 
-@app.command
+@app.command(group="Filesystem")
 def mkdir(
     path: Path,
     offset: OffsetType = 0,
@@ -220,7 +220,7 @@ def mkdir(
     fs.makedirs(path.as_posix(), exist_ok=True)
 
 
-@app.command
+@app.command(group="Filesystem")
 def mv(
     src: Path,
     dst: Path,
@@ -242,3 +242,30 @@ def mv(
     gnw.start_gnwmanager()
     fs = gnw.filesystem(offset=offset)
     fs.rename(src.as_posix(), dst.as_posix())
+
+
+@app.command(group="Filesystem")
+def rm(
+    path: Path,
+    offset: OffsetType = 0,
+    *,
+    recursive: Annotated[
+        bool,
+        Parameter(name=["--recursive", "-r"], negative=[]),
+    ] = False,
+    gnw: GnWType,
+):
+    """Delete a file or directory.
+
+    Parameters
+    ----------
+    path: Path
+        File or directory to delete.
+    offset: int
+        Distance from the END of the filesystem, to the END of flash.
+    recursive:
+        Recursively delete a file/directory.
+    """
+    gnw.start_gnwmanager()
+    fs = gnw.filesystem(offset=offset)
+    fs.remove(path.as_posix(), recursive=recursive)

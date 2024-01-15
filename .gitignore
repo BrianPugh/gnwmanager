@@ -256,3 +256,5 @@ poetry.toml
 *.bin
 /screenshot.png
 /backups-*
+
+*.lprof

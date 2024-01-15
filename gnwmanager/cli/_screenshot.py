@@ -12,7 +12,12 @@ from gnwmanager.utils import convert_framebuffer
 
 log = logging.getLogger(__name__)
 
-app.command(screenshot := App(name="screenshot", help="Capture and transfer screenshots from device."))
+app.command(
+    screenshot := App(
+        name="screenshot",
+        help="Capture and transfer screenshots from device.",
+    )
+)
 
 
 @screenshot.command
