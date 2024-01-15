@@ -24,7 +24,7 @@ gnwmanager = "gnwmanager.cli.main:run_app"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-cyclopts = "^1.2.0"
+cyclopts = ">=1.2,<3.0"
 pyocd = ">=0.35.1"
 littlefs-python = ">=0.9.0"
 typing-extensions = "^4.7.1"
