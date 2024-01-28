@@ -360,25 +360,30 @@ class RomFS:
         defragged_entries = []
         entries = deque(self.entries)
         offset = 0
+        current_free = 0
 
         while entries:
             entry = entries.popleft()
-
             if entry.name == FREE:
+                current_free += entry.size
+
                 # Search for a potential perfect match to populate this FREE entry.
                 # Could potentially result in significantly reduced move-set.
                 # only perfect matches *could* result in less moves.
                 for i, src_entry in enumerate(reversed(entries)):
-                    if src_entry.size != entry.size:
+                    if src_entry.name == FREE:
+                        continue
+                    if src_entry.size != current_free:
                         continue
 
-                    cmd = MoveCommand(src_entry.offset, entry.offset, entry.size)
+                    cmd = MoveCommand(src_entry.offset, offset, src_entry.size)
                     move_cmds.append(cmd)
 
                     entries.append(src_entry)
                     del entries[i]
 
                     offset += entry.size
+                    current_free -= src_entry.size
 
                     break
             else:
@@ -391,9 +396,9 @@ class RomFS:
 
                 offset += entry.size
 
-        if remaining_free_size := self.header.size - offset:
-            defragged_entries.append(Entry(FREE, offset, remaining_free_size, EMPTY_HASH))
-            offset += remaining_free_size
+        if current_free:
+            defragged_entries.append(Entry(FREE, offset, current_free, EMPTY_HASH))
+            offset += current_free
 
         self.entries[:] = defragged_entries
         return move_cmds
