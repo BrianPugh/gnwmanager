@@ -284,27 +284,28 @@ class RomFS:
         del self.entries[index]
         return obj
 
-    def _best_fit(self, size) -> Tuple[int, Entry]:
+    def _best_fit(self, size) -> Entry:
         """Find the smallest FREE entry that is ``>=size``."""
         self.entries.sort(key=lambda x: x.offset)
         # Perform "best-fit" allocation.
-        best_index, best_entry = -1, None
-        for i, entry in enumerate(self._walk_free(size)):
+        best_entry = None
+        for entry in self._walk_free(size):
             if best_entry is None or entry.size < best_entry.size:
-                best_index, best_entry = i, entry
+                best_entry = entry
+                if entry.size == size:
+                    break
         if best_entry is None:
             raise InsufficientSpaceError
-        return best_index, best_entry
+        return best_entry
 
     def add_entry(self, name, size, hash) -> Entry:
         """Add an entry."""
         if size > self.free:
             raise InsufficientSpaceError
         try:
-            index, free_entry = self._best_fit(size)
+            free_entry = self._best_fit(size)
         except InsufficientSpaceError as e:
             raise FragmentationError from e
-        del self.entries[index]
         self.entries.append(Entry(name, offset=free_entry.offset, size=size, hash=hash))
         return free_entry
 
