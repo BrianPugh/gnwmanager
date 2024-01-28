@@ -110,7 +110,7 @@ class Header:
         self.size = size
 
     def __len__(self):
-        # Size of header in bytes
+        # Size of serialized entry.
         return 12
 
     @classmethod
@@ -143,12 +143,13 @@ class Entry:
         assert len(value) == 4
 
     def __len__(self):
+        # Size of serialized entry.
         # 1 for the NULL-terminator
         return 4 + 4 + 4 + _round_up_4(len(self.name) + 1)
 
     @classmethod
     def from_bytes(cls, data, offset=0):
-        offset, size, hash = struct.unpack_from("<III", data, offset)
+        section_offset, size, hash = struct.unpack_from("<III", data, offset)
         offset += 12
 
         # Read the NULL-terminated string for name
@@ -158,7 +159,7 @@ class Entry:
         name = data[start_idx:offset].decode("utf-8")
         offset += 1  # Skip the NULL byte
 
-        return cls(name=name, offset=offset, size=size, hash=hash)
+        return cls(name=name, offset=section_offset, size=size, hash=hash)
 
     def to_bytes(self):
         # Encode the name with a NULL terminator & pad it to multiple of 4
@@ -225,7 +226,7 @@ class RomFS:
 
         return cls(header, entries)
 
-    def to_bytes(self) -> bytes:
+    def to_bytes(self, key=lambda x: x.name) -> bytes:
         """Serialize the RomFS Table.
 
         Returns
@@ -233,7 +234,7 @@ class RomFS:
         bytes
             Descriptor data.
         """
-        self.entries.sort(key=lambda x: x.name)
+        self.entries.sort(key=key)
         return self.header.to_bytes() + b"".join(e.to_bytes() for e in self.entries)
 
     def _walk_free(self, min_size=0):
@@ -269,9 +270,11 @@ class RomFS:
             Removed entry object.
         """
         self.entries.sort(key=lambda x: x.offset)
-
         if isinstance(obj, Entry):
-            index = self.entries.index(obj)
+            try:
+                index = self.entries.index(obj)
+            except ValueError:
+                raise FileNotFoundError from None
         else:
             # Find the entry
             for index, entry in enumerate(self.entries):  # noqa: B007
@@ -280,7 +283,6 @@ class RomFS:
                     break
             else:
                 raise FileNotFoundError
-
         del self.entries[index]
         return obj
 
