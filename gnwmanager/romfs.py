@@ -62,9 +62,6 @@ The chance of a hash collision (falsely assuming a file's data hasn't changed) i
 
 Under this schema, the smallest possible entry is 16 bytes.
 
-Note: in this python implementation, we have "FREE" dummy entries indicating free-space.
-"FREE" entries are not included in the final serialized RomFS Table.
-
 ==========
 Defragging
 ==========
@@ -74,9 +71,12 @@ completely on-device with minimal data transfer over the debug probe.
 
 import struct
 from collections import deque
-from typing import List, Optional, Tuple, Union
+from contextlib import suppress
+from typing import List, Tuple, Union
 
-from attrs import define, evolve, field, frozen
+from attrs import evolve, field, frozen
+
+from gnwmanager.utils import sha256
 
 FREE = ""
 EMPTY_HASH = b"\x00" * 4
@@ -179,28 +179,36 @@ class MoveCommand:
         return struct.pack("<III", self.src, self.dst, self.size)
 
 
+class SubsetSumOptimizationError(Exception):
+    """SubsetSum was unable to discover a solution."""
+
+
+def subset_sum(
+    numbers: Tuple[int, ...],
+    target: int,
+    limit: int,
+    partial: Tuple[int, ...] = (),
+    partial_indices: Tuple[int, ...] = (),
+) -> List[int]:
+    """Find the subset-sum using dynamic programming with lru_cache."""
+    diff = target - sum(partial)
+    for i in range(len(numbers) - 1, -1, -1):
+        n = numbers[i]
+        if n < diff and len(partial) < limit:
+            try:
+                return subset_sum(numbers[:i], target, limit, partial + (n,), partial_indices + (i,))
+            except SubsetSumOptimizationError:
+                pass
+        elif n == diff:
+            return list(partial_indices + (i,))
+
+    raise SubsetSumOptimizationError("No combination found that sums to the target value.")
+
+
 class RomFS:
     def __init__(self, header: Header, entries: List[Entry]):
         self.header = header
         self.entries = entries
-        self._populate_free_entries()
-
-    def _populate_free_entries(self):
-        # Insert "FREE" dummy entries
-        self.entries.sort(key=lambda x: x.offset)
-        all_entries = []
-        offset = 0
-        for entry in self.entries:
-            if diff := entry.offset - offset:
-                all_entries.append(Entry(FREE, offset, diff, EMPTY_HASH))
-            all_entries.append(entry)
-            offset = entry.offset + entry.size
-
-        if remaining_free_size := self.header.size - offset:
-            all_entries.append(Entry(FREE, offset, remaining_free_size, EMPTY_HASH))
-            offset += remaining_free_size
-
-        self.entries[:] = all_entries
 
     @classmethod
     def from_descriptor(cls, data: bytes):
@@ -226,17 +234,21 @@ class RomFS:
             Descriptor data.
         """
         self.entries.sort(key=lambda x: x.name)
-        return self.header.to_bytes() + b"".join(e.to_bytes() for e in self.entries if e.name != FREE)
+        return self.header.to_bytes() + b"".join(e.to_bytes() for e in self.entries)
 
     def _walk_free(self, min_size=0):
-        for entry in self.entries:
-            if entry.name == FREE and entry.size >= min_size:
-                yield entry
+        self.entries.sort(key=lambda x: x.offset)
 
-    def _walk_alloc(self):
+        offset = 0
         for entry in self.entries:
-            if entry.name != FREE:
-                yield entry
+            diff = entry.offset - offset
+            if diff > min_size:
+                yield Entry(FREE, offset=offset, size=diff, hash=EMPTY_HASH)
+            offset = entry.offset + entry.size
+
+        diff = self.header.size - offset
+        if diff > min_size:
+            yield Entry(FREE, offset=offset, size=diff, hash=EMPTY_HASH)
 
     @property
     def free(self) -> int:
@@ -262,33 +274,15 @@ class RomFS:
             index = self.entries.index(obj)
         else:
             # Find the entry
-            for index, entry in enumerate(self._walk_alloc()):  # noqa: B007
+            for index, entry in enumerate(self.entries):  # noqa: B007
                 if entry.name == obj:
                     obj = entry
                     break
             else:
                 raise FileNotFoundError
 
-        offset = obj.offset
-        size = obj.size
-
-        if index < (len(self.entries) - 1) and self.entries[index + 1].name == FREE:
-            next_entry = self.entries[index + 1]
-            size += next_entry.size
-            del self.entries[index + 1]
-
         del self.entries[index]
-
-        if index > 0 and self.entries[index - 1].name == FREE:
-            prev_entry = self.entries[index - 1]
-            size += prev_entry.size
-            offset = prev_entry.offset
-            del self.entries[index - 1]
-
-        free_entry = Entry(FREE, offset, size, EMPTY_HASH)
-        self.entries.append(free_entry)
-
-        return free_entry
+        return obj
 
     def _best_fit(self, size) -> Tuple[int, Entry]:
         """Find the smallest FREE entry that is ``>=size``."""
@@ -302,104 +296,58 @@ class RomFS:
             raise InsufficientSpaceError
         return best_index, best_entry
 
-    def add(self, name, size, hash) -> Entry:
+    def add_entry(self, name, size, hash) -> Entry:
         """Add an entry."""
         if size > self.free:
             raise InsufficientSpaceError
-
         try:
             index, free_entry = self._best_fit(size)
         except InsufficientSpaceError as e:
             raise FragmentationError from e
-
         del self.entries[index]
-
-        self.entries.append(
-            Entry(
-                name,
-                offset=free_entry.offset,
-                size=size,
-                hash=hash,
-            )
-        )
-
-        if free_size := free_entry.size - size:
-            self.entries.append(
-                Entry(
-                    FREE,
-                    offset=free_entry.offset + size,
-                    size=free_size,
-                    hash=EMPTY_HASH,
-                )
-            )
-
+        self.entries.append(Entry(name, offset=free_entry.offset, size=size, hash=hash))
         return free_entry
 
-    def defragment(self) -> List[MoveCommand]:
-        """Generate an easy-to-execute defragment command-list.
+    def add_data(self, name, data) -> Entry:
+        return self.add_entry(name, len(data), sha256(data)[:4])
 
-        A "Good Enough" algorithm:
+    def defrag(self, limit=8) -> List[MoveCommand]:
+        """Generate an minimal defragment command-list.
 
-            1. Iterate over entries sorted by offset.
-            2. If a FREE segment is reached:
-                a. Iterate over entries in reversed order.
-                b. If a file of the exact same size is found, move it.
-                c. Otherwise, simply shift down the next entry.
-
-        This algorithm could easily be performed on-device.
-        It's just much easier to implement/test here.
+        Parameters
+        ----------
+        limit: int
+            Maximize number of entries to consider when attempting
+            to solve subset-sum problem.
 
         Updates ``self.entries``.
         """
-        if not any(x.name == FREE for x in self.entries):
-            raise ValueError("Cannot defrag; there are no free entries.")
-
         self.entries.sort(key=lambda x: x.offset)
 
         move_cmds = []
         defragged_entries = []
         entries = deque(self.entries)
         offset = 0
-        current_free = 0
 
         while entries:
             entry = entries.popleft()
-            if entry.name == FREE:
-                current_free += entry.size
 
-                # Search for a potential perfect match to populate this FREE entry.
-                # Could potentially result in significantly reduced move-set.
-                # only perfect matches *could* result in less moves.
-                for i, src_entry in enumerate(reversed(entries)):
-                    if src_entry.name == FREE:
-                        continue
-                    if src_entry.size != current_free:
-                        continue
+            if free_size := entry.offset - offset:
+                # Try and fill up the freespace with entries near-the-end.
+                # This is to minimize the number of blocks moved when defragging.
+                with suppress(SubsetSumOptimizationError):
+                    indices = subset_sum(tuple(x.size for x in entries), free_size, limit)
+                    indices.sort(reverse=True)
+                    for index in indices:
+                        move_cmds.append(MoveCommand(entries[index].offset, offset, entries[index].size))
+                        offset += entries[index].size
+                        del entries[index]
 
-                    cmd = MoveCommand(src_entry.offset, offset, src_entry.size)
-                    move_cmds.append(cmd)
-
-                    entries.append(src_entry)
-                    del entries[i]
-
-                    offset += entry.size
-                    current_free -= src_entry.size
-
-                    break
-            else:
-                new_entry = evolve(entry, offset=offset)
-                defragged_entries.append(new_entry)
-
-                if entry.offset != new_entry.offset:
-                    cmd = MoveCommand(entry.offset, new_entry.offset, entry.size)
-                    move_cmds.append(cmd)
-
-                offset += entry.size
-
-        if current_free:
-            defragged_entries.append(Entry(FREE, offset, current_free, EMPTY_HASH))
-            offset += current_free
-
+            defragged_entry = evolve(entry, offset=offset)
+            if entry.offset != defragged_entry.offset:
+                move_cmds.append(MoveCommand(entry.offset, defragged_entry.offset, entry.size))
+            defragged_entries.append(defragged_entry)
+            offset += defragged_entry.size
         self.entries[:] = defragged_entries
         return move_cmds
 
