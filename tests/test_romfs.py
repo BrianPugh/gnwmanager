@@ -1,4 +1,4 @@
-from gnwmanager.romfs import RomFS, Header, Entry
+from gnwmanager.romfs import Entry, Header, RomFS
 
 
 def test_empty_fs():

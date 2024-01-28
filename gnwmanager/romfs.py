@@ -52,17 +52,18 @@ expensive, this is done computer-side, so it doesn't really matter).
 +------+--------+----------------------------------------------------------------------------------+
 |    4 | uint32 | First 4 bytes (32-bits) of data's sha256 hash packed as a uint32.                |
 +------+--------+----------------------------------------------------------------------------------+
-|    * |   char | NULL-terminated string representing filepath. An empty, 0-length string means    |
-|      |        | the space at this location is free & available. This is string is right-padded   |
+|    * |   char | NULL-terminated string representing filepath. This is string is right-padded     |
 |      |        | zeros to the nearest 4-byte boundary.                                            |
 +------+--------+----------------------------------------------------------------------------------+
 
-Entries must ENTIRELY cover the partition space.
 The file's abbreviated hash can be used to determine if data contents need to be updated.
 The chance of a hash collision (falsely assuming a file's data hasn't changed) is
 ``1 / 4,294,967,296``, which is deemed an acceptable risk.
 
 Under this schema, the smallest possible entry is 16 bytes.
+
+Note: in this python implementation, we have "FREE" dummy entries indicating free-space.
+"FREE" entries are not included in the final serialized RomFS Table.
 
 ==========
 Defragging
@@ -78,7 +79,7 @@ from typing import List, Optional, Tuple, Union
 from attrs import define, evolve, field, frozen
 
 FREE = ""
-EMPTY_HASH = b"\x00" * 8
+EMPTY_HASH = b"\x00" * 4
 
 
 class InsufficientSpaceError(Exception):
@@ -181,11 +182,25 @@ class MoveCommand:
 class RomFS:
     def __init__(self, header: Header, entries: List[Entry]):
         self.header = header
-        if entries:
-            self.entries = entries
-        else:
-            # Add a single "free" entry
-            self.entries = [Entry(FREE, 0, self.header.size, EMPTY_HASH)]
+        self.entries = entries
+        self._populate_free_entries()
+
+    def _populate_free_entries(self):
+        # Insert "FREE" dummy entries
+        self.entries.sort(key=lambda x: x.offset)
+        all_entries = []
+        offset = 0
+        for entry in self.entries:
+            if diff := entry.offset - offset:
+                all_entries.append(Entry(FREE, offset, diff, EMPTY_HASH))
+            all_entries.append(entry)
+            offset = entry.offset + entry.size
+
+        if remaining_free_size := self.header.size - offset:
+            all_entries.append(Entry(FREE, offset, remaining_free_size, EMPTY_HASH))
+            offset += remaining_free_size
+
+        self.entries[:] = all_entries
 
     @classmethod
     def from_descriptor(cls, data: bytes):
@@ -211,7 +226,7 @@ class RomFS:
             Descriptor data.
         """
         self.entries.sort(key=lambda x: x.name)
-        return self.header.to_bytes() + b"".join(e.to_bytes() for e in self.entries)
+        return self.header.to_bytes() + b"".join(e.to_bytes() for e in self.entries if e.name != FREE)
 
     def _walk_free(self, min_size=0):
         for entry in self.entries:
