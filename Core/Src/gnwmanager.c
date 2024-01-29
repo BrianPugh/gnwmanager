@@ -15,6 +15,9 @@
 #include "gnwmanager_gui.h"
 #include "buttons.h"
 
+#define MIN(x,y) (((x) < (y)) ? (x) : (y) )
+#define MAX(x,y) (((x) > (y)) ? (x) : (y) )
+
 
 typedef enum {  // For the gnwmanager state machine
     GNWMANAGER_IDLE                   ,
@@ -237,6 +240,71 @@ static bool ext_is_erased(uint32_t offset, uint32_t size){
         }
     }
     return true;
+}
+
+typedef struct {
+    uint32_t block_size;
+    uint32_t offset;
+
+    uint8_t *buffer;
+
+    uint8_t needs_erasing: 1;
+    uint8_t initialized: 1;
+} defrag_t;
+
+
+int defrag_flush(defrag_t *defrag){
+    if(defrag->initialized){
+        if(defrag->needs_erasing){
+            OSPI_EraseSync(defrag->offset, defrag->block_size);
+        }
+        OSPI_Program(defrag->offset, defrag->buffer, defrag->block_size);
+    }
+    defrag->needs_erasing = false;
+    return 0;
+}
+
+int defrag_move(defrag_t *defrag, uint32_t src_offset, uint32_t dst_offset, uint32_t size){
+    assert(defrag->buffer);
+    if(!defrag->block_size){
+        defrag->block_size = OSPI_GetSmallestEraseSize();
+    }
+
+    while(size){
+        uint32_t dst_block_offset = dst_offset & ~(defrag->block_size - 1);
+
+        if(defrag->offset != dst_block_offset || !defrag->initialized){
+            // Dealing with a whole new block; Write current buffer
+            defrag_flush(defrag);
+
+            // Read in the existing data.
+            OSPI_EnableMemoryMappedMode();
+            memcpy(defrag->buffer, (uint8_t *)0x90000000 + dst_block_offset, defrag->block_size);
+            defrag->offset = dst_block_offset;
+
+            defrag->initialized = true;
+        }
+
+        // Begin reading in data from src.
+        uint32_t size_this_block = defrag->offset + defrag->block_size - dst_offset;
+        uint8_t *buffer_dst = defrag->buffer + (dst_offset - defrag->offset);
+        size_this_block = MIN(size_this_block, size);
+
+        for(uint8_t *ptr=buffer_dst; ptr < buffer_dst + size_this_block; ptr++){
+            if(*ptr != 0xFF){
+                defrag->needs_erasing = true;
+                break;
+            }
+        }
+        OSPI_EnableMemoryMappedMode();
+        memcpy(buffer_dst, (uint8_t *)(0x90000000 + src_offset), size_this_block);
+
+        size -= size_this_block;
+        dst_offset += size_this_block;
+        src_offset += size_this_block;
+    }
+
+    return 0;
 }
 
 static void gnwmanager_run(void)
