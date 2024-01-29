@@ -7,7 +7,7 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
 
   - repo: https://github.com/psf/black
-    rev: 23.12.1
+    rev: 24.1.1
     hooks:
       - id: black
         args:
@@ -63,7 +63,7 @@ repos:
         exclude: pyproject.toml
 
   - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.348
+    rev: v1.1.349
     hooks:
       - id: pyright
 
