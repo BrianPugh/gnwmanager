@@ -78,8 +78,18 @@ def _display_host_info(backend):
 
 
 @app.command(group="Admin")
-def info(*, gnw: GnWType):
-    """Displays environment & device info."""
+def info(
+    *,
+    offset: OffsetType = 0,
+    gnw: GnWType,
+):
+    """Displays environment & device info.
+
+    Parameters
+    ----------
+    offset
+        Distance in bytes from the END of the filesystem, to the END of flash.
+    """
     gnw.start_gnwmanager()
     _display("OCD Backend Version:", ".".join(str(x) for x in gnw.backend.version))
     _display("Debug Probe:", gnw.backend.probe_name)
@@ -93,6 +103,20 @@ def info(*, gnw: GnWType):
 
     _display("External Flash Size (MB):", str(gnw.external_flash_size / (1 << 20)))
     _display("Locked?: ", "LOCKED" if gnw.is_locked() else "UNLOCKED")
+
+    try:
+        fs = gnw.filesystem(offset=offset, block_count=0)
+    except LittleFSError as e:
+        if e.code == LittleFSError.Error.LFS_ERR_CORRUPT:
+            fs_size = "MISSING/CORRUPT"
+        else:
+            raise
+    else:
+        fs_stat = fs.fs_stat()
+        fs_size_bytes = fs_stat.block_count * fs_stat.block_size
+        fs_size = f"{fs_stat.block_size} * {fs_stat.block_count} ({fs_size_bytes})"
+
+    _display("Filesystem Size (B):", fs_size)
 
 
 @app.command()
