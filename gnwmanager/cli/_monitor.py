@@ -1,6 +1,7 @@
 import logging
 import sys
 from pathlib import Path
+from time import sleep
 from typing import Optional
 
 from gnwmanager.cli._parsers import GnWType
@@ -58,12 +59,16 @@ def monitor(
                 logbuf_str = read_and_decode(logbuf_addr + last_idx, log_idx - last_idx)
                 log.info(f"incoming: {logbuf_str}")
                 sys.stdout.write(logbuf_str)
+                sys.stdout.flush()
             elif log_idx > 0 and log_idx < last_idx:
                 # Get new data from the end of the buffer until the first null byte
                 logbuf_str = read_and_decode(logbuf_addr + last_idx, logbuf_size - last_idx)
                 logbuf_str += read_and_decode(logbuf_addr, log_idx)
                 sys.stdout.write(logbuf_str)
+                sys.stdout.flush()
 
             last_idx = log_idx
         except tuple(TransferErrors) as e:
             log.debug(e)
+
+        sleep(0.1)
