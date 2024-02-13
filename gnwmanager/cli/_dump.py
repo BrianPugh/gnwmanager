@@ -52,9 +52,12 @@ def dump(
         if size == 0:
             size = 0x0814_0000 - addr
         chunks.append(gnw.read_memory(addr, size))
-    elif addr >= 0x9000_0000:
+    else:
         if size == 0:
-            size = 0x9000_0000 + gnw.external_flash_size - addr
+            if addr >= 0x9000_0000:
+                size = 0x9000_0000 + gnw.external_flash_size - addr
+            else:
+                raise ValueError("Must specify size if reading from RAM address.")
 
         chunk_size = 256 << 10
         for _ in tqdm(range(0, size, chunk_size)):
@@ -62,8 +65,6 @@ def dump(
             chunks.append(gnw.read_memory(addr, chunk_size))
             addr += chunk_size
             size -= chunk_size
-    else:
-        raise ValueError("Unsupported destination address.")
 
     data = b"".join(chunks)
     dst.parent.mkdir(exist_ok=True, parents=True)
