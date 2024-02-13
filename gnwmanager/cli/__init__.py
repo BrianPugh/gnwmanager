@@ -1,4 +1,5 @@
 from gnwmanager.cli._debug import debug
+from gnwmanager.cli._dump import dump
 from gnwmanager.cli._erase import erase
 from gnwmanager.cli._filesystem import (
     format,
