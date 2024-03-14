@@ -25,11 +25,7 @@ with suppress(ImportError):
     # By importing, makes things like the arrow-keys work.
     import readline  # Not available on windows
 
-app = App(
-    group_commands="Miscellaneous",
-    help_flags=[],
-    version_flags=[],
-)
+app = App(group_commands="Miscellaneous")
 
 app.meta["--help"].group = "Admin"
 app.meta["--version"].group = "Admin"
