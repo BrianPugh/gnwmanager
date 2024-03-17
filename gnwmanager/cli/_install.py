@@ -35,17 +35,17 @@ def _install_from_available_package_manager(install_cmds: Dict[str, List[List[st
 def openocd(platform: str):
     install_cmds = {
         "linux": {
-            "apt-get": [["sudo", "apt-get", "update"], ["sudo", "apt-get", "install", "openocd"]],
-            "pacman": [["sudo", "pacman", "-Sy", "openocd"]],
-            "yum": [["sudo", "yum", "install", "openocd"]],
-            "dnf": [["sudo", "dnf", "install", "openocd"]],
-            "zypper": [["sudo", "zypper", "install", "openocd"]],
+            "apt-get": [["sudo", "apt-get", "update"], ["sudo", "apt-get", "-y", "install", "openocd"]],
+            "pacman": [["sudo", "pacman", "-Sy", "--noconfirm", "openocd"]],
+            "yum": [["sudo", "yum", "-y", "install", "openocd"]],
+            "dnf": [["sudo", "dnf", "-y", "install", "openocd"]],
+            "zypper": [["sudo", "zypper", "--non-interactive", "install", "openocd"]],
         },
         "darwin": {
             "brew": [["brew", "install", "openocd"]],
         },
         "win32": {
-            "choco": [["choco", "install", "openocd"]],
+            "choco": [["choco", "install", "openocd", "-y"]],
         },
     }
 
@@ -56,19 +56,20 @@ def openocd(platform: str):
 def arm_toolchain(platform: str):
     install_cmds = {
         "linux": {
-            "apt-get": [["sudo", "apt-get", "update"], ["sudo", "apt-get", "install", "gcc-arm-none-eabi"]],
-            "pacman": [["sudo", "pacman", "-Sy", "arm-none-eabi-gcc"]],
-            "yum": [["sudo", "yum", "install", "arm-none-eabi-newlib", "arm-none-eabi-gcc-cs"]],
-            "dnf": [["sudo", "dnf", "install", "arm-none-eabi-newlib", "arm-none-eabi-gcc-cs"]],
-            "zypper": [["sudo", "zypper", "install", "cross-arm-none-gcc-cs"]],
+            "apt-get": [["sudo", "apt-get", "update"], ["sudo", "apt-get", "-y", "install", "gcc-arm-none-eabi"]],
+            "pacman": [["sudo", "pacman", "-Sy", "--noconfirm", "arm-none-eabi-gcc"]],
+            "yum": [["sudo", "yum", "-y", "install", "arm-none-eabi-newlib", "arm-none-eabi-gcc-cs"]],
+            "dnf": [["sudo", "dnf", "-y", "install", "arm-none-eabi-newlib", "arm-none-eabi-gcc-cs"]],
+            "zypper": [["sudo", "zypper", "--non-interactive", "install", "cross-arm-none-gcc-cs"]],
         },
         "darwin": {
             "brew": [["brew", "install", "arm-gcc-bin"]],
         },
         "win32": {
-            "choco": [["choco", "install", "gcc-arm-embedded"]],
+            "choco": [["choco", "install", "gcc-arm-embedded", "-y"]],
         },
     }
+
     _install_from_available_package_manager(install_cmds[platform])
 
 
