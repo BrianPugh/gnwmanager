@@ -17,9 +17,13 @@ log = logging.getLogger(__name__)
 
 
 def _install_from_available_package_manager(install_cmds: Dict[str, List[List[str]]]):
+    sudo_bin = shutil.which("sudo")
     for manager, cmds in install_cmds.items():
         if shutil.which(manager) is not None:
             for cmd in cmds:
+                if sudo_bin is None:
+                    # Strip out the "sudo" parts of command; common in a docker container.
+                    cmd = [x for x in cmd if x != "sudo"]
                 subprocess.check_call(cmd)
             return
 
