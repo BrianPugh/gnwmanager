@@ -514,12 +514,13 @@ class GnW:
 
         log.debug("Resuming chip execution.")
 
-        log.debug("Setting device time.")
-        self.write_uint32("utc_timestamp", timestamp_now())
-
         if resume:
             self.backend.resume()
             self.wait_for_idle()
+
+            # Time has to be set **after** device is in an idle state
+            log.debug("Setting device time.")
+            self.write_uint32("utc_timestamp", timestamp_now())
 
         self._gnwmanager_started = True
 
