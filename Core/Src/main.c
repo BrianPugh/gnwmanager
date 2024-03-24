@@ -26,6 +26,8 @@
 #include "flash.h"
 #include "lcd.h"
 #include <string.h>
+#include <stdbool.h>
+#include "flash.h"
 #include "gnwmanager.h"
 #include "gnwmanager_gui.h"
 /* USER CODE END Includes */
@@ -181,24 +183,23 @@ int main(void)
 
   lcd_backlight_on();
 
-  OSPI_Init(&hospi1);
+  gui_fill(GUI_BACKGROUND_COLOR);
+  gnwmanager_status_t status = GNWMANAGER_STATUS_IDLE;
+
+  // Setup external-flash-chip-communications
+  if(OSPI_Init(&hospi1)){
+    status = GNWMANAGER_STATUS_BAD_FLASH_COMM;
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    // Sanity check, sometimes this is triggered
-    uint32_t add = 0x90000000;
-    uint32_t* ptr = (uint32_t*)add;
-    if(*ptr == 0x88888888) {
-      Error_Handler();
-    }
-
     SCB_InvalidateICache();
     SCB_EnableICache();
 
-    gnwmanager_main();
+    gnwmanager_main(status);
   }
     /* USER CODE END WHILE */
 
@@ -1041,11 +1042,7 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
-  gnwmanager_status_t status = GNWMANAGER_STATUS_BAD_SEGFAULT;
-  gui.status = &status;
-
-  gui_fill(GUI_BACKGROUND_COLOR);
-  gnwmanager_gui_draw();
+  gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SEGFAULT);
 
   volatile int i = 1;  // Prevents optimizer from optimizing out infinite loop.
   while(i) {

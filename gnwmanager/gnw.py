@@ -488,7 +488,7 @@ class GnW:
 
         self.wait_for_all_contexts_complete()
 
-    def start_gnwmanager(self, force=False):
+    def start_gnwmanager(self, force=False, resume=True):
         if not force and self._gnwmanager_started:
             return
 
@@ -513,11 +513,13 @@ class GnW:
         self.backend.write_register("pc", pc)
 
         log.debug("Resuming chip execution.")
-        self.backend.resume()
-        self.wait_for_idle()
 
         log.debug("Setting device time.")
         self.write_uint32("utc_timestamp", timestamp_now())
+
+        if resume:
+            self.backend.resume()
+            self.wait_for_idle()
 
         self._gnwmanager_started = True
 

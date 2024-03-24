@@ -30,6 +30,6 @@ void OSPI_ReadCR(uint8_t dest[1]);
 const char* OSPI_GetFlashName(void);
 uint32_t OSPI_GetSmallestEraseSize(void);
 
-void OSPI_Init(OSPI_HandleTypeDef *hospi);
+int OSPI_Init(OSPI_HandleTypeDef *hospi);
 
 uint32_t OSPI_GetSize(void);
