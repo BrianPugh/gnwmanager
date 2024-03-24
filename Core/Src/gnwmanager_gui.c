@@ -160,7 +160,8 @@ void gnwmanager_gui_draw(){
     );
 
     DRAW(ERROR2_ORIGIN_X, ERROR2_ORIGIN_Y, &img_flash,
-            *gui.status == GNWMANAGER_STATUS_BAD_HASH_FLASH
+            (*gui.status == GNWMANAGER_STATUS_BAD_HASH_FLASH)
+            || (*gui.status == GNWMANAGER_STATUS_BAD_FLASH_COMM)
     );
     DRAW(ERROR2_ORIGIN_X + 65, ERROR2_ORIGIN_Y, &img_ram,
             *gui.status == GNWMANAGER_STATUS_BAD_HASH_RAM

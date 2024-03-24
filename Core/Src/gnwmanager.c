@@ -199,7 +199,7 @@ static void release_context(work_context_t *context){
     memset((void *)context, 0, sizeof(work_context_t));
 }
 
-static void set_status(gnwmanager_status_t status){
+void gnwmanager_set_status(gnwmanager_status_t status){
     static gnwmanager_status_t prev_status = 0;
     comm.status = status;
     if(status != prev_status){
@@ -268,7 +268,7 @@ static void gnwmanager_run(void)
 
         // Attempt to find the next ready working_context in queue
         if((source_context = get_context()) == NULL){
-            set_status(GNWMANAGER_STATUS_IDLE);
+            gnwmanager_set_status(GNWMANAGER_STATUS_IDLE);
             break;
         }
         context_counter++;
@@ -278,7 +278,7 @@ static void gnwmanager_run(void)
                 // The rest of this function
                 break;
             case GNWMANAGER_ACTION_HASH:
-                set_status(GNWMANAGER_STATUS_HASH);
+                gnwmanager_set_status(GNWMANAGER_STATUS_HASH);
                 gnwmanager_action_hash(source_context);
                 return;
         }
@@ -298,7 +298,7 @@ static void gnwmanager_run(void)
 
         // Compute the hash to see if the programming operation would result in anything.
         if(working_context->size){
-            set_status(GNWMANAGER_STATUS_HASH);
+            gnwmanager_set_status(GNWMANAGER_STATUS_HASH);
             sha256bank(working_context->bank, program_calculated_sha256, working_context->offset, working_context->size);
             if (memcmp((char *)program_calculated_sha256, (char *)working_context->expected_sha256, 32) == 0) {
                 // Contents of this chunk didn't change. Skip & release working_context.
@@ -313,7 +313,7 @@ static void gnwmanager_run(void)
         }
 
         if(working_context->erase){
-            set_status(GNWMANAGER_STATUS_ERASE);
+            gnwmanager_set_status(GNWMANAGER_STATUS_ERASE);
             if(working_context->bank == 0){
                 // Start a non-blocking flash erase to run in the background
                 erase_offset = working_context->offset;
@@ -322,7 +322,7 @@ static void gnwmanager_run(void)
                 uint32_t smallest_erase = OSPI_GetSmallestEraseSize();
                 if (erase_offset & (smallest_erase - 1)) {
                     // Address not aligned to smallest erase size
-                    set_status(GNWMANAGER_STATUS_NOT_ALIGNED);
+                    gnwmanager_set_status(GNWMANAGER_STATUS_NOT_ALIGNED);
                     state = GNWMANAGER_ERROR;
                     break;
                 }
@@ -343,7 +343,7 @@ static void gnwmanager_run(void)
             n_decomp_bytes = lzma_inflate(comm.decompress_buffer, sizeof(comm.decompress_buffer),
                                           (uint8_t *)working_context->buffer, working_context->compressed_size);
             if(n_decomp_bytes == 0 || n_decomp_bytes != working_context->size){
-                set_status(GNWMANAGER_STATUS_BAD_DECOMPRESS);
+                gnwmanager_set_status(GNWMANAGER_STATUS_BAD_DECOMPRESS);
                 state = GNWMANAGER_ERROR;
             }
         }
@@ -368,7 +368,7 @@ static void gnwmanager_run(void)
 
         if (memcmp((const void *)program_calculated_sha256, (const void *)working_context->expected_sha256, 32) != 0) {
             // Hashes don't match even in RAM, openocd loading failed.
-            set_status(GNWMANAGER_STATUS_BAD_HASH_RAM);
+            gnwmanager_set_status(GNWMANAGER_STATUS_BAD_HASH_RAM);
             state = GNWMANAGER_ERROR;
             break;
         }
@@ -380,7 +380,7 @@ static void gnwmanager_run(void)
             state = GNWMANAGER_PROGRAM;
             break;
         }
-        set_status(GNWMANAGER_STATUS_ERASE);
+        gnwmanager_set_status(GNWMANAGER_STATUS_ERASE);
 
         if(working_context->bank == 0){
             // This body is usually called a few times
@@ -411,7 +411,7 @@ static void gnwmanager_run(void)
         break;
     case GNWMANAGER_PROGRAM:
         OSPI_DisableMemoryMappedMode();
-        set_status(GNWMANAGER_STATUS_PROG);
+        gnwmanager_set_status(GNWMANAGER_STATUS_PROG);
         if (program_bytes_remaining == 0) {
             state++;
             break;
@@ -448,7 +448,7 @@ static void gnwmanager_run(void)
 
         if (memcmp((char *)program_calculated_sha256, (char *)working_context->expected_sha256, 32) != 0) {
             // Hashes don't match in FLASH, programming failed.
-            set_status(GNWMANAGER_STATUS_BAD_HASH_FLASH);
+            gnwmanager_set_status(GNWMANAGER_STATUS_BAD_HASH_FLASH);
             state = GNWMANAGER_ERROR;
             break;
         }
@@ -462,19 +462,34 @@ static void gnwmanager_run(void)
 }
 
 
-void gnwmanager_main(void)
+void gnwmanager_main(gnwmanager_status_t status)
 {
     memset((void *)&comm, 0, sizeof(comm));
+    comm.status = status;
+
     gui.status = &comm.status;
     gui.progress = &comm.progress;
     gui.upload_in_progress = &comm.upload_in_progress;
     gui.download_in_progress = &comm.download_in_progress;
 
-    comm.flash_size = OSPI_GetSize();
-    comm.min_erase_size = OSPI_GetSmallestEraseSize();
-
     // Draw LCD silvery background once.
     gui_fill(GUI_BACKGROUND_COLOR);
+
+    if((*gui.status & 0xFFFF0000) == 0xbad00000){
+        // Error happened during system setup.
+        gnwmanager_gui_draw();
+        while(true){
+            if(buttons_get() & B_POWER){
+                NVIC_SystemReset();
+            }
+            wdog_refresh();
+        }
+    }
+    else{
+        comm.flash_size = OSPI_GetSize();
+        comm.min_erase_size = OSPI_GetSmallestEraseSize();
+    }
+
 
     while (true) {
         if(buttons_get() & B_POWER){

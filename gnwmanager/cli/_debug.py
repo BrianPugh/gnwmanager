@@ -7,7 +7,7 @@ from time import time
 from typing import Optional
 
 from cyclopts import App
-from littlefs.errors import LittleFSError
+from littlefs import LittleFSError
 
 from gnwmanager.cli._parsers import GnWType, OffsetType
 from gnwmanager.cli.main import app
@@ -20,6 +20,7 @@ def pdb(
     offset: OffsetType = 0,
     *,
     gnw: GnWType,
+    filesystem: bool = False,
 ):
     """Drop into debugging with app launched.
 
@@ -27,14 +28,17 @@ def pdb(
     ----------
     offset
         Distance from the END of the filesystem, to the END of flash.
+    filesystem: bool
+        Attempt to mount the filesystem.
     """
     gnw.start_gnwmanager()
-    try:
-        fs = gnw.filesystem(offset=offset)  # noqa: F841
-    except LittleFSError as e:
-        if e.code != -84:  # LFS_ERR_CORRUPT
-            raise
-        print("Unable to mount filesystem.")
+    if filesystem:
+        try:
+            fs = gnw.filesystem(offset=offset)  # noqa: F841
+        except LittleFSError as e:
+            if e.code != LittleFSError.Error.LFS_ERR_CORRUPT:
+                raise
+            print("Unable to mount filesystem.")
 
     breakpoint()
 
@@ -68,7 +72,7 @@ def gdb(
     *,
     gnw: GnWType,
 ):
-    """Launch a gdbserver and connect to it with gdb.
+    """Launch halted gnwmanager, a gdbserver, and connect to it with gdb.
 
     Checks the environment variable ``GDB`` for gdb executable.
     Defaults to ``arm-none-eabi-gdb``.
@@ -85,6 +89,7 @@ def gdb(
 
     gdb_executable = os.environ.get("GDB", "arm-none-eabi-gdb")
 
+    gnw.start_gnwmanager(resume=False)
     gnw.backend.start_gdbserver(port, logging=False, blocking=False)
 
     cmd = [gdb_executable, str(elf), "-ex", "target extended-remote :3333"]

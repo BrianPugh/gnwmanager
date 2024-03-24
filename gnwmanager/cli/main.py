@@ -234,7 +234,10 @@ def main(
         rich.print(f"[red]Error communicating with device ({e}). Is it ON and connected?[/red]")
         close_on_exit = False
     except DataError as e:
-        rich.print(f"Unexpected response from debug probe. {e}")
+        if e.args == ("BAD_FLASH_COMM",):
+            rich.print("Failed to communicate with external flash chip. Check your soldering!")
+        else:
+            rich.print(f"Unexpected response from debug probe. {e}")
     except ConnectionResetError:
         print(traceback.format_exc())
         close_on_exit = False

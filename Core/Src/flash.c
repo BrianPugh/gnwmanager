@@ -840,7 +840,7 @@ uint32_t OSPI_GetSmallestEraseSize(void)
     return flash.config->erase_sizes[0];
 }
 
-void OSPI_Init(OSPI_HandleTypeDef *hospi)
+int OSPI_Init(OSPI_HandleTypeDef *hospi)
 {
     uint8_t status;
 
@@ -861,7 +861,8 @@ void OSPI_Init(OSPI_HandleTypeDef *hospi)
     // Check for known bad IDs
     if (((flash.jedec_id.u32 & 0xffffff) == 0xffffff) ||
         ((flash.jedec_id.u32 & 0xffffff) == 0x000000)) {
-        assert(!"Can't communicate with the external flash! Please check the soldering.");
+        // Can't communicate with the external flash! Please check the soldering.
+        return -1;
     }
 
     OSPI_ReadBytes(CMD(RDSR), 0, &status, 1);
@@ -882,6 +883,8 @@ void OSPI_Init(OSPI_HandleTypeDef *hospi)
     }
 
     OSPI_EnableMemoryMappedMode();
+
+    return 0;
 }
 
 uint32_t OSPI_GetSize(void){
