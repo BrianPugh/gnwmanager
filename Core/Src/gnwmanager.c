@@ -104,13 +104,13 @@ struct gnwmanager_comm {  // Values are read or written by the debugger
             // output: minimum external flash erase size in bytes
             uint32_t min_erase_size;
 
-            volatile uint32_t upload_in_progress;  // computer -> device
+            uint32_t upload_in_progress;  // computer -> device
 
-            volatile uint32_t download_in_progress;  // device -> computer
+            uint32_t download_in_progress;  // device -> computer
 
-            volatile uint8_t expected_hash[32];
+            uint8_t expected_hash[32];
 
-            volatile uint8_t actual_hash[32];
+            uint8_t actual_hash[32];
         };
         struct {
             // Force spacing, allowing for backward-compatible additional variables
@@ -372,8 +372,8 @@ static void gnwmanager_run(void)
 
         if (memcmp((const void *)program_calculated_sha256, (const void *)working_context->expected_sha256, 32) != 0) {
             // Hashes don't match even in RAM, openocd loading failed.
-            memcpy(comm.actual_hash, program_calculated_sha256, 32);
-            memcpy(comm.expected_hash, working_context->expected_sha256, 32);
+            memcpy((void *)comm.actual_hash, program_calculated_sha256, 32);
+            memcpy((void *)comm.expected_hash, (void *)working_context->expected_sha256, 32);
             gnwmanager_set_status(GNWMANAGER_STATUS_BAD_HASH_RAM);
             state = GNWMANAGER_ERROR;
             break;
@@ -454,8 +454,8 @@ static void gnwmanager_run(void)
 
         if (memcmp((char *)program_calculated_sha256, (char *)working_context->expected_sha256, 32) != 0) {
             // Hashes don't match in FLASH, programming failed.
-            memcpy(comm.actual_hash, program_calculated_sha256, 32);
-            memcpy(comm.expected_hash, working_context->expected_sha256, 32);
+            memcpy((void *)comm.actual_hash, program_calculated_sha256, 32);
+            memcpy((void *)comm.expected_hash, (void *)working_context->expected_sha256, 32);
             gnwmanager_set_status(GNWMANAGER_STATUS_BAD_HASH_FLASH);
             state = GNWMANAGER_ERROR;
             break;
