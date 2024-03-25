@@ -2,6 +2,7 @@ import importlib.resources
 import logging
 from collections import namedtuple
 from copy import deepcopy
+from itertools import count
 from math import ceil
 from time import sleep, time
 from typing import Dict, List, Literal, NamedTuple, Optional, Union
@@ -158,17 +159,19 @@ class GnW:
         t_deadline = t_start + timeout
         error_mask = 0xFFFF_0000
 
-        while True:
+        for i in count():
             status_enum = self.read_uint32("status")
             status_str = flashapp_status_enum_to_str.get(status_enum, "UNKNOWN")
             if status_str == "IDLE":
                 break
             elif (status_enum & error_mask) == 0xBAD0_0000:
                 raise DataError(status_str)
+            if i % 10 == 0:
+                log.debug(f"waiting for device to IDLE; current status: {status_str}")
             if time() > t_deadline:
                 raise TimeoutError("wait_for_idle")
-            sleep(0.05)
-        log.debug(f"Waited {time() - t_start:.3}s for device idle.")
+            sleep(0.1)
+        log.debug(f"Waited {time() - t_start:.3f}s for device idle.")
 
     def wait_for_all_contexts_complete(self, timeout=20):
         log.debug("Waiting for all contexts to complete.")
@@ -178,9 +181,9 @@ class GnW:
             while self.read_uint32(context["ready"]):
                 if time() > t_deadline:
                     raise TimeoutError("wait_for_all_contexts_complete")
-                sleep(0.05)
+                sleep(0.1)
             log.debug(f"Context {i} complete.")
-        log.debug(f"Waited {time() - t_start:.3}s for all contexts to complete.")
+        log.debug(f"Waited {time() - t_start:.3f}s for all contexts to complete.")
         self.wait_for_idle(timeout=t_deadline - time())
 
     def wait_for_context_response(self, context, timeout=20):
@@ -191,8 +194,8 @@ class GnW:
         while not self.read_uint32(context["response_ready"]):
             if time() > t_deadline:
                 raise TimeoutError("wait_for_context_response")
-            sleep(0.05)
-        log.debug(f"Waited {time() - t_start:.3}s for context {context_index} response.")
+            sleep(0.1)
+        log.debug(f"Waited {time() - t_start:.3f}s for context {context_index} response.")
 
     def reset_context_counter(self):
         self.context_counter = 1
@@ -216,12 +219,12 @@ class GnW:
         while True:
             for i, context in enumerate(_contexts):
                 if not self.read_uint32(context["ready"]):
-                    log.debug(f"Got context {i} in {time() - t_start:.3}s.")
+                    log.debug(f"Got context {i} in {time() - t_start:.3f}s.")
                     return context
                 if time() > t_deadline:
                     log.debug(f"Timeout ({timeout}s) reached waiting to get an available context.")
                     raise TimeoutError
-            sleep(0.05)
+            sleep(0.1)
 
     def filesystem(self, offset: Optional[int] = None, **kwargs):
         from gnwmanager.filesystem import get_filesystem
