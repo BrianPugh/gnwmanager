@@ -257,7 +257,7 @@ class OpenOCDBackend(OCDBackend):
             with tempfile.TemporaryDirectory(dir=_ramdisk if _ramdisk.exists() else None) as temp_dir:
                 temp_file = Path(temp_dir) / "scratch.bin"
                 temp_file.write_bytes(data)
-                self(f"load_image {temp_file.as_posix()} 0x{addr:08X}", decode=False).decode()
+                self(f"load_image {temp_file.as_posix()} 0x{addr:08X} bin", decode=False).decode()
 
     def read_register(self, name: str) -> int:
         """Read from a 32-bit core register."""
