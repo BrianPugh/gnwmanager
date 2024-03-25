@@ -24,6 +24,8 @@ class Variable(NamedTuple):
     size: int
 
 
+ERROR_MASK = 0xFFFF_0000
+
 actions: Dict[str, int] = {
     "ERASE_AND_FLASH": 0,
     "HASH": 1,
@@ -157,15 +159,11 @@ class GnW:
         log.debug("Waiting for device to idle.")
         t_start = time()
         t_deadline = t_start + timeout
-        error_mask = 0xFFFF_0000
 
         for i in count():
-            status_enum = self.read_uint32("status")
-            status_str = flashapp_status_enum_to_str.get(status_enum, "UNKNOWN")
+            status_str = self._get_status()
             if status_str == "IDLE":
                 break
-            elif (status_enum & error_mask) == 0xBAD0_0000:
-                raise DataError(status_str)
             if i % 10 == 0:
                 log.debug(f"waiting for device to IDLE; current status: {status_str}")
             if time() > t_deadline:
@@ -213,6 +211,13 @@ class GnW:
         self.reset_context_counter()
         self._gnwmanager_started = False
 
+    def _get_status(self, raise_on_error=True) -> str:
+        status_enum = self.read_uint32("status")
+        status_str = flashapp_status_enum_to_str.get(status_enum, "UNKNOWN")
+        if raise_on_error and (status_enum & ERROR_MASK) == 0xBAD0_0000:
+            raise DataError(status_str)
+        return status_str
+
     def get_context(self, timeout=20):
         t_start = time()
         t_deadline = t_start + timeout
@@ -221,6 +226,7 @@ class GnW:
                 if not self.read_uint32(context["ready"]):
                     log.debug(f"Got context {i} in {time() - t_start:.3f}s.")
                     return context
+                self._get_status()
                 if time() > t_deadline:
                     log.debug(f"Timeout ({timeout}s) reached waiting to get an available context.")
                     raise TimeoutError
@@ -346,7 +352,8 @@ class GnW:
         else:
             self.write_uint32(context["erase"], 0)
 
-        self.write_memory(context["expected_sha256"], sha256(data))
+        data_hash = sha256(data)
+        self.write_memory(context["expected_sha256"], data_hash)
 
         if compress:
             self.write_uint32(context["compressed_size"], len(compressed_data))
@@ -355,6 +362,7 @@ class GnW:
             self.write_uint32(context["compressed_size"], 0)
             self.write_memory(context["buffer"], data)
 
+        log.debug(f"Activating PROGRAM: {data_hash.hex()}")
         self.write_uint32(context["ready"], self.context_counter)
         self.context_counter += 1
         log.debug(f"context_counter incremented to {self.context_counter}.")
@@ -471,8 +479,6 @@ class GnW:
 
         chunk_size = self.contexts[0]["buffer"].size  # Assumes all contexts have same size buffer
         chunks = chunk_bytes(data, chunk_size)
-        len(chunks)
-        [sha256(chunk) for chunk in chunks]
 
         Packet = namedtuple("Packet", ["addr", "data"])
         all_packets = [Packet(offset + i * chunk_size, chunk) for i, chunk in enumerate(chunks)]
