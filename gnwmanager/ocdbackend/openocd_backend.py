@@ -196,7 +196,13 @@ class OpenOCDBackend(OCDBackend):
         responses = []
 
         while True:
-            responses.append(self._socket.recv(_BUFFER_SIZE))
+            single_response = self._socket.recv(_BUFFER_SIZE)
+            if single_response:
+                responses.append(single_response)
+            else:
+                # An empty response means that the client has disconnected.
+                response = b"".join(responses)
+                raise DebugProbeConnectionError(f"Disconnected from openocd. Response so far: {response}")
 
             if _COMMAND_TOKEN_BYTES in responses[-1]:
                 # Strip trailing command token.
