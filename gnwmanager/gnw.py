@@ -48,6 +48,8 @@ def _populate_comm():
     _comm["min_erase_size"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
     _comm["upload_in_progress"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
     _comm["download_in_progress"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
+    _comm["expected_hash"] = last_variable = Variable(last_variable.address + last_variable.size, 32)
+    _comm["actual_hash"] = last_variable = Variable(last_variable.address + last_variable.size, 32)
 
     for i in range(2):
         struct_start = _comm["flashapp_comm"].address + ((i + 1) * 1024)
@@ -215,7 +217,12 @@ class GnW:
         status_enum = self.read_uint32("status")
         status_str = flashapp_status_enum_to_str.get(status_enum, "UNKNOWN")
         if raise_on_error and (status_enum & ERROR_MASK) == 0xBAD0_0000:
-            raise DataError(status_str)
+            if status_str in ("BAD_HASH_RAM", "BAD_HASH_FLASH"):
+                expected_hash = self.read_memory("expected_hash")
+                actual_hash = self.read_memory("actual_hash")
+                raise DataError(f"{status_str}:\nExpected: {expected_hash.hex()}\nActual: {actual_hash.hex()}")
+            else:
+                raise DataError(status_str)
         return status_str
 
     def get_context(self, timeout=20):
