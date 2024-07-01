@@ -415,13 +415,13 @@ toml = ["tomli"]
 
 [[package]]
 name = "cyclopts"
-version = "2.6.2"
+version = "2.8.0"
 description = ""
 optional = false
 python-versions = "<4.0,>=3.8"
 files = [
-    {file = "cyclopts-2.6.2-py3-none-any.whl", hash = "sha256:4b8d29ff23b0a7476b2b018677241408b55e6ac69e7393895e13bc317e3ec250"},
-    {file = "cyclopts-2.6.2.tar.gz", hash = "sha256:d0800499299e1842bf246b178abb8f6e9b07208cf1ddd4f4bca0c0ac9d4c2c1e"},
+    {file = "cyclopts-2.8.0-py3-none-any.whl", hash = "sha256:f9eb6948d08475a2ee6e6d6b733320c3c37eeb2da42ebc46fbfaf75ed43eceb4"},
+    {file = "cyclopts-2.8.0.tar.gz", hash = "sha256:c45cafe1450219b4b8284ce67f8e965d6c1a03ee5ddae677cb4b52655774da73"},
 ]
 
 [package.dependencies]
@@ -431,6 +431,10 @@ importlib-metadata = {version = ">=4.4", markers = "python_version < \"3.10\""}
 rich = ">=13.6.0"
 rich-rst = ">=1.3.1,<2.0.0"
 typing-extensions = {version = ">=4.8.0", markers = "python_full_version >= \"3.8.0\" and python_full_version < \"4.0.0\""}
+
+[package.extras]
+toml = ["tomli (>=2.0.0)"]
+yaml = ["pyyaml (>=6.0.1)"]
 
 [[package]]
 name = "decorator"
@@ -2207,4 +2211,4 @@ pyocd = ["pyocd"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "e7ab924f364e57504bff1b426b1fb04ad4eeebab041dc7f741dff28454f75e75"
+content-hash = "5ae3e8b260c166d522842369f17a954523e6073e261cded1d04c1800c936b4dd"
