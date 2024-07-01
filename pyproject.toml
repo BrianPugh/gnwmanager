@@ -32,7 +32,7 @@ pyocd = { version=">=0.35.1", optional=true }
 littlefs-python = ">=0.9.0"
 typing-extensions = "^4.12.0"
 tqdm = "^4.66.4"
-pillow = "^10.3.0"
+pillow = "^10.4.0"
 tamp = "^1.5.0"
 rich = "^13.5.2"
 pyelftools = ">=0.29"
