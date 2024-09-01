@@ -31,7 +31,7 @@ cyclopts = "^2.9.9"
 pyocd = { version=">=0.35.1", optional=true }
 littlefs-python = ">=0.9.0"
 typing-extensions = "^4.12.0"
-tqdm = "^4.66.4"
+tqdm = "^4.66.5"
 pillow = "^10.3.0"
 tamp = "^1.6.0"
 rich = "^13.8.0"
