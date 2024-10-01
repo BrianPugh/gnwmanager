@@ -1747,13 +1747,13 @@ use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 
 [[package]]
 name = "rich"
-version = "13.8.0"
+version = "13.8.1"
 description = "Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal"
 optional = false
 python-versions = ">=3.7.0"
 files = [
-    {file = "rich-13.8.0-py3-none-any.whl", hash = "sha256:2e85306a063b9492dffc86278197a60cbece75bcb766022f3436f567cae11bdc"},
-    {file = "rich-13.8.0.tar.gz", hash = "sha256:a5ac1f1cd448ade0d59cc3356f7db7a7ccda2c8cbae9c7a90c28ff463d3e91f4"},
+    {file = "rich-13.8.1-py3-none-any.whl", hash = "sha256:1760a3c0848469b97b558fc61c85233e3dafb69c7a071b4d60c38099d3cd4c06"},
+    {file = "rich-13.8.1.tar.gz", hash = "sha256:8260cda28e3db6bf04d2d1ef4dbc03ba80a824c88b0e7668a0f23126a424844a"},
 ]
 
 [package.dependencies]
@@ -2233,4 +2233,4 @@ pyocd = ["pyocd"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "4165fb53d6a2b7492f574fd2c3a087d62a26a2c3b942c2409ba04a10b8b9f58c"
+content-hash = "04921eaa37fd011bd82f431b24460e8ff41ba784e1aa255f9e55822b1d9e1f3b"
