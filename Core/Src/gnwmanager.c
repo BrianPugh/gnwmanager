@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "flash.h"
+#include "sdcard.h"
 #include "lcd.h"
 #include "main.h"
 #include "lzma.h"
@@ -149,65 +150,34 @@ struct gnwmanager_comm {  // Values are read or written by the debugger
 static struct gnwmanager_comm comm __attribute__((section (".gnwmanager_comm")));
 
 static gnwmanager_sdcard_hw_t sdcard_hw = GNWMANAGER_SDCARD_HW_UNDETECTED;
-FATFS FatFs;  // Fatfs handle
-FIL file; // File handle
-FRESULT res;
-UINT bytes_written;
+static FATFS FatFs;  // Fatfs handle
+static FIL file; // File handle
 
-static uint32_t spiTimerTickStart,spiTimerTickDelay; /* 1ms Timer Counters */
-//-----[ Timer Functions ]-----
-
-static void SPI_Timer_On(uint32_t waitTicks) {
-    spiTimerTickStart = HAL_GetTick();
-    spiTimerTickDelay = waitTicks;
-}
-
-static uint8_t SPI_Timer_Status() {
-    wdog_refresh();
-    return ((HAL_GetTick() - spiTimerTickStart) < spiTimerTickDelay);
-}
-
-void sdcard_hw_detect(int sdcard_type) {
-    if (sdcard_type == 1) {
-        // PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_SPI1 should be set
-        // but as it's common with SPI2, it's already selected
-        GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-        /*Configure GPIO pin Output Level */
-        /* PA15 = 0v : Disable SD Card VCC */
-        HAL_GPIO_WritePin(SD_VCC_GPIO_Port, SD_VCC_Pin, GPIO_PIN_RESET);
-
-        /*Configure GPIO pin Output Level */
-        /* PB9 = 0v : SD Card disable CS  */
-        HAL_GPIO_WritePin(SD_CS_GPIO_Port, SD_CS_Pin, GPIO_PIN_SET);
-
-        /*Configure GPIO pin : PA15 to control SD Card VCC */
-        GPIO_InitStruct.Pin = SD_VCC_Pin;
-        GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-        GPIO_InitStruct.Pull = GPIO_NOPULL;
-        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-        HAL_GPIO_Init(SD_VCC_GPIO_Port, &GPIO_InitStruct);
-
-        /*Configure GPIO pin : PB9 SD Card CS */
-        GPIO_InitStruct.Pin = GPIO_PIN_9;
-        GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-        GPIO_InitStruct.Pull = GPIO_NOPULL;
-        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-        SPI_Timer_On(100);
-        while (SPI_Timer_Status());
-        /* PA15 = 0v : Enable SD Card VCC */
-        HAL_GPIO_WritePin(SD_VCC_GPIO_Port, SD_VCC_Pin, GPIO_PIN_SET);
-
-        MX_SPI1_Init();
-    }
-    FRESULT cause = f_mount(&FatFs, (const TCHAR *)"", 1);
+void sdcard_hw_detect() {
+    FRESULT cause;
+    // Check if SD Card is connected to SPI1
+    sdcard_init_spi1();
+    cause = f_mount(&FatFs, (const TCHAR *)"", 1);
     if (cause == FR_OK) {
         f_mount(NULL, "", 0);
         sdcard_hw = GNWMANAGER_SDCARD_HW_1;
-        printf("filesytem mounted.\n");
+        return;
+    } else {
+        sdcard_deinit_spi1();
     }
+
+    // Check if SD Card is connected over OSPI1
+    sdcard_init_ospi1();
+    cause = f_mount(&FatFs, (const TCHAR *)"", 1);
+    if (cause == FR_OK) {
+        f_mount(NULL, "", 0);
+        sdcard_hw = GNWMANAGER_SDCARD_HW_2;
+        return;
+    } else {
+        sdcard_deinit_spi1();
+    }
+    // No SD Card detected
+    sdcard_hw = GNWMANAGER_SDCARD_HW_NO_SD_FOUND;
 }
 
 void sdcard_deinit(int sdcard_type) {
@@ -376,7 +346,7 @@ static void gnwmanager_run(void)
             case GNWMANAGER_ACTION_WRITE_FILE_TO_SD:
                 state = GNWMANAGER_IDLE_SD;
                 if (sdcard_hw == GNWMANAGER_SDCARD_HW_UNDETECTED) {
-                    sdcard_hw_detect(1);
+                    sdcard_hw_detect();
                 }
                 if (sdcard_hw < GNWMANAGER_SDCARD_HW_1) {
                     gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_FS_MOUNT);
@@ -519,6 +489,8 @@ static void gnwmanager_run(void)
         break;
     case GNWMANAGER_PROGRAM_SD:
         if (sdcard_hw >= GNWMANAGER_SDCARD_HW_1) {
+            FRESULT res;
+            UINT bytes_written;
             if (working_context->block == 0) {
                 f_mount(&FatFs, (const TCHAR *)"", 1);
                 // This is first block, open file

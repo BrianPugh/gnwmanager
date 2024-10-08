@@ -66,11 +66,13 @@ Core/Src/gnwmanager_gui.c \
 Core/Src/lzma/LzmaDec.c \
 Core/Src/lzma/lzma.c \
 Core/Src/rg_rtc.c \
+Core/Src/sdcard.c \
 Core/Src/segments.c \
 Core/Src/stm32h7xx_it.c \
 Core/Src/stm32h7xx_hal_msp.c \
 Core/Src/syscalls.c \
 Core/Src/system_stm32h7xx.c \
+Core/Src/timer.c \
 Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal.c \
 Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_adc.c \
 Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_adc_ex.c \
