@@ -361,42 +361,44 @@ static void gnwmanager_run(void)
             program_offset += (working_context->bank == 1) ? 0x08000000 : 0x08100000;
         }
 
-        // Compute the hash to see if the programming operation would result in anything.
-        if(working_context->size){
-            gnwmanager_set_status(GNWMANAGER_STATUS_HASH);
-            sha256bank(working_context->bank, program_calculated_sha256, working_context->offset, working_context->size);
-            if (memcmp((char *)program_calculated_sha256, (char *)working_context->expected_sha256, 32) == 0) {
-                // Contents of this chunk didn't change. Skip & release working_context.
-                release_context(source_context);
-                break;
-            }
-        }
-
-        // If we're erasing, check if we actually need to erase (skip if performing whole-chip erase)
-        if(working_context->bank == 0 && working_context->erase_bytes && ext_is_erased(working_context->offset, working_context->erase_bytes)){
-            working_context->erase = 0;
-        }
-
-        if(working_context->erase){
-            gnwmanager_set_status(GNWMANAGER_STATUS_ERASE);
-            if(working_context->bank == 0){
-                // Start a non-blocking flash erase to run in the background
-                erase_offset = working_context->offset;
-                erase_bytes_left = working_context->erase_bytes;
-
-                uint32_t smallest_erase = OSPI_GetSmallestEraseSize();
-                if (erase_offset & (smallest_erase - 1)) {
-                    // Address not aligned to smallest erase size
-                    gnwmanager_set_status(GNWMANAGER_STATUS_NOT_ALIGNED);
-                    state = GNWMANAGER_ERROR;
+        if (state == GNWMANAGER_IDLE) {
+            // Compute the hash to see if the programming operation would result in anything.
+            if(working_context->size){
+                gnwmanager_set_status(GNWMANAGER_STATUS_HASH);
+                sha256bank(working_context->bank, program_calculated_sha256, working_context->offset, working_context->size);
+                if (memcmp((char *)program_calculated_sha256, (char *)working_context->expected_sha256, 32) == 0) {
+                    // Contents of this chunk didn't change. Skip & release working_context.
+                    release_context(source_context);
                     break;
                 }
-                // Round size up to nearest erase size if needed ?
-                if ((erase_bytes_left & (smallest_erase - 1)) != 0) {
-                    erase_bytes_left += smallest_erase - (erase_bytes_left & (smallest_erase - 1));
+            }
+
+            // If we're erasing, check if we actually need to erase (skip if performing whole-chip erase)
+            if(working_context->bank == 0 && working_context->erase_bytes && ext_is_erased(working_context->offset, working_context->erase_bytes)){
+                working_context->erase = 0;
+            }
+
+            if(working_context->erase){
+                gnwmanager_set_status(GNWMANAGER_STATUS_ERASE);
+                if(working_context->bank == 0){
+                    // Start a non-blocking flash erase to run in the background
+                    erase_offset = working_context->offset;
+                    erase_bytes_left = working_context->erase_bytes;
+
+                    uint32_t smallest_erase = OSPI_GetSmallestEraseSize();
+                    if (erase_offset & (smallest_erase - 1)) {
+                        // Address not aligned to smallest erase size
+                        gnwmanager_set_status(GNWMANAGER_STATUS_NOT_ALIGNED);
+                        state = GNWMANAGER_ERROR;
+                        break;
+                    }
+                    // Round size up to nearest erase size if needed ?
+                    if ((erase_bytes_left & (smallest_erase - 1)) != 0) {
+                        erase_bytes_left += smallest_erase - (erase_bytes_left & (smallest_erase - 1));
+                    }
+                    OSPI_DisableMemoryMappedMode();
+                    OSPI_Erase(&erase_offset, &erase_bytes_left, false);
                 }
-                OSPI_DisableMemoryMappedMode();
-                OSPI_Erase(&erase_offset, &erase_bytes_left, false);
             }
         }
         state++;
