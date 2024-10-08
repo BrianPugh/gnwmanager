@@ -526,8 +526,6 @@ class GnW:
 
         Limited to RAM constraints (i.e. <256KB writes).
 
-        ``program_chunk_idx`` must externally be set.
-
         Parameters
         ----------
         path: str
@@ -598,7 +596,7 @@ class GnW:
 
         log.info(f"Data chunked into {len(chunks)} packets.")
 
-        for i, packet in enumerate(chunks):
+        for i, packet in enumerate(tqdm(chunks) if progress else chunks):
             log.info(f"Programming packet {i + 1}/{len(chunks)}.")
             self._sd_write_file_chunk(path, i, len(chunks), packet, blocking=False)
             self.write_uint32("progress", int(26 * (i + 1) / len(chunks)))
