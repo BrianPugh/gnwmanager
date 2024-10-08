@@ -29,47 +29,31 @@
 #include "user_diskio_spi.h"
 #include "sdcard.h"
 #include "softspi.h"
+#include "timer.h"
 
 static volatile DSTATUS Stat = STA_NOINIT; /* Disk Status */
 static uint8_t CardType;                   /* Type 0:MMC, 1:SDC, 2:Block addressing */
 static uint8_t PowerFlag = 0;              /* Power flag */
 
-static uint32_t spiTimerTickStart[2],spiTimerTickDelay[2]; /* 1ms Timer Counters */
-
-void abort() { while(1);}
-
 #ifndef MIN
-#define MIN(a,b) ({__typeof__(a) _a = (a); __typeof__(b) _b = (b);_a < _b ? _a : _b; })
+#define MIN(a, b) ({__typeof__(a) _a = (a); __typeof__(b) _b = (b);_a < _b ? _a : _b; })
 #endif // !MIN
 
 #define BLOCK_SIZE 512ULL
 
-static struct {
+static struct
+{
     SoftSPI spi[1];
     bool isSdV2 : 1;
     bool ccs : 1;
 } sd = {
     .spi[0] = {
-        .sck = { .port = GPIO_FLASH_CLK_GPIO_Port, .pin = GPIO_FLASH_CLK_Pin },
-        .mosi = { .port = GPIO_FLASH_MOSI_GPIO_Port, .pin = GPIO_FLASH_MOSI_Pin },
-        .miso = { .port = GPIO_FLASH_MISO_GPIO_Port, .pin = GPIO_FLASH_MISO_Pin },
-        .cs = { .port = GPIO_FLASH_NCS_GPIO_Port, .pin = GPIO_FLASH_NCS_Pin },
+        .sck = {.port = GPIO_FLASH_CLK_GPIO_Port, .pin = GPIO_FLASH_CLK_Pin},
+        .mosi = {.port = GPIO_FLASH_MOSI_GPIO_Port, .pin = GPIO_FLASH_MOSI_Pin},
+        .miso = {.port = GPIO_FLASH_MISO_GPIO_Port, .pin = GPIO_FLASH_MISO_Pin},
+        .cs = {.port = GPIO_FLASH_NCS_GPIO_Port, .pin = GPIO_FLASH_NCS_Pin},
         .DelayUs = 20,
-        .csIsInverted = true
-    }
-};
-
-//-----[ Timer Functions ]-----
-
-static void SPI_Timer_On(uint8_t timer_index,uint32_t waitTicks) {
-    spiTimerTickStart[timer_index] = HAL_GetTick();
-    spiTimerTickDelay[timer_index] = waitTicks;
-}
-
-static uint8_t SPI_Timer_Status(uint8_t timer_index) {
-    wdog_refresh();
-    return ((HAL_GetTick() - spiTimerTickStart[timer_index]) < spiTimerTickDelay[timer_index]);
-}
+        .csIsInverted = true}};
 
 static void FCLK_SLOW()
 {
@@ -109,7 +93,8 @@ typedef bool (*response_fn)(uint8_t *r);
 #define R1_PARAMETER_ERROR 6ULL
 #define R1_ALWAYS_ZERO 7ULL
 
-static bool responseR1(uint8_t *r) {
+static bool responseR1(uint8_t *r)
+{
     *r = 0xFF;
     for (int i = 0; i < 10 && *r == 0xFF; ++i)
         SoftSpi_WriteDummyRead(sd.spi, r, sizeof(*r));
@@ -128,8 +113,8 @@ static bool responseR1(uint8_t *r) {
 
 #define R2_GET_R1(r) (((uint8_t *)r)[1])
 
-__attribute__((unused))
-static bool responseR2(uint8_t *r) {
+__attribute__((unused)) static bool responseR2(uint8_t *r)
+{
     if (!responseR1((uint8_t *)&(R2_GET_R1(r))))
         return false;
 
@@ -153,7 +138,8 @@ static bool responseR2(uint8_t *r) {
 
 #define R3R7_GET_R1(r) (((uint8_t *)r)[4])
 
-static bool responseR3R7(uint8_t *r) {
+static bool responseR3R7(uint8_t *r)
+{
     if (!responseR1(&(R3R7_GET_R1(r))))
         return false;
 
@@ -164,7 +150,8 @@ static bool responseR3R7(uint8_t *r) {
     return !r[4] || r[4] == (1 << R1_IDLE);
 }
 
-static bool responseCMD8(uint8_t *r) {
+static bool responseCMD8(uint8_t *r)
+{
     if (responseR3R7(r))
         return true;
 
@@ -175,7 +162,8 @@ static bool responseCMD8(uint8_t *r) {
     return false;
 }
 
-static bool responseCMD12(uint8_t *r) {
+static bool responseCMD12(uint8_t *r)
+{
     *r = 0xFF;
     /* Skip a stuff byte when STOP_TRANSMISSION */
     SoftSpi_WriteDummyRead(sd.spi, NULL, 1);
@@ -185,7 +173,8 @@ static bool responseCMD12(uint8_t *r) {
     return *r != 0xFF;
 }
 
-struct response {
+struct response
+{
     uint64_t r0;
 };
 
@@ -205,7 +194,8 @@ struct response {
 #define SD_APP_CMD 55
 #define SD_READ_OCR_CMD 58
 
-enum cmd_list {
+enum cmd_list
+{
     GO_IDLE_STATE = 0,
     SEND_OP_COND,
     SEND_INTERFACE_COND,
@@ -219,41 +209,46 @@ enum cmd_list {
     READ_OCR,
 };
 
-static struct sd_cmd {
+static struct sd_cmd
+{
     uint8_t cmd;
     uint8_t crc;
     response_fn response;
 } sd_cmds[] = {
-    [GO_IDLE_STATE] = { SD_GO_IDLE_STATE_CMD, 0x95, responseR1 },
-    [SEND_OP_COND] = { SD_SEND_OP_COND_CMD, 0x0, responseR1 },
-    [SEND_INTERFACE_COND] = { SD_SEND_INTERFACE_COND_CMD, 0x86, responseCMD8 },
-    [SEND_STOP_TRANSMISSION] = { SD_STOP_TRANSMISSION_CMD, 0x00, responseCMD12 },
-    [READ_SINGLE_BLOCK] = { SD_READ_SINGLE_BLOCK_CMD, 0x0, responseR1 },
-    [READ_MULTIPLE_BLOCK] = { SD_READ_MULTIPLE_BLOCK_CMD, 0x0, responseR1 },
-    [WRITE_SINGLE_BLOCK] = { SD_WRITE_SINGLE_BLOCK_CMD, 0x0, responseR1 },
-    [WRITE_MULTIPLE_BLOCK] = { SD_WRITE_MULTIPLE_BLOCK_CMD, 0x0, responseR1 },
-    [SEND_OP_COND_ACMD] = { SD_SEND_OP_COND_ACMD, 0x0, responseR1 },
-    [APP_CMD] = { SD_APP_CMD, 0x0, responseR1 },
-    [READ_OCR] = { SD_READ_OCR_CMD, 0x0, responseR3R7 },
+    [GO_IDLE_STATE] = {SD_GO_IDLE_STATE_CMD, 0x95, responseR1},
+    [SEND_OP_COND] = {SD_SEND_OP_COND_CMD, 0x0, responseR1},
+    [SEND_INTERFACE_COND] = {SD_SEND_INTERFACE_COND_CMD, 0x86, responseCMD8},
+    [SEND_STOP_TRANSMISSION] = {SD_STOP_TRANSMISSION_CMD, 0x00, responseCMD12},
+    [READ_SINGLE_BLOCK] = {SD_READ_SINGLE_BLOCK_CMD, 0x0, responseR1},
+    [READ_MULTIPLE_BLOCK] = {SD_READ_MULTIPLE_BLOCK_CMD, 0x0, responseR1},
+    [WRITE_SINGLE_BLOCK] = {SD_WRITE_SINGLE_BLOCK_CMD, 0x0, responseR1},
+    [WRITE_MULTIPLE_BLOCK] = {SD_WRITE_MULTIPLE_BLOCK_CMD, 0x0, responseR1},
+    [SEND_OP_COND_ACMD] = {SD_SEND_OP_COND_ACMD, 0x0, responseR1},
+    [APP_CMD] = {SD_APP_CMD, 0x0, responseR1},
+    [READ_OCR] = {SD_READ_OCR_CMD, 0x0, responseR3R7},
 };
 
 // =============================================================================
 
-static void __send_cmd_payload(uint8_t cmd, uint32_t arg, uint32_t crc) {
+static void __send_cmd_payload(uint8_t cmd, uint32_t arg, uint32_t crc)
+{
     uint8_t spi_cmd_payload[6] = {cmd | 0x40, arg >> 24, arg >> 16, arg >> 8, arg, crc | 0x1};
     SoftSpi_WriteDummyRead(sd.spi, NULL, 2);
     SoftSpi_WriteRead(sd.spi, spi_cmd_payload, NULL, sizeof(spi_cmd_payload));
     wdog_refresh();
 }
 
-static bool __send_cmd(enum cmd_list cmd, uint32_t arg, struct response *response) {
+static bool __send_cmd(enum cmd_list cmd, uint32_t arg, struct response *response)
+{
     __send_cmd_payload(sd_cmds[cmd].cmd, arg, sd_cmds[cmd].crc);
     return sd_cmds[cmd].response((uint8_t *)response);
 }
 
-static struct response send_cmd(enum cmd_list cmd, uint32_t arg) {
+static struct response send_cmd(enum cmd_list cmd, uint32_t arg)
+{
     struct response response = {};
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 10; i++)
+    {
         if (__send_cmd(cmd, arg, &response))
             return response;
     }
@@ -261,12 +256,14 @@ static struct response send_cmd(enum cmd_list cmd, uint32_t arg) {
     return response;
 }
 
-static void finish_read_cmd(void) {
+static void finish_read_cmd(void)
+{
     // Skip checksum reading
     SoftSpi_WriteDummyRead(sd.spi, NULL, 2);
 }
 
-static void finish_write_cmd(void) {
+static bool finish_write_cmd(void)
+{
     uint8_t rbyte;
 
     // Dummy crc
@@ -274,18 +271,23 @@ static void finish_write_cmd(void) {
 
     // We would fail on watchdog if something is wrong here
     // Read status byte
-    do {
+    do
+    {
         SoftSpi_WriteDummyRead(sd.spi, &rbyte, 1);
-    } while(rbyte == 0xFF);
+    } while (rbyte == 0xFF); // Fix : add timeout
 
-    if ((rbyte & 0xF) != 0x05) {
-        abort();
+    if ((rbyte & 0xF) != 0x05)
+    {
+        return false;
     }
 
     // Wait for data to be written
-    do {
+    do
+    {
         SoftSpi_WriteDummyRead(sd.spi, &rbyte, 1);
-    } while (rbyte == 0x00);
+    } while (rbyte == 0x00); // Fix : add timeout
+
+    return true;
 }
 
 //-----[ SD Card Functions ]-----
@@ -295,31 +297,33 @@ static uint8_t SD_ReadyWait(void)
 {
     uint8_t res;
     /* timeout 500ms */
-    SPI_Timer_On(1, 500); 
+    timer_on(1, 500);
     /* if SD goes ready, receives 0xFF */
     do
     {
         wdog_refresh();
         SoftSpi_WriteDummyRead(sd.spi, &res, 1);
-    } while ((res != 0xFF) && SPI_Timer_Status(1));
+    } while ((res != 0xFF) && timer_status(1));
     return res;
 }
 
 /* power on */
-static void SD_PowerOn(void)
+static bool SD_PowerOn(void)
 {
     struct response response;
 
     SoftSpi_WriteDummyReadCsLow(sd.spi, NULL, 10);
 
     response = send_cmd(GO_IDLE_STATE, 0);
-    if (response.r0 != (1 << R1_IDLE)) {
+    if (response.r0 != (1 << R1_IDLE))
+    {
         switch_ospi_gpio(true);
-        abort();
+        return false;
     }
 
     DESELECT();
     PowerFlag = 1;
+    return true; // Sylver
 }
 
 /* power off */
@@ -367,7 +371,9 @@ DSTATUS USER_SOFTSPI_initialize(
     switch_ospi_gpio(false);
 
     /* power on */
-    SD_PowerOn();
+    if (!SD_PowerOn()) {
+        return STA_NOINIT;
+    }
     /* slave select */
     SELECT();
 
@@ -376,17 +382,22 @@ DSTATUS USER_SOFTSPI_initialize(
     // 3.3V + AA pattern
     response = send_cmd(SEND_INTERFACE_COND, 0x1AA);
     sd.isSdV2 = !(R3R7_GET_R1(&response) == (1 << R1_ILLEGAL_COMMAND));
-    if (sd.isSdV2) {
+    if (sd.isSdV2)
+    {
         CardType = CT_SD2;
-    } else {
+    }
+    else
+    {
         CardType = CT_SD1;
     }
 
     // Needed by manual
     send_cmd(READ_OCR, 0);
 
-    for (i = 0; i < 255; i++) {
-        if (sd.isSdV2) {
+    for (i = 0; i < 255; i++)
+    {
+        if (sd.isSdV2)
+        {
             response = send_cmd(APP_CMD, 0);
             if (response.r0 && response.r0 != (1 << R1_IDLE))
                 continue;
@@ -395,25 +406,31 @@ DSTATUS USER_SOFTSPI_initialize(
             response = send_cmd(SEND_OP_COND_ACMD, 0x40000000);
             if (!response.r0)
                 break;
-        } else {
+        }
+        else
+        {
             response = send_cmd(SEND_OP_COND, 0);
             if (!response.r0)
                 break;
         }
     }
 
-    if (i == 255) {
-        abort();
+    if (i == 255)
+    {
+        return STA_NOINIT;
     }
 
-    if (sd.isSdV2) {
+    if (sd.isSdV2)
+    {
         response = send_cmd(READ_OCR, 0);
-        if (!(response.r0 & (1 << R3_READY))) {
-            abort();
+        if (!(response.r0 & (1 << R3_READY)))
+        {
+            return STA_NOINIT;
         }
 
         sd.ccs = response.r0 & (1 << R3_CCS);
-        if (sd.ccs) CardType |= CT_BLOCK;
+        if (sd.ccs)
+            CardType |= CT_BLOCK;
     }
 
     /* Idle */
@@ -480,14 +497,16 @@ DRESULT USER_SOFTSPI_read(
     if (count == 1)
     {
         /* READ_SINGLE_BLOCK */
-        if (send_cmd(READ_SINGLE_BLOCK, sector).r0) {
-            abort();
+        if (send_cmd(READ_SINGLE_BLOCK, sector).r0)
+        {
+            return RES_ERROR;
         }
 
         // We would fail on watchdog if something is wrong here
-        do {
+        do
+        {
             SoftSpi_WriteDummyRead(sd.spi, &ret, 1);
-        } while(ret != START_BLOCK_TOKEN);
+        } while (ret != START_BLOCK_TOKEN); // Fix : add timeout
 
         SoftSpi_WriteDummyRead(sd.spi, buff, BLOCK_SIZE);
 
@@ -496,13 +515,15 @@ DRESULT USER_SOFTSPI_read(
     }
     else
     {
-        if (send_cmd(READ_MULTIPLE_BLOCK, sector).r0) {
-            abort();
+        if (send_cmd(READ_MULTIPLE_BLOCK, sector).r0)
+        {
+            return RES_ERROR;
         }
         // We would fail on watchdog if something is wrong here
-        do {
+        do
+        {
             SoftSpi_WriteDummyRead(sd.spi, &ret, 1);
-        } while(ret != START_BLOCK_TOKEN);
+        } while (ret != START_BLOCK_TOKEN);
 
         do
         {
@@ -561,7 +582,8 @@ DRESULT USER_SOFTSPI_write(
     if (count == 1)
     {
         /* WRITE_SINGLE_BLOCK */
-        do {
+        do
+        {
             response = send_cmd(WRITE_SINGLE_BLOCK, sector);
         } while (response.r0);
 
@@ -571,15 +593,16 @@ DRESULT USER_SOFTSPI_write(
 
         SoftSpi_WriteRead(sd.spi, buff, NULL, BLOCK_SIZE);
 
-        finish_write_cmd();
-
-        count = 0;
+        if (finish_write_cmd()) {
+            count = 0;
+        }
     }
     else
     {
         do
         {
-            do {
+            do
+            {
                 response = send_cmd(WRITE_SINGLE_BLOCK, sector);
             } while (response.r0);
 
@@ -589,12 +612,17 @@ DRESULT USER_SOFTSPI_write(
 
             SoftSpi_WriteRead(sd.spi, buff, NULL, BLOCK_SIZE);
 
-            finish_write_cmd();
+            if(!finish_write_cmd()) {
+                break;
+            }
 
             buff += BLOCK_SIZE;
-            if (!(CardType & CT_BLOCK)) {
+            if (!(CardType & CT_BLOCK))
+            {
                 sector += 512;
-            } else {
+            }
+            else
+            {
                 sector++;
             }
 
@@ -621,7 +649,7 @@ DRESULT USER_SOFTSPI_ioctl(
 {
     DRESULT res;
     uint8_t *ptr = buff;
-//    WORD csize;
+    //    WORD csize;
 
     /* pdrv should be 0 */
     if (drv)
@@ -660,16 +688,15 @@ DRESULT USER_SOFTSPI_ioctl(
 
         switch (ctrl)
         {
-            case CTRL_SYNC:
-                if (SD_ReadyWait() == 0xFF)
-                    res = RES_OK;
-                break;
-            default:
-                abort();
-                break;
+        case CTRL_SYNC:
+            if (SD_ReadyWait() == 0xFF)
+                res = RES_OK;
+            break;
+        default:
+            res = RES_ERROR;
+            break;
         }
         switch_ospi_gpio(true);
-
     }
     return res;
 }
