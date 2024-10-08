@@ -51,6 +51,7 @@ extern const glyph_t img_run_6;
 extern const glyph_t img_run_7;
 extern const glyph_t img_run_8;
 extern const glyph_t img_run_9;
+extern const glyph_t img_sd;
 extern const glyph_t img_sleep;
 extern const glyph_t img_upload;
 extern const glyph_t img_z_0;
