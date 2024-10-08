@@ -57,6 +57,7 @@ extern RTC_HandleTypeDef hrtc;
 extern SAI_HandleTypeDef hsai_BlockA1;
 extern DMA_HandleTypeDef hdma_sai1_a;
 #endif
+extern SPI_HandleTypeDef hspi1;
 extern SPI_HandleTypeDef hspi2;
 extern TIM_HandleTypeDef htim1;
 extern HASH_HandleTypeDef hhash;
@@ -73,6 +74,7 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 void wdog_refresh(void);
+void MX_SPI1_Init(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
@@ -117,7 +119,10 @@ void wdog_refresh(void);
 #define BTN_B_Pin GPIO_PIN_5
 #define BTN_B_GPIO_Port GPIOD
 /* USER CODE BEGIN Private defines */
-
+#define SD_VCC_GPIO_Port GPIOA
+#define SD_VCC_Pin GPIO_PIN_15
+#define SD_CS_GPIO_Port GPIOB
+#define SD_CS_Pin GPIO_PIN_9
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

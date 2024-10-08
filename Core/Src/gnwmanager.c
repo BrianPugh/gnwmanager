@@ -15,6 +15,8 @@
 #include "gnwmanager_gui.h"
 #include "buttons.h"
 
+#include "ff.h"
+
 
 typedef enum {  // For the gnwmanager state machine
     GNWMANAGER_IDLE                   ,
@@ -24,6 +26,10 @@ typedef enum {  // For the gnwmanager state machine
     GNWMANAGER_ERASE_FINISH           ,
     GNWMANAGER_PROGRAM                ,
     GNWMANAGER_CHECK_HASH_FLASH       ,
+    GNWMANAGER_IDLE_SD                ,
+    GNWMANAGER_DECOMPRESSING_SD       ,
+    GNWMANAGER_CHECK_HASH_RAM_SD      ,
+    GNWMANAGER_PROGRAM_SD             ,
 
     GNWMANAGER_ERROR = 0xF000,
 } gnwmanager_state_t;
@@ -32,6 +38,7 @@ typedef enum {  // For the gnwmanager state machine
 enum gnwmanager_action {
     GNWMANAGER_ACTION_ERASE_AND_FLASH = 0,
     GNWMANAGER_ACTION_HASH = 1,
+    GNWMANAGER_ACTION_WRITE_FILE_TO_SD = 2,
 };
 
 
@@ -67,6 +74,15 @@ typedef struct {
 
             // Action was performed, computer should read back buffer now.
             uint32_t response_ready;
+
+            // File path if write to filesystem
+            uint8_t file_path[256];
+
+            // current block for file
+            uint32_t block;
+
+            // total blocks for file
+            uint32_t total_blocks;
 
             /* Add future variables here */
 
@@ -111,6 +127,9 @@ struct gnwmanager_comm {  // Values are read or written by the debugger
             uint8_t expected_hash[32];
 
             uint8_t actual_hash[32];
+
+            // File path if write to filesystem
+            uint8_t file_path[256];
         };
         struct {
             // Force spacing, allowing for backward-compatible additional variables
@@ -129,6 +148,75 @@ struct gnwmanager_comm {  // Values are read or written by the debugger
 
 static struct gnwmanager_comm comm __attribute__((section (".gnwmanager_comm")));
 
+static gnwmanager_sdcard_hw_t sdcard_hw = GNWMANAGER_SDCARD_HW_UNDETECTED;
+FATFS FatFs;  // Fatfs handle
+FIL file; // File handle
+FRESULT res;
+UINT bytes_written;
+
+static uint32_t spiTimerTickStart,spiTimerTickDelay; /* 1ms Timer Counters */
+//-----[ Timer Functions ]-----
+
+static void SPI_Timer_On(uint32_t waitTicks) {
+    spiTimerTickStart = HAL_GetTick();
+    spiTimerTickDelay = waitTicks;
+}
+
+static uint8_t SPI_Timer_Status() {
+    wdog_refresh();
+    return ((HAL_GetTick() - spiTimerTickStart) < spiTimerTickDelay);
+}
+
+void sdcard_hw_detect(int sdcard_type) {
+    if (sdcard_type == 1) {
+        // PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_SPI1 should be set
+        // but as it's common with SPI2, it's already selected
+        GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+        /*Configure GPIO pin Output Level */
+        /* PA15 = 0v : Disable SD Card VCC */
+        HAL_GPIO_WritePin(SD_VCC_GPIO_Port, SD_VCC_Pin, GPIO_PIN_RESET);
+
+        /*Configure GPIO pin Output Level */
+        /* PB9 = 0v : SD Card disable CS  */
+        HAL_GPIO_WritePin(SD_CS_GPIO_Port, SD_CS_Pin, GPIO_PIN_SET);
+
+        /*Configure GPIO pin : PA15 to control SD Card VCC */
+        GPIO_InitStruct.Pin = SD_VCC_Pin;
+        GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+        GPIO_InitStruct.Pull = GPIO_NOPULL;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+        HAL_GPIO_Init(SD_VCC_GPIO_Port, &GPIO_InitStruct);
+
+        /*Configure GPIO pin : PB9 SD Card CS */
+        GPIO_InitStruct.Pin = GPIO_PIN_9;
+        GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+        GPIO_InitStruct.Pull = GPIO_NOPULL;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+        SPI_Timer_On(100);
+        while (SPI_Timer_Status());
+        /* PA15 = 0v : Enable SD Card VCC */
+        HAL_GPIO_WritePin(SD_VCC_GPIO_Port, SD_VCC_Pin, GPIO_PIN_SET);
+
+        MX_SPI1_Init();
+    }
+    FRESULT cause = f_mount(&FatFs, (const TCHAR *)"", 1);
+    if (cause == FR_OK) {
+        f_mount(NULL, "", 0);
+        sdcard_hw = GNWMANAGER_SDCARD_HW_1;
+        printf("filesytem mounted.\n");
+    }
+}
+
+void sdcard_deinit(int sdcard_type) {
+    if (sdcard_type == 1) {
+        HAL_SPI_MspDeInit(&hspi1);
+        HAL_GPIO_WritePin(SD_VCC_GPIO_Port, SD_VCC_Pin, GPIO_PIN_RESET); // set SD Card VCC to 0v
+        HAL_GPIO_WritePin(SD_CS_GPIO_Port, SD_CS_Pin, GPIO_PIN_SET);
+    }
+}
 
 /**
  * @param bank - Must be 1 or 2.
@@ -285,6 +373,16 @@ static void gnwmanager_run(void)
                 gnwmanager_set_status(GNWMANAGER_STATUS_HASH);
                 gnwmanager_action_hash(source_context);
                 return;
+            case GNWMANAGER_ACTION_WRITE_FILE_TO_SD:
+                state = GNWMANAGER_IDLE_SD;
+                if (sdcard_hw == GNWMANAGER_SDCARD_HW_UNDETECTED) {
+                    sdcard_hw_detect(1);
+                }
+                if (sdcard_hw < GNWMANAGER_SDCARD_HW_1) {
+                    gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_FS_MOUNT);
+                    state = GNWMANAGER_ERROR;
+                    return;
+                }
         }
 
         // Copy the context data into the active working_context
@@ -340,7 +438,10 @@ static void gnwmanager_run(void)
         }
         state++;
         break;
+    case GNWMANAGER_IDLE_SD:
+        return;
     case GNWMANAGER_DECOMPRESSING:
+    case GNWMANAGER_DECOMPRESSING_SD:
         if(working_context->compressed_size){
             // Decompress the data; nothing after this state should reference decompression.
             uint32_t n_decomp_bytes;
@@ -361,6 +462,7 @@ static void gnwmanager_run(void)
         state++;
         break;
     case GNWMANAGER_CHECK_HASH_RAM:
+    case GNWMANAGER_CHECK_HASH_RAM_SD:
         // Calculate sha256 hash of the RAM first
         if(HAL_HASHEx_SHA256_Start(&hhash,
             (uint8_t *)working_context->buffer, working_context->size,
@@ -413,6 +515,35 @@ static void gnwmanager_run(void)
         OSPI_DisableMemoryMappedMode();
         if(OSPI_ChipIdle()){  // Stay in state until flashchip is idle.
             state++;
+        }
+        break;
+    case GNWMANAGER_PROGRAM_SD:
+        if (sdcard_hw >= GNWMANAGER_SDCARD_HW_1) {
+            if (working_context->block == 0) {
+                f_mount(&FatFs, (const TCHAR *)"", 1);
+                // This is first block, open file
+                res = f_open(&file, (const char *)working_context->file_path, FA_WRITE | FA_CREATE_ALWAYS);
+                if (res != FR_OK) {
+                    gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_OPEN);
+                    state = GNWMANAGER_ERROR;
+                    break;
+                }
+            }
+            res = f_write(&file, (const void *)working_context->buffer, working_context->size, &bytes_written);
+            if (res != FR_OK || bytes_written < working_context->size) {
+                gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_WRITE);
+                state = GNWMANAGER_ERROR;
+                break;
+            }
+            if (working_context->block+1 == working_context->total_blocks) {
+                f_close(&file);
+                f_mount(NULL, "", 0);
+            }
+            state = GNWMANAGER_IDLE;
+        } else {
+            gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_FS_MOUNT);
+            state = GNWMANAGER_ERROR;
+            break;
         }
         break;
     case GNWMANAGER_PROGRAM:

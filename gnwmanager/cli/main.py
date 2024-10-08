@@ -236,6 +236,12 @@ def main(
     except DataError as e:
         if e.args == ("BAD_FLASH_COMM",):
             rich.print("Failed to communicate with external flash chip. Check your soldering!")
+        elif e.args == ("BAD_SD_FS_MOUNT",):
+            rich.print("Failed to mount filesystem on SD Card!")
+        elif e.args == ("BAD_SD_OPEN",):
+            rich.print("Failed to open file on SD Card!")
+        elif e.args == ("BAD_SD_WRITE",):
+            rich.print("Failed to write file on SD Card!")
         else:
             rich.print(f"Unexpected response from debug probe. {e}")
     except ConnectionResetError:

@@ -29,6 +29,7 @@ ERROR_MASK = 0xFFFF_0000
 actions: Dict[str, int] = {
     "ERASE_AND_FLASH": 0,
     "HASH": 1,
+    "WRITE_FILE_TO_SD": 2,
 }
 
 _comm: Dict[str, Variable] = {
@@ -50,6 +51,7 @@ def _populate_comm():
     _comm["download_in_progress"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
     _comm["expected_hash"] = last_variable = Variable(last_variable.address + last_variable.size, 32)
     _comm["actual_hash"] = last_variable = Variable(last_variable.address + last_variable.size, 32)
+    _comm["dest_path"] = last_variable = Variable(last_variable.address + last_variable.size, 256)
 
     for i in range(2):
         struct_start = _comm["flashapp_comm"].address + ((i + 1) * 1024)
@@ -65,6 +67,9 @@ def _populate_comm():
         _contexts[i]["bank"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
         _contexts[i]["action"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
         _contexts[i]["response_ready"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
+        _contexts[i]["dest_path"] = last_variable = Variable(last_variable.address + last_variable.size, 256)
+        _contexts[i]["block"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
+        _contexts[i]["total_blocks"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
 
         _contexts[i]["ready"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
 
@@ -155,6 +160,10 @@ class GnW:
     def write_memory(self, key: Union[int, str, Variable], val: bytes):
         addr = _key_to_address(key)
         self.backend.write_memory(addr, val)
+
+    def write_str(self, key: Union[int, str, Variable], val: str):
+        byte_val = val.encode("utf-8") + b"\x00"
+        self.write_memory(key, byte_val)
 
     def wait_for_idle(self, timeout: float = 20):
         """Block until the on-device status is IDLE."""
@@ -501,6 +510,98 @@ class GnW:
             log.info(f"Programming packet {i + 1}/{len(packets)}.")
             self.program(0, packet.addr, packet.data, blocking=False)
             self.write_uint32("progress", int(26 * (i + 1) / len(packets)))
+
+        self.wait_for_all_contexts_complete()
+
+    def _sd_write_file_chunk(
+        self,
+        path: str,
+        block: int,
+        total_blocks: int,
+        data: bytes,
+        blocking: bool = True,
+        compress: bool = True,
+    ) -> None:
+        """Low-level write data to fat filesystem.
+
+        Limited to RAM constraints (i.e. <256KB writes).
+
+        ``program_chunk_idx`` must externally be set.
+
+        Parameters
+        ----------
+        path: str
+            Path of file to write
+        size: int
+            Number of bytes to write.
+        blocking: bool
+            Wait for action to be complete.
+        """
+        log.debug(f"gnw._sd_write_file_chunk: {path=} {len(data)=} {blocking=} {compress=}")
+
+        if not path:
+            return
+
+        if not data:
+            return
+        if len(data) > (256 << 10):
+            raise ValueError("Too large of data for a single write.")
+
+        if compress:
+            compressed_data = compress_lzma(data)
+            # If we are unable to compress meaningfully, don't bother.
+            if len(compressed_data) > (0.9 * len(data)):
+                compress = False
+        else:
+            compressed_data = b""
+
+        context = self.get_context()
+
+        log.debug("setting upload_in_progress.")
+        self.write_uint32("upload_in_progress", 1)
+
+        self.write_uint32(context["action"], actions["WRITE_FILE_TO_SD"])
+        self.write_str(context["dest_path"], path)
+        self.write_uint32(context["size"], len(data))
+        self.write_uint32(context["block"], block)
+        self.write_uint32(context["total_blocks"], total_blocks)
+
+        data_hash = sha256(data)
+        self.write_memory(context["expected_sha256"], data_hash)
+
+        if compress:
+            self.write_uint32(context["compressed_size"], len(compressed_data))
+            self.write_memory(context["buffer"], compressed_data)
+        else:
+            self.write_uint32(context["compressed_size"], 0)
+            self.write_memory(context["buffer"], data)
+
+        log.debug(f"Activating PROGRAM: {data_hash.hex()}")
+        self.write_uint32(context["ready"], self.context_counter)
+        self.context_counter += 1
+        log.debug(f"context_counter incremented to {self.context_counter}.")
+
+        log.debug("clearing upload_in_progress.")
+        self.write_uint32("upload_in_progress", 0)
+
+        if blocking:
+            self.wait_for_all_contexts_complete()
+
+    def sd_write_file(
+        self,
+        path: str,
+        data: bytes,
+        progress: bool = False,
+    ):
+        chunk_size = self.contexts[0]["buffer"].size  # Assumes all contexts have same size buffer
+        chunks = chunk_bytes(data, chunk_size)
+
+        log.info(f"Data chunked into {len(chunks)} packets.")
+
+        for i, packet in enumerate(chunks):
+            log.info(f"Programming packet {i + 1}/{len(chunks)}.")
+            self._sd_write_file_chunk(path, i, len(chunks), packet, blocking=False)
+            self.write_uint32("progress", int(26 * (i + 1) / len(chunks)))
 
         self.wait_for_all_contexts_complete()
 

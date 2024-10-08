@@ -673,7 +673,41 @@ void HAL_RTC_MspDeInit(RTC_HandleTypeDef* hrtc)
 void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(hspi->Instance==SPI2)
+
+  if(hspi->Instance==SPI1)
+  {
+    /* SPI1 clock enable */
+    __HAL_RCC_SPI1_CLK_ENABLE();
+    
+    /* Enable GPIO clocks */
+    __HAL_RCC_GPIOD_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    
+    /* SPI1 GPIO Configuration
+        PD7  ------> SPI1_MOSI
+        PB3  ------> SPI1_SCK
+        PB4  ------> SPI1_MISO 
+    */
+    
+    /*Configure GPIO pin for SPI1_MOSI (PD7) */
+    GPIO_InitStruct.Pin = GPIO_PIN_7;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
+    HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+    /*Configure GPIO pin for SPI1_SCK (PB3) */
+    GPIO_InitStruct.Pin = GPIO_PIN_3;
+    GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+    /*Configure GPIO pin for SPI1_MISO (PB4) */
+    GPIO_InitStruct.Pin = GPIO_PIN_4;
+    GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  }
+  else if(hspi->Instance==SPI2)
   {
   /* USER CODE BEGIN SPI2_MspInit 0 */
 
@@ -708,7 +742,27 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
 */
 void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
 {
-  if(hspi->Instance==SPI2)
+  if(hspi->Instance==SPI1)
+  {
+  /* USER CODE BEGIN SPI1_MspDeInit 0 */
+
+  /* USER CODE END SPI1_MspDeInit 0 */
+    /* Peripheral clock disable */
+    __HAL_RCC_SPI1_CLK_DISABLE();
+
+    /**SPI1 GPIO Configuration
+        PD7  ------> SPI1_MOSI
+        PB3  ------> SPI1_SCK
+        PB4  ------> SPI1_MISO 
+    */
+    HAL_GPIO_DeInit(GPIOD, GPIO_PIN_7);
+    HAL_GPIO_DeInit(GPIOB, GPIO_PIN_3|GPIO_PIN_4);
+
+  /* USER CODE BEGIN SPI1_MspDeInit 1 */
+
+  /* USER CODE END SPI1_MspDeInit 1 */
+  }
+  else if(hspi->Instance==SPI2)
   {
   /* USER CODE BEGIN SPI2_MspDeInit 0 */
 
