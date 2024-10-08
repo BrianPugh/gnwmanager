@@ -149,18 +149,18 @@ struct gnwmanager_comm {  // Values are read or written by the debugger
 
 static struct gnwmanager_comm comm __attribute__((section (".gnwmanager_comm")));
 
-static gnwmanager_sdcard_hw_t sdcard_hw = GNWMANAGER_SDCARD_HW_UNDETECTED;
 static FATFS FatFs;  // Fatfs handle
 static FIL file; // File handle
 
 void sdcard_hw_detect() {
     FRESULT cause;
+
     // Check if SD Card is connected to SPI1
     sdcard_init_spi1();
+    sdcard_hw = GNWMANAGER_SDCARD_HW_1;
     cause = f_mount(&FatFs, (const TCHAR *)"", 1);
     if (cause == FR_OK) {
         f_mount(NULL, "", 0);
-        sdcard_hw = GNWMANAGER_SDCARD_HW_1;
         return;
     } else {
         sdcard_deinit_spi1();
@@ -168,24 +168,17 @@ void sdcard_hw_detect() {
 
     // Check if SD Card is connected over OSPI1
     sdcard_init_ospi1();
+    sdcard_hw = GNWMANAGER_SDCARD_HW_2;
     cause = f_mount(&FatFs, (const TCHAR *)"", 1);
     if (cause == FR_OK) {
         f_mount(NULL, "", 0);
-        sdcard_hw = GNWMANAGER_SDCARD_HW_2;
         return;
     } else {
-        sdcard_deinit_spi1();
+        sdcard_deinit_ospi1();
     }
+
     // No SD Card detected
     sdcard_hw = GNWMANAGER_SDCARD_HW_NO_SD_FOUND;
-}
-
-void sdcard_deinit(int sdcard_type) {
-    if (sdcard_type == 1) {
-        HAL_SPI_MspDeInit(&hspi1);
-        HAL_GPIO_WritePin(SD_VCC_GPIO_Port, SD_VCC_Pin, GPIO_PIN_RESET); // set SD Card VCC to 0v
-        HAL_GPIO_WritePin(SD_CS_GPIO_Port, SD_CS_Pin, GPIO_PIN_SET);
-    }
 }
 
 /**
@@ -489,6 +482,7 @@ static void gnwmanager_run(void)
         break;
     case GNWMANAGER_PROGRAM_SD:
         if (sdcard_hw >= GNWMANAGER_SDCARD_HW_1) {
+            gnwmanager_set_status(GNWMANAGER_STATUS_PROG);
             FRESULT res;
             UINT bytes_written;
             if (working_context->block == 0) {

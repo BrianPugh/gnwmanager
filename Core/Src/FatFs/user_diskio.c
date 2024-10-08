@@ -36,8 +36,10 @@
 /* Includes ------------------------------------------------------------------*/
 #include <string.h>
 #include <time.h>
+#include "main.h"
 #include "ff.h"
 #include "user_diskio_spi.h"
+#include "user_diskio_softspi.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -82,7 +84,20 @@ DSTATUS disk_initialize (
 )
 {
   /* USER CODE BEGIN INIT */
-	return USER_SPI_initialize(pdrv);
+  switch (sdcard_hw)
+  {
+  case GNWMANAGER_SDCARD_HW_1:
+    return USER_SPI_initialize(pdrv);
+    break;
+
+  case GNWMANAGER_SDCARD_HW_2:
+    return USER_SOFTSPI_initialize(pdrv);
+    break;
+
+  default:
+    return STA_NOINIT;
+    break;
+  }
   /* USER CODE END INIT */
 }
 
@@ -96,7 +111,20 @@ DSTATUS disk_status (
 )
 {
   /* USER CODE BEGIN STATUS */
-	return USER_SPI_status(pdrv);
+  switch (sdcard_hw)
+  {
+  case GNWMANAGER_SDCARD_HW_1:
+  	return USER_SPI_status(pdrv);
+    break;
+
+  case GNWMANAGER_SDCARD_HW_2:
+    return USER_SOFTSPI_status(pdrv);
+    break;
+
+  default:
+    return STA_NOINIT;
+    break;
+  }
   /* USER CODE END STATUS */
 }
 
@@ -116,7 +144,20 @@ DRESULT disk_read (
 )
 {
   /* USER CODE BEGIN READ */
-	return USER_SPI_read(pdrv, buff, sector, count);
+  switch (sdcard_hw)
+  {
+  case GNWMANAGER_SDCARD_HW_1:
+  	return USER_SPI_read(pdrv, buff, sector, count);
+    break;
+
+  case GNWMANAGER_SDCARD_HW_2:
+    return USER_SOFTSPI_read(pdrv, buff, sector, count);
+    break;
+
+  default:
+    return RES_ERROR;
+    break;
+  }
   /* USER CODE END READ */
 }
 
@@ -137,7 +178,20 @@ DRESULT disk_write (
 {
   /* USER CODE BEGIN WRITE */
   /* USER CODE HERE */
-	return USER_SPI_write(pdrv, buff, sector, count);
+  switch (sdcard_hw)
+  {
+  case GNWMANAGER_SDCARD_HW_1:
+  	return USER_SPI_write(pdrv, buff, sector, count);
+    break;
+
+  case GNWMANAGER_SDCARD_HW_2:
+  	return USER_SOFTSPI_write(pdrv, buff, sector, count);
+    break;
+
+  default:
+    return RES_ERROR;
+    break;
+  }
   /* USER CODE END WRITE */
 }
 
@@ -155,7 +209,20 @@ DRESULT disk_ioctl (
 )
 {
   /* USER CODE BEGIN IOCTL */
-	return USER_SPI_ioctl(pdrv, cmd, buff);
+  switch (sdcard_hw)
+  {
+  case GNWMANAGER_SDCARD_HW_1:
+  	return USER_SPI_ioctl(pdrv, cmd, buff);
+    break;
+
+  case GNWMANAGER_SDCARD_HW_2:
+  	return USER_SOFTSPI_ioctl(pdrv, cmd, buff);
+    break;
+
+  default:
+    return RES_ERROR;
+    break;
+  }
   /* USER CODE END IOCTL */
 }
 

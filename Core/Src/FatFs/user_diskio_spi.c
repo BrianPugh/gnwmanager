@@ -273,7 +273,7 @@ static BYTE SD_SendCmd(BYTE cmd, uint32_t arg)
 /* Initialize disk drive                                                 */
 /*-----------------------------------------------------------------------*/
 
-inline DSTATUS USER_SPI_initialize(
+DSTATUS USER_SPI_initialize(
     BYTE drv /* Physical drive number (0) */
 )
 {
@@ -376,7 +376,7 @@ inline DSTATUS USER_SPI_initialize(
 /* Get disk status                                                       */
 /*-----------------------------------------------------------------------*/
 
-inline DSTATUS USER_SPI_status(
+DSTATUS USER_SPI_status(
     BYTE drv /* Physical drive number (0) */
 )
 {
@@ -390,7 +390,7 @@ inline DSTATUS USER_SPI_status(
 /* Read sector(s)                                                        */
 /*-----------------------------------------------------------------------*/
 
-inline DRESULT USER_SPI_read(
+DRESULT USER_SPI_read(
     BYTE pdrv,    /* Physical drive number (0) */
     BYTE *buff,   /* Pointer to the data buffer to store read data */
     DWORD sector, /* Start sector number (LBA) */
@@ -445,7 +445,7 @@ inline DRESULT USER_SPI_read(
 /* Write sector(s)                                                       */
 /*-----------------------------------------------------------------------*/
 
-inline DRESULT USER_SPI_write(
+DRESULT USER_SPI_write(
     BYTE pdrv,        /* Physical drive number (0) */
     const BYTE *buff, /* Ponter to the data to write */
     DWORD sector,     /* Start sector number (LBA) */
@@ -510,7 +510,7 @@ inline DRESULT USER_SPI_write(
 /* Miscellaneous drive controls other than data read/write               */
 /*-----------------------------------------------------------------------*/
 
-inline DRESULT USER_SPI_ioctl(
+DRESULT USER_SPI_ioctl(
     BYTE drv,  /* Physical drive number (0) */
     BYTE ctrl, /* Control command code */
     void *buff /* Pointer to the conrtol data */

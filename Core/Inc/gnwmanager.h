@@ -20,15 +20,7 @@ enum gnwmanager_status { // For signaling program status to computer
     GNWMANAGER_STATUS_HASH      ,
 };
 
-enum gnwmanager_sdcard_hw {
-    GNWMANAGER_SDCARD_HW_UNDETECTED, // No detection done
-    GNWMANAGER_SDCARD_HW_NO_SD_FOUND, // No SD detected
-    GNWMANAGER_SDCARD_HW_1,           // Tim Schuerewegen design (SPI1)
-    GNWMANAGER_SDCARD_HW_2,           // Yota9 design (soft SPI over OSPI)
-};
-
 typedef uint32_t gnwmanager_status_t;  // All computer interactions are uint32_t for simplicity.
-typedef uint32_t gnwmanager_sdcard_hw_t;  // All computer interactions are uint32_t for simplicity.
                                     // No need to be stingy about RAM.
 
 void gnwmanager_main(gnwmanager_status_t status);

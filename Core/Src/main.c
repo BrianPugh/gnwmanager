@@ -76,6 +76,7 @@ TIM_HandleTypeDef htim1;
 HASH_HandleTypeDef hhash;
 
 /* USER CODE BEGIN PV */
+gnwmanager_sdcard_hw_t sdcard_hw = GNWMANAGER_SDCARD_HW_UNDETECTED;
 
 /* USER CODE END PV */
 

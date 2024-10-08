@@ -56,6 +56,7 @@ C_SOURCES =  \
 Core/Src/FatFs/ff.c \
 Core/Src/FatFs/ffunicode.c \
 Core/Src/FatFs/user_diskio_spi.c \
+Core/Src/FatFs/user_diskio_softspi.c \
 Core/Src/FatFs/user_diskio.c \
 Core/Src/flash.c \
 Core/Src/lcd.c \
@@ -68,6 +69,7 @@ Core/Src/lzma/lzma.c \
 Core/Src/rg_rtc.c \
 Core/Src/sdcard.c \
 Core/Src/segments.c \
+Core/Src/softspi.c \
 Core/Src/stm32h7xx_it.c \
 Core/Src/stm32h7xx_hal_msp.c \
 Core/Src/syscalls.c \
