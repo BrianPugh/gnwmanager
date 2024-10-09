@@ -72,7 +72,6 @@ Core/Src/segments.c \
 Core/Src/softspi.c \
 Core/Src/stm32h7xx_it.c \
 Core/Src/stm32h7xx_hal_msp.c \
-Core/Src/syscalls.c \
 Core/Src/system_stm32h7xx.c \
 Core/Src/timer.c \
 Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal.c \

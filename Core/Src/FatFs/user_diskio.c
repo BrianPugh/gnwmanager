@@ -40,6 +40,7 @@
 #include "ff.h"
 #include "user_diskio_spi.h"
 #include "user_diskio_softspi.h"
+#include "rg_rtc.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -232,7 +233,7 @@ DWORD get_fattime (void)
     struct tm *stm;
 
 
-    t = time(0);
+    t = GW_GetUnixTime();
     stm = localtime(&t);
 
     return (DWORD)(stm->tm_year - 80) << 25 |
