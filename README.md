@@ -120,6 +120,7 @@ $ gnwmanager --help
 │ mv                Move/Rename a file or directory.                                 │
 │ pull              Pull a file or folder from device.                               │
 │ push              Push file(s) and folder(s) to device.                            │
+│ sdpush            Push file(s) to SD Card connected to device.                     │
 │ screenshot        Capture and transfer screenshots from device.                    │
 │ shell             Launch an interactive shell to browse device filesystem.         │
 │ start             Start firmware at location.                                      │
