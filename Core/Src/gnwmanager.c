@@ -128,9 +128,6 @@ struct gnwmanager_comm {  // Values are read or written by the debugger
             uint8_t expected_hash[32];
 
             uint8_t actual_hash[32];
-
-            // File path if write to filesystem
-            uint8_t file_path[256];
         };
         struct {
             // Force spacing, allowing for backward-compatible additional variables
