@@ -494,11 +494,13 @@ static void gnwmanager_run(void)
                     break;
                 }
             }
-            res = f_write(&file, (const void *)working_context->buffer, working_context->size, &bytes_written);
-            if (res != FR_OK || bytes_written < working_context->size) {
-                gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_WRITE);
-                state = GNWMANAGER_ERROR;
-                break;
+            if (working_context->size > 0) {
+                res = f_write(&file, (const void *)working_context->buffer, working_context->size, &bytes_written);
+                if (res != FR_OK || bytes_written < working_context->size) {
+                    gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_WRITE);
+                    state = GNWMANAGER_ERROR;
+                    break;
+                }
             }
             if (working_context->block+1 == working_context->total_blocks) {
                 f_close(&file);

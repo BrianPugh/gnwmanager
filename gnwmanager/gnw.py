@@ -518,7 +518,7 @@ class GnW:
         path: str,
         block: int,
         total_blocks: int,
-        data: bytes,
+        data: bytes = b"",
         blocking: bool = True,
         compress: bool = True,
     ) -> None:
@@ -540,8 +540,6 @@ class GnW:
         if not path:
             raise ValueError("Destination SD path cannot be empty.")
 
-        if not data:
-            return
         if len(data) > (256 << 10):
             raise ValueError("Too large of data for a single write.")
 
@@ -599,6 +597,10 @@ class GnW:
         chunks = chunk_bytes(data, chunk_size)
 
         log.info(f"Data chunked into {len(chunks)} packets.")
+
+        if len(chunks) == 0:
+            log.info("Programming empty file.")
+            self._sd_write_file_chunk(path, 0, 1, blocking=False)
 
         for i, packet in enumerate(tqdm(chunks) if progress else chunks):
             log.info(f"Programming packet {i + 1}/{len(chunks)}.")
