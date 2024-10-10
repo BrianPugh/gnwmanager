@@ -49,11 +49,9 @@ void sdcard_deinit_spi1() {
 }
 
 void sdcard_init_ospi1() {
-    HAL_NVIC_DisableIRQ(OCTOSPI1_IRQn);
 }
 
 void sdcard_deinit_ospi1() {
-    HAL_NVIC_EnableIRQ(OCTOSPI1_IRQn);
 }
 
 void switch_ospi_gpio(uint8_t ToOspi) {
