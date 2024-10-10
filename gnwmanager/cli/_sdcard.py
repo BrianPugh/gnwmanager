@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 @app.command(group="SD Card (Only for game and watch with SD Card mod)")
 def sdpush(
     file: Annotated[Path, Parameter(validator=validators.Path(exists=True, dir_okay=False))],
-    destpath: str,
+    dest_path: str,
     *,
     gnw: GnWType,
 ):
@@ -26,6 +26,11 @@ def sdpush(
     file: Path
         file to store in SD Card.
     """
+    if not dest_path.startswith("/"):
+        raise ValueError("dest_path shall start with '/'")
+    if dest_path.endswith("/"):
+        dest_path = f"{dest_path}{file.name}"
+
     gnw.start_gnwmanager()
     data = file.read_bytes()
-    gnw.sd_write_file(destpath, data, progress=True)
+    gnw.sd_write_file(dest_path, data, progress=True)

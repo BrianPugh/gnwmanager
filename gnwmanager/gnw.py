@@ -538,7 +538,7 @@ class GnW:
         log.debug(f"gnw._sd_write_file_chunk: {path=} {len(data)=} {blocking=} {compress=}")
 
         if not path:
-            return
+            raise ValueError("Destination SD path cannot be empty.")
 
         if not data:
             return
@@ -591,6 +591,10 @@ class GnW:
         data: bytes,
         progress: bool = False,
     ):
+        if path.endswith("/"):
+            raise ValueError(f"path shall not be a folder {path}")
+        if not path.startswith("/"):
+            raise ValueError(f"path shall start with '/' {path}")
         chunk_size = self.contexts[0]["buffer"].size  # Assumes all contexts have same size buffer
         chunks = chunk_bytes(data, chunk_size)
 
