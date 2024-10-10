@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "flash.h"
+#include "sdcard.h"
 #include "lcd.h"
 #include "main.h"
 #include "lzma.h"
@@ -14,6 +15,8 @@
 #include "gnwmanager.h"
 #include "gnwmanager_gui.h"
 #include "buttons.h"
+
+#include "ff.h"
 
 
 typedef enum {  // For the gnwmanager state machine
@@ -24,6 +27,10 @@ typedef enum {  // For the gnwmanager state machine
     GNWMANAGER_ERASE_FINISH           ,
     GNWMANAGER_PROGRAM                ,
     GNWMANAGER_CHECK_HASH_FLASH       ,
+    GNWMANAGER_IDLE_SD                ,
+    GNWMANAGER_DECOMPRESSING_SD       ,
+    GNWMANAGER_CHECK_HASH_RAM_SD      ,
+    GNWMANAGER_PROGRAM_SD             ,
 
     GNWMANAGER_ERROR = 0xF000,
 } gnwmanager_state_t;
@@ -32,6 +39,7 @@ typedef enum {  // For the gnwmanager state machine
 enum gnwmanager_action {
     GNWMANAGER_ACTION_ERASE_AND_FLASH = 0,
     GNWMANAGER_ACTION_HASH = 1,
+    GNWMANAGER_ACTION_WRITE_FILE_TO_SD = 2,
 };
 
 
@@ -67,6 +75,15 @@ typedef struct {
 
             // Action was performed, computer should read back buffer now.
             uint32_t response_ready;
+
+            // File path if write to filesystem
+            uint8_t file_path[256];
+
+            // current block for file
+            uint32_t block;
+
+            // total blocks for file
+            uint32_t total_blocks;
 
             /* Add future variables here */
 
@@ -129,6 +146,37 @@ struct gnwmanager_comm {  // Values are read or written by the debugger
 
 static struct gnwmanager_comm comm __attribute__((section (".gnwmanager_comm")));
 
+static FATFS FatFs;  // Fatfs handle
+static FIL file; // File handle
+
+void sdcard_hw_detect() {
+    FRESULT cause;
+
+    // Check if SD Card is connected to SPI1
+    sdcard_init_spi1();
+    sdcard_hw = GNWMANAGER_SDCARD_HW_1;
+    cause = f_mount(&FatFs, (const TCHAR *)"", 1);
+    if (cause == FR_OK) {
+        f_mount(NULL, "", 0);
+        return;
+    } else {
+        sdcard_deinit_spi1();
+    }
+
+    // Check if SD Card is connected over OSPI1
+    sdcard_init_ospi1();
+    sdcard_hw = GNWMANAGER_SDCARD_HW_2;
+    cause = f_mount(&FatFs, (const TCHAR *)"", 1);
+    if (cause == FR_OK) {
+        f_mount(NULL, "", 0);
+        return;
+    } else {
+        sdcard_deinit_ospi1();
+    }
+
+    // No SD Card detected
+    sdcard_hw = GNWMANAGER_SDCARD_HW_NO_SD_FOUND;
+}
 
 /**
  * @param bank - Must be 1 or 2.
@@ -285,6 +333,16 @@ static void gnwmanager_run(void)
                 gnwmanager_set_status(GNWMANAGER_STATUS_HASH);
                 gnwmanager_action_hash(source_context);
                 return;
+            case GNWMANAGER_ACTION_WRITE_FILE_TO_SD:
+                state = GNWMANAGER_IDLE_SD;
+                if (sdcard_hw == GNWMANAGER_SDCARD_HW_UNDETECTED) {
+                    sdcard_hw_detect();
+                }
+                if (sdcard_hw < GNWMANAGER_SDCARD_HW_1) {
+                    gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_FS_MOUNT);
+                    state = GNWMANAGER_ERROR;
+                    return;
+                }
         }
 
         // Copy the context data into the active working_context
@@ -300,47 +358,52 @@ static void gnwmanager_run(void)
             program_offset += (working_context->bank == 1) ? 0x08000000 : 0x08100000;
         }
 
-        // Compute the hash to see if the programming operation would result in anything.
-        if(working_context->size){
-            gnwmanager_set_status(GNWMANAGER_STATUS_HASH);
-            sha256bank(working_context->bank, program_calculated_sha256, working_context->offset, working_context->size);
-            if (memcmp((char *)program_calculated_sha256, (char *)working_context->expected_sha256, 32) == 0) {
-                // Contents of this chunk didn't change. Skip & release working_context.
-                release_context(source_context);
-                break;
-            }
-        }
-
-        // If we're erasing, check if we actually need to erase (skip if performing whole-chip erase)
-        if(working_context->bank == 0 && working_context->erase_bytes && ext_is_erased(working_context->offset, working_context->erase_bytes)){
-            working_context->erase = 0;
-        }
-
-        if(working_context->erase){
-            gnwmanager_set_status(GNWMANAGER_STATUS_ERASE);
-            if(working_context->bank == 0){
-                // Start a non-blocking flash erase to run in the background
-                erase_offset = working_context->offset;
-                erase_bytes_left = working_context->erase_bytes;
-
-                uint32_t smallest_erase = OSPI_GetSmallestEraseSize();
-                if (erase_offset & (smallest_erase - 1)) {
-                    // Address not aligned to smallest erase size
-                    gnwmanager_set_status(GNWMANAGER_STATUS_NOT_ALIGNED);
-                    state = GNWMANAGER_ERROR;
+        if (state == GNWMANAGER_IDLE) {
+            // Compute the hash to see if the programming operation would result in anything.
+            if(working_context->size){
+                gnwmanager_set_status(GNWMANAGER_STATUS_HASH);
+                sha256bank(working_context->bank, program_calculated_sha256, working_context->offset, working_context->size);
+                if (memcmp((char *)program_calculated_sha256, (char *)working_context->expected_sha256, 32) == 0) {
+                    // Contents of this chunk didn't change. Skip & release working_context.
+                    release_context(source_context);
                     break;
                 }
-                // Round size up to nearest erase size if needed ?
-                if ((erase_bytes_left & (smallest_erase - 1)) != 0) {
-                    erase_bytes_left += smallest_erase - (erase_bytes_left & (smallest_erase - 1));
+            }
+
+            // If we're erasing, check if we actually need to erase (skip if performing whole-chip erase)
+            if(working_context->bank == 0 && working_context->erase_bytes && ext_is_erased(working_context->offset, working_context->erase_bytes)){
+                working_context->erase = 0;
+            }
+
+            if(working_context->erase){
+                gnwmanager_set_status(GNWMANAGER_STATUS_ERASE);
+                if(working_context->bank == 0){
+                    // Start a non-blocking flash erase to run in the background
+                    erase_offset = working_context->offset;
+                    erase_bytes_left = working_context->erase_bytes;
+
+                    uint32_t smallest_erase = OSPI_GetSmallestEraseSize();
+                    if (erase_offset & (smallest_erase - 1)) {
+                        // Address not aligned to smallest erase size
+                        gnwmanager_set_status(GNWMANAGER_STATUS_NOT_ALIGNED);
+                        state = GNWMANAGER_ERROR;
+                        break;
+                    }
+                    // Round size up to nearest erase size if needed ?
+                    if ((erase_bytes_left & (smallest_erase - 1)) != 0) {
+                        erase_bytes_left += smallest_erase - (erase_bytes_left & (smallest_erase - 1));
+                    }
+                    OSPI_DisableMemoryMappedMode();
+                    OSPI_Erase(&erase_offset, &erase_bytes_left, false);
                 }
-                OSPI_DisableMemoryMappedMode();
-                OSPI_Erase(&erase_offset, &erase_bytes_left, false);
             }
         }
         state++;
         break;
+    case GNWMANAGER_IDLE_SD:
+        return;
     case GNWMANAGER_DECOMPRESSING:
+    case GNWMANAGER_DECOMPRESSING_SD:
         if(working_context->compressed_size){
             // Decompress the data; nothing after this state should reference decompression.
             uint32_t n_decomp_bytes;
@@ -361,6 +424,7 @@ static void gnwmanager_run(void)
         state++;
         break;
     case GNWMANAGER_CHECK_HASH_RAM:
+    case GNWMANAGER_CHECK_HASH_RAM_SD:
         // Calculate sha256 hash of the RAM first
         if(HAL_HASHEx_SHA256_Start(&hhash,
             (uint8_t *)working_context->buffer, working_context->size,
@@ -413,6 +477,40 @@ static void gnwmanager_run(void)
         OSPI_DisableMemoryMappedMode();
         if(OSPI_ChipIdle()){  // Stay in state until flashchip is idle.
             state++;
+        }
+        break;
+    case GNWMANAGER_PROGRAM_SD:
+        if (sdcard_hw >= GNWMANAGER_SDCARD_HW_1) {
+            gnwmanager_set_status(GNWMANAGER_STATUS_PROG);
+            FRESULT res;
+            UINT bytes_written;
+            if (working_context->block == 0) {
+                f_mount(&FatFs, (const TCHAR *)"", 1);
+                // This is first block, open file
+                res = f_open(&file, (const char *)working_context->file_path, FA_WRITE | FA_CREATE_ALWAYS);
+                if (res != FR_OK) {
+                    gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_OPEN);
+                    state = GNWMANAGER_ERROR;
+                    break;
+                }
+            }
+            if (working_context->size > 0) {
+                res = f_write(&file, (const void *)working_context->buffer, working_context->size, &bytes_written);
+                if (res != FR_OK || bytes_written < working_context->size) {
+                    gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_WRITE);
+                    state = GNWMANAGER_ERROR;
+                    break;
+                }
+            }
+            if (working_context->block+1 == working_context->total_blocks) {
+                f_close(&file);
+                f_mount(NULL, "", 0);
+            }
+            state = GNWMANAGER_IDLE;
+        } else {
+            gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_FS_MOUNT);
+            state = GNWMANAGER_ERROR;
+            break;
         }
         break;
     case GNWMANAGER_PROGRAM:

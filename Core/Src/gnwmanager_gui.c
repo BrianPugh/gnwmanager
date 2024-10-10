@@ -54,7 +54,7 @@ void gui_draw_glyph(uint16_t x_pos, uint16_t y_pos, const glyph_t *glyph, pixel_
 #define ERROR1_ORIGIN_X 60
 #define ERROR1_ORIGIN_Y 74
 
-#define ERROR2_ORIGIN_X 110
+#define ERROR2_ORIGIN_X 90
 #define ERROR2_ORIGIN_Y 102
 
 #define RUN_ORIGIN_Y 145
@@ -165,6 +165,11 @@ void gnwmanager_gui_draw(){
     );
     DRAW(ERROR2_ORIGIN_X + 65, ERROR2_ORIGIN_Y, &img_ram,
             *gui.status == GNWMANAGER_STATUS_BAD_HASH_RAM
+    );
+    DRAW(ERROR2_ORIGIN_X + 115, ERROR2_ORIGIN_Y, &img_sd,
+            (*gui.status == GNWMANAGER_STATUS_BAD_SD_FS_MOUNT)
+            || (*gui.status == GNWMANAGER_STATUS_BAD_SD_OPEN)
+            || (*gui.status == GNWMANAGER_STATUS_BAD_SD_WRITE)
     );
 
     const glyph_t* run[] = {

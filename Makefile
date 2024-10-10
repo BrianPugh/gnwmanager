@@ -53,6 +53,11 @@ BUILD_DIR = build
 ######################################
 # C sources
 C_SOURCES =  \
+Core/Src/FatFs/ff.c \
+Core/Src/FatFs/ffunicode.c \
+Core/Src/FatFs/user_diskio_spi.c \
+Core/Src/FatFs/user_diskio_softspi.c \
+Core/Src/FatFs/user_diskio.c \
 Core/Src/flash.c \
 Core/Src/lcd.c \
 Core/Src/buttons.c \
@@ -62,10 +67,13 @@ Core/Src/gnwmanager_gui.c \
 Core/Src/lzma/LzmaDec.c \
 Core/Src/lzma/lzma.c \
 Core/Src/rg_rtc.c \
+Core/Src/sdcard.c \
 Core/Src/segments.c \
+Core/Src/softspi.c \
 Core/Src/stm32h7xx_it.c \
 Core/Src/stm32h7xx_hal_msp.c \
 Core/Src/system_stm32h7xx.c \
+Core/Src/timer.c \
 Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal.c \
 Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_adc.c \
 Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_adc_ex.c \
@@ -159,6 +167,7 @@ AS_INCLUDES =
 C_INCLUDES =  \
 -ICore/Inc \
 -ICore/Src/lzma \
+-ICore/Src/FatFs \
 -IDrivers/STM32H7xx_HAL_Driver/Inc \
 -IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy \
 -IDrivers/CMSIS/Device/ST/STM32H7xx/Include \
