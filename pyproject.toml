@@ -37,7 +37,7 @@ tamp = "^1.6.0"
 rich = "^13.9.4"
 pyelftools = ">=0.29"
 autoregistry = "^1.0.0"
-psutil = "^5.9.6"
+psutil = "^6.1.0"
 
 [tool.poetry.group.docs.dependencies]
 sphinx = ">=6.2.1,<7.2.0"
