@@ -17,6 +17,7 @@ def monitor(
     elf: Optional[Path] = None,
     buffer: str = "logbuf",
     index: str = "log_idx",
+    utf8: bool = False,
     *,
     gnw: GnWType,
 ):
@@ -30,6 +31,8 @@ def monitor(
         Log buffer variable name.
     index: str
         Log buffer index variable name.
+    utf8: bool
+        Logs should be decoded as utf-8.
     """
     with SymTab(elf) if elf else SymTab.find() as symtab:
         logbuf_sym = symtab[buffer]
@@ -47,7 +50,14 @@ def monitor(
         except ValueError:
             pass
 
-        return "".join(chr(x) for x in data)
+        if utf8:
+            try:
+                # Decode as UTF-8
+                return data.decode("utf-8")
+            except UnicodeDecodeError:
+                return data.decode("utf-8", errors="replace")
+        else:
+            return "".join(chr(x) for x in data)
 
     last_idx = 0
     while True:
