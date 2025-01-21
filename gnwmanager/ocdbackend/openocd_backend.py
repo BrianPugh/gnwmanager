@@ -33,6 +33,22 @@ TransferErrors.add(OpenOCDError)
 _ramdisk = Path("/dev/shm")
 
 
+def _pi_find_gpio_number(gpio_name):
+    gpio_map = {}
+    try:
+        with Path("/sys/kernel/debug/gpio").open("r") as file:
+            for line in file:
+                parts = line.strip().split()
+                if len(parts) == 3 and parts[0].startswith("gpio-"):
+                    value_gpio_number = parts[0].split("-")[1]
+                    key_gpio_name = parts[1].strip("()")
+                    gpio_map[key_gpio_name] = value_gpio_number
+    except Exception:
+        return None
+
+    return gpio_map.get(gpio_name)
+
+
 def _openocd_launch_commands(port: int) -> Generator[Tuple[str, List[str]], None, None]:
     """Generate possible openocd launch commands for different debugging probes."""
     base_cmd = [
@@ -71,7 +87,12 @@ def _openocd_launch_commands(port: int) -> Generator[Tuple[str, List[str]], None
     cmd.extend(["-c", "source [find interface/sysfsgpio-raspberrypi.cfg]"])
     # SWCLK - GPIO25, physical pin 22
     # SWDIO - GPIO24, physical pin 18
-    cmd.extend(["-c", "sysfsgpio_swd_nums 25 24"])
+    pi_sys_gpio24 = _pi_find_gpio_number("GPIO24")
+    pi_sys_gpio25 = _pi_find_gpio_number("GPIO25")
+    if pi_sys_gpio24 is not None and pi_sys_gpio25 is not None:
+        cmd.extend(["-c", f"sysfsgpio_swd_nums {pi_sys_gpio25} {pi_sys_gpio24}"])
+    else:
+        cmd.extend(["-c", "sysfsgpio_swd_nums 25 24"])
     cmd.extend(["-c", "transport select swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
     yield "rpi-gpio", cmd
@@ -92,7 +113,6 @@ def _launch_openocd(port: int, timeout: float = 10.0):  # -> subprocess.Popen[by
     for name, cmd in _openocd_launch_commands(port):
         log.info(f"Attempting to launch openocd: {' '.join(cmd)}")
         process = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-
         deadline = time() + timeout
         while time() < deadline:
             if process.poll() is not None:  # openocd terminated, probe not detected
@@ -105,7 +125,9 @@ def _launch_openocd(port: int, timeout: float = 10.0):  # -> subprocess.Popen[by
 
                 break
             elif _is_port_open(port):  # openocd is successfully running (but might actually still error out soon!)
-                return process
+                sleep(0.5)
+                if _is_port_open(port):
+                    return process
             sleep(0.1)
 
     raise OpenOCDAutoDetectError("Unable to autodetect & connect to debugging probe.")
@@ -180,7 +202,7 @@ class OpenOCDBackend(OCDBackend):
         try:
             self._socket.send(cmd.encode("utf-8") + _COMMAND_TOKEN_BYTES)
             return self._receive_response(decode=decode)
-        except BrokenPipeError as e:
+        except (BrokenPipeError, ConnectionResetError) as e:
             assert self._openocd_process is not None
             _, err = self._openocd_process.communicate()
             err = err.decode()
