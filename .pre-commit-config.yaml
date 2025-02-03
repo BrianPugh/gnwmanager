@@ -1,13 +1,13 @@
 exclude: ^(poetry.lock|.idea/|Drivers/|Core/)
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.9.3"
+    rev: "v0.9.4"
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
 
   - repo: https://github.com/psf/black
-    rev: 24.10.0
+    rev: 25.1.0
     hooks:
       - id: black
         args:
@@ -55,7 +55,7 @@ repos:
         exclude: \.(html|svg)$
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.0
+    rev: v2.4.1
     additional_dependencies:
       - tomli
     hooks:
@@ -63,7 +63,7 @@ repos:
         exclude: pyproject.toml
 
   - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.392.post0
+    rev: v1.1.393
     hooks:
       - id: pyright
 
