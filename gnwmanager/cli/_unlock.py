@@ -147,7 +147,7 @@ def unlock(
         sleep(0.1)
         gnw.write_uint32(0x52002008, 0x4C5D6E7F)
         sleep(0.1)
-        gnw.write_memory(0x52002021, b"\xAA")
+        gnw.write_memory(0x52002021, b"\xaa")
         sleep(0.1)
         gnw.write_memory(0x52002018, b"\x02")
         sleep(0.2)
