@@ -3,7 +3,7 @@ from cyclopts import Parameter
 from typing_extensions import Annotated
 
 from gnwmanager.cli._flash import flash
-from gnwmanager.cli._parsers import GnWType, OffsetType, convert_location, validate_flash_range
+from gnwmanager.cli._parsers import GnWType, OffsetType, convert_location, validate_internal_flash_range
 from gnwmanager.cli.main import app, find_cache_folder
 
 
@@ -25,7 +25,7 @@ def flash_bootloader(
     location: Annotated[
         int,
         Parameter(
-            validator=validate_flash_range,
+            validator=validate_internal_flash_range,
             converter=convert_location,
         ),
     ],
@@ -41,8 +41,8 @@ def flash_bootloader(
 
     Parameters
     ----------
-    location: Union[int, Literal["bank1", "bank2", "ext"]]
-        Either an absolute flash address (e.g. 0x08000000) or one of {bank1, bank2, ext}.
+    location: Union[int, Literal["bank1", "bank2"]]
+        Either an absolute flash address (e.g. 0x08000000) or one of {bank1, bank2}.
     offset: int
         Offset into flash.
     repo: str
