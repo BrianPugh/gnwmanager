@@ -61,7 +61,7 @@ def flash_bootloader(
     file_path = cache_folder / f"{tag}.bin"
     if not file_path.exists() or file_path.stat().st_size == 0:
         # Download a new copy
-        with httpx.Client() as client:
+        with httpx.Client(follow_redirects=True) as client:
             download_url = f"https://github.com/{repo}/releases/download/{tag}/gnw_bootloader.bin"
             response = client.get(download_url)
             response.raise_for_status()
