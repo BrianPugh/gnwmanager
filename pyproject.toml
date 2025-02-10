@@ -38,6 +38,7 @@ rich = "^13.9.4"
 pyelftools = ">=0.29"
 autoregistry = "^1.0.0"
 psutil = "^6.1.0"
+httpx = "^0.28.1"
 
 [tool.poetry.group.docs.dependencies]
 sphinx = ">=6.2.1,<7.2.0"

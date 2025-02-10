@@ -7,6 +7,8 @@ import subprocess
 import sys
 import traceback
 from contextlib import suppress
+from functools import lru_cache
+from pathlib import Path
 from typing import Literal, Optional
 
 import rich
@@ -55,6 +57,21 @@ class ColoredFormatter(logging.Formatter):
         color = self.LOG_COLORS.get(record.levelname, ColorCodes.WHITE)
         record.msg = color + record.msg + ColorCodes.RESET
         return super().format(record)
+
+
+@lru_cache
+def find_cache_folder() -> Path:
+    system = platform.system()
+    cache_folder = Path.home()
+
+    if system == "Windows":
+        cache_folder /= "AppData/Local/gnwmanager/Cache"
+    elif system == "Darwin":
+        cache_folder /= "Library/Caches/gnwmanager"
+    else:
+        cache_folder /= ".cache/gnwmanager"
+
+    return cache_folder.absolute()
 
 
 def _display(field, value):
