@@ -1,3 +1,4 @@
+from gnwmanager.cli._bootloader import flash_bootloader
 from gnwmanager.cli._debug import debug
 from gnwmanager.cli._dump import dump
 from gnwmanager.cli._erase import erase
