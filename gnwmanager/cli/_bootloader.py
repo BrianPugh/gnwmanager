@@ -1,3 +1,5 @@
+import logging
+
 import httpx
 from cyclopts import Parameter
 from typing_extensions import Annotated
@@ -5,6 +7,8 @@ from typing_extensions import Annotated
 from gnwmanager.cli._flash import flash
 from gnwmanager.cli._parsers import GnWType, OffsetType, convert_location, validate_internal_flash_range
 from gnwmanager.cli.main import app, find_cache_folder
+
+log = logging.getLogger(__name__)
 
 
 def _resolve_latest_tag(repo) -> str:
@@ -67,5 +71,6 @@ def flash_bootloader(
             response.raise_for_status()
             file_path.write_bytes(response.content)
 
+    log.info(f"Flashing bootloader {file_path}")
     # Flash it to device
     flash(location, file_path, offset=offset, gnw=gnw)
