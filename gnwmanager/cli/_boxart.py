@@ -180,7 +180,6 @@ class GameDB:
         with resources.path("gnwmanager.cli", "_boxart_dat_files") as data_path, sqlite3.connect(self.db_path) as conn:
             for dat_file in system.dat_files:
                 dat_file = (data_path / dat_file).absolute()
-                print(dat_file)
                 current_mtime = datetime.fromtimestamp(dat_file.stat().st_mtime)
 
                 cursor = conn.execute("SELECT last_modified FROM dat_files WHERE file_path = ?", (str(dat_file),))
@@ -233,8 +232,7 @@ class GameDB:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute("SELECT * FROM roms WHERE sha1 = ?", (sha1_hash,))
             info = cursor.fetchone()
-        breakpoint()
-        raise NotImplementedError
+        return info
 
 
 @boxart_app.command
@@ -244,13 +242,17 @@ def auto(
     """Automatically download & Process Boxart."""
     # cache_folder = find_cache_folder()
     game_db = GameDB()  # TODO: use cache_folder
-    for path in directory.rglob("*.gb"):
+    for path in directory.rglob("*.*"):
+        if path.name.startswith("."):  # hidden
+            continue
         try:
-            rom_info = game_db.get_rom_info(path)
+            info = game_db.get_rom_info(path)
+            if info:
+                print(f"GOOD: {path.name}")
+            else:
+                print(f"BAD: {path.name}")
         except SystemNotFoundError:
             continue
-    breakpoint()
-    raise NotImplementedError
 
 
 @boxart_app.command
