@@ -1,4 +1,3 @@
-import inspect
 import itertools
 import logging
 import platform
@@ -27,7 +26,7 @@ with suppress(ImportError):
     # By importing, makes things like the arrow-keys work.
     import readline  # Not available on windows
 
-app = App(group_commands="Miscellaneous")
+app = App(group_commands="Miscellaneous", end_of_options_delimiter="")
 
 app.meta["--help"].group = "Admin"
 app.meta["--version"].group = "Admin"
@@ -147,7 +146,7 @@ def shell(
     """
     gnw.default_filesystem_offset = offset
 
-    def dispatcher(command, bound):
+    def dispatcher(command, bound, ignored):
         # ``command`` is usually ``main`` since we used the meta-app.
         try:
             if command == main:
@@ -231,14 +230,14 @@ def main(
     try:
         for group in groups:
             additional_kwargs = {}
-            command, bound = app.parse_args(group, exit_on_error=exit_on_error)
+            command, bound, ignored = app.parse_args(group, exit_on_error=exit_on_error)
 
             if command.__name__ == "info":
                 # Special case: print some system information prior to attempting
                 # to connect to debug probe and device.
                 _display_host_info(backend)
 
-            if "gnw" in inspect.signature(command).parameters:
+            if "gnw" in ignored:
                 if gnw is None:
                     gnw = GnW(OCDBackend[backend]())
                     gnw.backend.open()

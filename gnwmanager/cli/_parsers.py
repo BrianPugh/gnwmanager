@@ -17,8 +17,8 @@ _suffix_map = {
 }
 
 
-def int_parser(type_, *tokens: str):
-    size_str = str(tokens[0]).lower()
+def int_parser(type_, tokens):
+    size_str = str(tokens[0].value).lower()
 
     # Check if the string starts with '0x', which indicates a hexadecimal number
     if size_str.startswith("0x"):
@@ -47,8 +47,8 @@ OffsetType = Annotated[int, Parameter(validator=validators.Number(gte=0), conver
 GnWType = Annotated[GnW, Parameter(parse=False)]
 
 
-def convert_location(type_, *values) -> int:
-    location = values[0]
+def convert_location(type_, tokens) -> int:
+    location = tokens[0].value
 
     if location == "bank1":
         return 0x0800_0000
@@ -57,7 +57,7 @@ def convert_location(type_, *values) -> int:
     elif location == "ext":
         return 0x9000_0000
     else:
-        return int_parser(type_, *values)
+        return int_parser(type_, tokens)
 
 
 def validate_flash_range(type_, value):
