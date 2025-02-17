@@ -63,7 +63,7 @@ repos:
         exclude: pyproject.toml
 
   - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.393
+    rev: v1.1.394
     hooks:
       - id: pyright
 
