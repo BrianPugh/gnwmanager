@@ -2365,4 +2365,4 @@ pyocd = ["pyocd"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "9f6c93e00e5a516515658d2c4c94896c7b4d1722104a16a20f1c6b3c91aaf9c8"
+content-hash = "3ddb512de6f134dc9f2ebcb0f01d8862e187618e1faf59545f96ac6a7af68ec2"

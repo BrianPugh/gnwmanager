@@ -1,5 +1,6 @@
+from typing import Annotated
+
 from cyclopts import Parameter
-from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import GnWType, convert_location
 from gnwmanager.cli.main import app

@@ -8,12 +8,11 @@ import traceback
 from contextlib import suppress
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional
 
 import rich
 from cyclopts import App, Parameter
 from littlefs.errors import LittleFSError
-from typing_extensions import Annotated
 
 from gnwmanager import __version__
 from gnwmanager.cli._parsers import GnWType, OffsetType, int_parser

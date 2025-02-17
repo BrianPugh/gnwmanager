@@ -1,11 +1,11 @@
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Annotated
 
 from cyclopts import Parameter, validators
 from littlefs import LittleFS
 from littlefs.errors import LittleFSError
-from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import GnWType, OffsetType
 from gnwmanager.cli.main import app

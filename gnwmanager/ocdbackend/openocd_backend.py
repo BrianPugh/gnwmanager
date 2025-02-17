@@ -5,9 +5,10 @@ import shutil
 import socket
 import subprocess
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
 from time import sleep, time
-from typing import Generator, List, Tuple
+from typing import List, Tuple
 
 from gnwmanager.exceptions import DataError, DebugProbeConnectionError, MissingThirdPartyError
 from gnwmanager.ocdbackend.base import OCDBackend, TransferErrors
@@ -49,7 +50,7 @@ def _pi_find_gpio_number(gpio_name):
     return gpio_map.get(gpio_name)
 
 
-def _openocd_launch_commands(port: int) -> Generator[Tuple[str, List[str]], None, None]:
+def _openocd_launch_commands(port: int) -> Generator[tuple[str, list[str]], None, None]:
     """Generate possible openocd launch commands for different debugging probes."""
     base_cmd = [
         str(find_openocd_executable()),
@@ -147,7 +148,7 @@ def find_openocd_executable() -> Path:
     return Path(openocd_executable)
 
 
-def _get_openocd_version() -> Tuple[int, int, int]:
+def _get_openocd_version() -> tuple[int, int, int]:
     # Run the command and capture the output
     openocd = find_openocd_executable()
     result = subprocess.run([openocd, "--version"], capture_output=True, text=True, check=True)
@@ -254,7 +255,7 @@ class OpenOCDBackend(OCDBackend):
     def read_memory(self, addr: int, size: int) -> bytes:
         """Reads a block of memory."""
         if size <= 64:
-            return bytearray(self.read_uint8(addr + offset) for offset in range(size))
+            return bytes(self.read_uint8(addr + offset) for offset in range(size))
         else:
             with tempfile.TemporaryDirectory(dir=_ramdisk if _ramdisk.exists() else None) as temp_dir:
                 temp_file = Path(temp_dir) / "scratch.bin"

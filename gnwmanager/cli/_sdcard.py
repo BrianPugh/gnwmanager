@@ -1,8 +1,8 @@
 import logging
 from pathlib import Path
+from typing import Annotated
 
 from cyclopts import Parameter, validators
-from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import GnWType
 from gnwmanager.cli.main import app
