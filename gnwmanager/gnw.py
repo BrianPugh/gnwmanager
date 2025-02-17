@@ -26,17 +26,17 @@ class Variable(NamedTuple):
 
 ERROR_MASK = 0xFFFF_0000
 
-actions: Dict[str, int] = {
+actions: dict[str, int] = {
     "ERASE_AND_FLASH": 0,
     "HASH": 1,
     "WRITE_FILE_TO_SD": 2,
 }
 
-_comm: Dict[str, Variable] = {
+_comm: dict[str, Variable] = {
     "framebuffer": Variable(0x2400_0000, 320 * 240 * 2),
     "flashapp_comm": Variable(0x2402_5800, 0xC4000),
 }
-_contexts: List[Dict[str, Variable]] = [{} for _ in range(2)]
+_contexts: list[dict[str, Variable]] = [{} for _ in range(2)]
 
 
 def _populate_comm():
@@ -87,7 +87,7 @@ def _round_up(value, mod) -> int:
     return int(ceil(value / mod) * mod)
 
 
-def _chunk_bytes(data: bytes, chunk_size: int) -> List[bytes]:
+def _chunk_bytes(data: bytes, chunk_size: int) -> list[bytes]:
     return [data[i : i + chunk_size] for i in range(0, len(data), chunk_size)]
 
 
@@ -257,7 +257,7 @@ class GnW:
 
         return get_filesystem(self, offset=offset, **kwargs)
 
-    def read_hashes(self, offset, size) -> List[bytes]:
+    def read_hashes(self, offset, size) -> list[bytes]:
         """Blocking call to get the hashes of external flash chunks.
 
         All chunks are 256KB; the last chunk may be less.

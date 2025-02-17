@@ -1,10 +1,9 @@
 import logging
 import re
 from pathlib import Path
-from typing import List
+from typing import Annotated, List
 
 from cyclopts import Parameter
-from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import GnWType, OffsetType
 from gnwmanager.cli.main import app
@@ -41,7 +40,7 @@ def _should_ignore(file_name):
 @app.command(group="Filesystem")
 def push(
     gnw_path: Path,
-    local_paths: Annotated[List[Path], Parameter(negative=[])],
+    local_paths: Annotated[list[Path], Parameter(negative=[])],
     offset: OffsetType = 0,
     *,
     gnw: GnWType,

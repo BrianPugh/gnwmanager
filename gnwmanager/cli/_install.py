@@ -3,11 +3,10 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Annotated, Dict, List
 
 from autoregistry import Registry
 from cyclopts import Parameter
-from typing_extensions import Annotated
 
 from gnwmanager.cli.main import app
 
@@ -16,7 +15,7 @@ installable_programs = Registry(hyphen=True)
 log = logging.getLogger(__name__)
 
 
-def _install_from_available_package_manager(install_cmds: Dict[str, List[List[str]]]):
+def _install_from_available_package_manager(install_cmds: dict[str, list[list[str]]]):
     sudo_bin = shutil.which("sudo")
     for manager, cmds in install_cmds.items():
         if shutil.which(manager) is not None:

@@ -9,10 +9,9 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from time import sleep
-from typing import Literal, Optional, cast
+from typing import Annotated, Literal, Optional, cast
 
 from cyclopts import Parameter, validators
-from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import GnWType
 from gnwmanager.cli.devices import DeviceModel

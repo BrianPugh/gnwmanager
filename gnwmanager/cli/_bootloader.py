@@ -1,8 +1,8 @@
 import logging
+from typing import Annotated
 
 import httpx
 from cyclopts import Parameter
-from typing_extensions import Annotated
 
 from gnwmanager.cli._flash import flash
 from gnwmanager.cli._parsers import GnWType, OffsetType, convert_location, validate_internal_flash_range

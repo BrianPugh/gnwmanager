@@ -1,10 +1,9 @@
 import logging
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from cyclopts import Parameter
 from tqdm import tqdm
-from typing_extensions import Annotated
 
 from gnwmanager.cli._parsers import GnWType, OffsetType, convert_location, validate_flash_range
 from gnwmanager.cli.main import app

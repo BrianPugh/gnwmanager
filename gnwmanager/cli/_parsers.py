@@ -1,5 +1,6 @@
+from typing import Annotated
+
 from cyclopts import Parameter, validators
-from typing_extensions import Annotated
 
 from gnwmanager.gnw import GnW
 

@@ -15,7 +15,7 @@ _gnw_cache = {}
 
 
 class LfsDriverContext(UserContext):
-    def __init__(self, gnw: GnW, filesystem_end: int, cache: Optional[Dict] = None) -> None:
+    def __init__(self, gnw: GnW, filesystem_end: int, cache: Optional[dict] = None) -> None:
         validate_extflash_offset(filesystem_end)
 
         self.gnw = gnw
