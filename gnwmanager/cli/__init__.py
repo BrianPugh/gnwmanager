@@ -15,6 +15,7 @@ from gnwmanager.cli._gdb import gdb, gdbserver
 from gnwmanager.cli._install import install
 from gnwmanager.cli._lock import lock
 from gnwmanager.cli._monitor import monitor
+from gnwmanager.cli._patch import flash_patch
 from gnwmanager.cli._pull import pull
 from gnwmanager.cli._push import push
 from gnwmanager.cli._screenshot import screenshot

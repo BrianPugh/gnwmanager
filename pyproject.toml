@@ -17,7 +17,14 @@ description = ""
 authors = ["Brian Pugh"]
 readme = "README.md"
 packages = [{include = "gnwmanager"}]
-include = ["gnwmanager/firmware.bin", "gnwmanager/unlock.bin"]
+include = [
+    "gnwmanager/firmware.bin",
+    "gnwmanager/unlock.bin",
+    "gnwmanager/cli/gnw-patch/patches",
+]
+exclude = [
+    "gnwmanager/cli/gnw-patch/*",
+]
 
 [tool.poetry.scripts]
 gnwmanager = "gnwmanager.cli.main:run_app"
@@ -38,6 +45,9 @@ pyelftools = ">=0.29"
 autoregistry = "^1.0.0"
 psutil = "^6.1.0"
 httpx = "^0.28.1"
+colorama = "^0.4.6"
+pycryptodome = "^3.21.0"
+keystone-engine = "^0.9.2"
 
 [tool.poetry.group.docs.dependencies]
 sphinx = ">=6.2.1,<7.2.0"
