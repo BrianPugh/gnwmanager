@@ -1,11 +1,14 @@
-import inspect
+import importlib
 import json
+import logging
 from contextlib import suppress
 from pathlib import Path
 
 from .compact_json_encoder import CompactJSONEncoder
 from .compression import lzma_compress
 from .exception import InvalidAsmError
+
+log = logging.getLogger(__name__)
 
 
 def twos_compliment(value, bits):
@@ -15,38 +18,43 @@ def twos_compliment(value, bits):
         # Two's Compliment
         return (1 << bits) + value
 
-
 class CachedKeystone:
     def __init__(self):
-        self._ks = None
-        from keystone import KS_ARCH_ARM, KS_MODE_THUMB, Ks
-
-        self._ks = Ks(KS_ARCH_ARM, KS_MODE_THUMB)
-        self._sig = inspect.signature(self._ks.asm)
-
+        path = importlib.resources.files("gnwmanager.cli.gnw_patch") / "keystone_cache.json"
+        self.path = Path(path)
         self._cache = {}
+        with suppress(FileNotFoundError):
+            with self.path.open("r") as f:
+                self._cache = json.load(f)
+
+    @property
+    def ks(self):
+        try:
+            return self._ks
+        except AttributeError:
+            from keystone import KS_ARCH_ARM, KS_MODE_THUMB, Ks
+            self._ks = Ks(KS_ARCH_ARM, KS_MODE_THUMB)
+            return self._ks
 
     def asm(self, *args, **kwargs):
         key = str(args) + json.dumps(kwargs, sort_keys=True)
         with suppress(KeyError):
             return self._cache[key]
 
-        if self._ks is None:
-            raise RuntimeError(
-                "Un-cached instruction, and keystone is not installed. "
-                "If you are an end-user, please open up a github issue or report this in the discord. "
-                "If you are a developer, please pip install keystone-engine."
-            )
-
-        value = self._ks.asm(*args, **kwargs)[0]
+        value = self.ks.asm(*args, **kwargs)[0]
 
         if value is None:
             raise InvalidAsmError
 
         self._cache[key] = value
 
-        return value
+        self.path.parent.mkdir(exist_ok=True, parents=True)
+        with self.path.open("w") as f:
+            json.dump(
+                self._cache, f, sort_keys=True, indent="\t", cls=CompactJSONEncoder
+            )
 
+        return value
 
 class FirmwarePatchMixin:
     """Patch commands that apply to a single firmware instance."""
@@ -106,7 +114,7 @@ class FirmwarePatchMixin:
         if rel_distance < 0:
             rel_distance += 0x1_0000_0000
 
-        print(f"Computed relative distance 0x{rel_distance:08X}")
+        log.debug(f"Computed relative distance 0x{rel_distance:08X}")
 
         return self.replace(offset, rel_distance, size=4)
 
@@ -208,7 +216,7 @@ class FirmwarePatchMixin:
             encoding = self._ks.asm(data, self.FLASH_BASE + offset)
         else:
             encoding = self._ks.asm(data)
-        print(f'    "{data}" -> {[hex(x) for x in encoding]}')
+        log.debug(f'    "{data}" -> {[hex(x) for x in encoding]}')
         if size:
             assert len(encoding) == size
         for i, val in enumerate(encoding):
@@ -231,7 +239,7 @@ class FirmwarePatchMixin:
         old_end = old_start + size
         new_start = offset + data
         new_end = new_start + size
-        print(f"    moving {size} bytes from 0x{old_start:08X} to 0x{new_start:08X}")
+        log.debug(f"    moving {size} bytes from 0x{old_start:08X} to 0x{new_start:08X}")
         self[new_start:new_end] = self[old_start:old_end]
 
         # Erase old copy
@@ -293,7 +301,7 @@ class FirmwarePatchMixin:
         # Insert the compressed data
         self[offset : offset + len(compressed_data)] = compressed_data
 
-        print(
+        log.debug(
             f"    compressed {len(data)}->{len(compressed_data)} bytes (saves {len(data)-len(compressed_data)})"
         )
 
@@ -312,4 +320,3 @@ class FirmwarePatchMixin:
             except KeyError:
                 raise KeyError(f"0x{val:08X} at offset 0x{offset:08X}")
             self[offset : offset + size] = new_val.to_bytes(size, "little")
-            # print(f"    lookup 0x{val:08X}->0x{new_val:08x}")

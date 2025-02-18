@@ -1,16 +1,14 @@
-from pathlib import Path
+import logging
 
 from .exception import InvalidStockRomError
 from .firmware import Device, ExtFirmware, Firmware, IntFirmware
 from .utils import (
-    printd,
-    printe,
-    printi,
     round_down_word,
     round_up_page,
     seconds_to_frames,
 )
 
+log = logging.getLogger(__name__)
 
 class MarioGnW(Device, name="mario"):
     class Int(IntFirmware):
@@ -42,29 +40,29 @@ class MarioGnW(Device, name="mario"):
         FLASH_LEN = 0x24100000 - FLASH_BASE
 
     def patch(self):
-        printi("Invoke custom bootloader prior to calling stock Reset_Handler.")
+        log.debug("Invoke custom bootloader prior to calling stock Reset_Handler.")
         self.internal.replace(0x4, "bootloader")
 
-        printi("Intercept button presses for macros.")
+        log.debug("Intercept button presses for macros.")
         self.internal.bl(0x6B52, "read_buttons")
 
-        printi("Mute clock audio on first boot.")
+        log.debug("Mute clock audio on first boot.")
         self.internal.asm(0x49E0, "mov.w r1, #0x00000")
 
         if self.args.sleep_time:
-            printi(f"Setting sleep time to {self.args.sleep_time} seconds.")
+            log.debug(f"Setting sleep time to {self.args.sleep_time} seconds.")
             sleep_time_frames = seconds_to_frames(self.args.sleep_time)
             self.internal.asm(0x6C3C, f"movw r2, #{sleep_time_frames}")
 
         if self.args.disable_sleep:
-            printi("Disable sleep timer")
+            log.debug("Disable sleep timer")
             self.internal.replace(0x6C40, 0x91, size=1)
 
         # Disable OTFDEC
         self.internal.nop(0x10688, 2)
         self.internal.nop(0x1068E, 1)
 
-        printd("Compressing and moving stuff stuff to internal firmware.")
+        log.debug("Compressing and moving stuff stuff to internal firmware.")
         compressed_len = self.external.compress(
             0x0, 7772
         )  # Dst expects only 7772 bytes, not 7776
@@ -74,7 +72,7 @@ class MarioGnW(Device, name="mario"):
         self.ext_offset -= 7776 - round_down_word(compressed_len)
 
         # SMB1 ROM
-        printd("Compressing and moving SMB1 ROM to compressed_memory.")
+        log.debug("Compressing and moving SMB1 ROM to compressed_memory.")
         smb1_addr, smb1_size = 0x1E60, 40960
         patch_smb1_refr = self.internal.address("SMB1_ROM", sub_base=True)
         self.move_to_compressed_memory(
@@ -164,7 +162,7 @@ class MarioGnW(Device, name="mario"):
         mario_song_len = 0x85E40  # 548,416 bytes
         if self.args.no_mario_song:
             # This isn't really necessary, but we keep it here because its more explicit.
-            printe("Erasing Mario Song")
+            log.debug("Erasing Mario Song")
             self.external.replace(0x1_2D44, b"\x00" * mario_song_len)
             self.rwdata_erase(0x1_2D44, mario_song_len)
             self.ext_offset -= mario_song_len
@@ -188,28 +186,28 @@ class MarioGnW(Device, name="mario"):
 
         # Each tile is 16x16 pixels, stored as 256 bytes in row-major form.
         # These index into one of the palettes starting at 0xbec68.
-        printe("Compressing clock graphics")
+        log.debug("Compressing clock graphics")
         compressed_len = self.external.compress(0x9_8B84, 0x1_0000)
         self.internal.bl(0x678E, "memcpy_inflate")
 
-        printe("Moving clock graphics")
+        log.debug("Moving clock graphics")
         self.move_ext(0x9_8B84, compressed_len, 0x7350)
         self.ext_offset -= 0x1_0000 - round_down_word(compressed_len)
 
         # Note: the clock uses a different palette; this palette only applies
         # to ingame Super Mario Bros 1 & 2
-        printe("Moving NES emulator palette.")
+        log.debug("Moving NES emulator palette.")
         self.move_to_compressed_memory(0xA_8B84, 192, 0xB720)
 
         # Note: UNKNOWN* represents a block of data that i haven't decoded
         # yet. If you know what the block of data is, please let me know!
         self.move_to_compressed_memory(0xA_8C44, 8352, 0xBC44)
 
-        printe("Moving iconset.")
+        log.debug("Moving iconset.")
         # MODIFY THESE IF WE WANT CUSTOM GAME ICONS
         self.move_to_compressed_memory(0xA_ACE4, 16128, [0xCEA8, 0xD2F8])
 
-        printe("Moving menu stuff (icons? meta?)")
+        log.debug("Moving menu stuff (icons? meta?)")
         references = [
             0x0_D010,
             0x0_D004,
@@ -222,25 +220,33 @@ class MarioGnW(Device, name="mario"):
 
         smb2_addr, smb2_size = 0xA_EC58, 0x1_0000
 
-        printe("Compressing and moving SMB2 ROM.")
-        compressed_len = self.external.compress(smb2_addr, smb2_size)
-        self.internal.bl(0x6A12, "memcpy_inflate")
-        self.move_to_compressed_memory(smb2_addr, compressed_len, 0x7374)
-        self.ext_offset -= smb2_size - round_down_word(
-            compressed_len
-        )  # Move by the space savings.
+        if self.args.no_smb2:
+            log.debug("Erasing SMB2 ROM")
+            self.external.replace(
+                smb2_addr,
+                b"\x00" * smb2_size,
+            )
+            self.ext_offset -= smb2_size
+        else:
+            log.debug("Compressing and moving SMB2 ROM.")
+            compressed_len = self.external.compress(smb2_addr, smb2_size)
+            self.internal.bl(0x6A12, "memcpy_inflate")
+            self.move_to_compressed_memory(smb2_addr, compressed_len, 0x7374)
+            self.ext_offset -= smb2_size - round_down_word(
+                compressed_len
+            )  # Move by the space savings.
 
-        # Round to nearest page so that the length can be used as an imm
-        compressed_len = round_up_page(compressed_len)
+            # Round to nearest page so that the length can be used as an imm
+            compressed_len = round_up_page(compressed_len)
 
-        # Update the length of the compressed data (doesn't matter if its too large)
-        self.internal.asm(0x6A0A, f"mov.w r2, #{compressed_len}")
-        self.internal.asm(0x6A1E, f"mov.w r3, #{compressed_len}")
+            # Update the length of the compressed data (doesn't matter if its too large)
+            self.internal.asm(0x6A0A, f"mov.w r2, #{compressed_len}")
+            self.internal.asm(0x6A1E, f"mov.w r3, #{compressed_len}")
 
         # Not sure what this data is
         self.move_to_compressed_memory(0xBEC58, 8 * 2, 0x10964)
 
-        printe("Moving Palettes")
+        log.debug("Moving Palettes")
         # There are 80 colors, each in BGRA format, where A is always 0
         # These are referenced by the scene table.
         self.move_to_compressed_memory(0xBEC68, 320, None)  # Day palette [0600, 1700]
@@ -363,7 +369,7 @@ class MarioGnW(Device, name="mario"):
             # start: 0x900E_C318   end: 0x900F_4D04    minions sleeping
             #          zero_padded_end: 0x900f_4d18
             # Total Image Length: 193_568 bytes
-            printe("Deleting sleeping images.")
+            log.debug("Deleting sleeping images.")
             self.external.replace(0xC58F8, b"\x00" * total_image_length)
             for reference in references:
                 self.internal.replace(reference, b"\x00" * 4)  # Erase image references
@@ -408,14 +414,14 @@ class MarioGnW(Device, name="mario"):
 
             self.ext_offset -= 8192
         else:
-            printi("Update NVRAM read addresses")
+            log.debug("Update NVRAM read addresses")
             self.internal.asm(
                 0x4856,
                 "ite ne; "
                 f"movne.w r4, #{hex(0xff000 + self.ext_offset)}; "
                 f"moveq.w r4, #{hex(0xfe000 + self.ext_offset)}",
             )
-            printi("Update NVRAM write addresses")
+            log.debug("Update NVRAM write addresses")
             self.internal.asm(
                 0x48C0,
                 "ite ne; "
@@ -424,7 +430,7 @@ class MarioGnW(Device, name="mario"):
             )
 
         # Finally, shorten the firmware
-        printi("Updating end of OTFDEC pointer")
+        log.debug("Updating end of OTFDEC pointer")
         self.internal.add(0x1_06EC, self.ext_offset)
         self.external.shorten(self.ext_offset)
 

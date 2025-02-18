@@ -1,4 +1,5 @@
 import hashlib
+import logging
 
 from colorama import Fore, Style
 from Crypto.Cipher import AES
@@ -14,6 +15,7 @@ from .exception import (
 from .patch import FirmwarePatchMixin
 from .utils import round_down_word, round_up_word
 
+log = logging.getLogger(__name__)
 
 def _val_to_color(val):
     if 0x9010_0000 > val >= 0x9000_0000:
@@ -185,7 +187,7 @@ class RWData:
             i += 4
 
             data = lz77_decompress(firmware[data_addr : data_addr + data_len])
-            print(f"    lz77 decompressed data {data_len} -> {len(data)}")
+            log.debug(f"    lz77 decompressed data {data_len} -> {len(data)}")
             firmware.clear_range(data_addr, data_addr + data_len)
 
             self.append(data, data_dst)
@@ -251,7 +253,7 @@ class RWData:
         total_len = 0
         for data in self.datas:
             compressed_data = lzma_compress(bytes(data))
-            print(
+            log.debug(
                 f"    compressed {len(data)}->{len(compressed_data)} bytes "
                 f"(saves {len(data)-len(compressed_data)}). "
                 f"Writing to 0x{index:05X}"
@@ -295,7 +297,7 @@ class RWData:
         # Update the pointer to the end of table in the loader
         self.firmware.relative(end_of_table_reference, index, size=4)
 
-        print(self)
+        log.debug(self)
 
         return total_len
 
@@ -355,7 +357,7 @@ class IntFirmware(Firmware):
         address = symbols[0]["st_value"]
         if address == 0:
             raise MissingSymbolError(f"{symbol_name} has address 0x0")
-        print(f"    found {symbol_name} at 0x{address:08X}")
+        log.debug(f"    found {symbol_name} at 0x{address:08X}")
         if sub_base:
             address -= self.FLASH_BASE
         return address
@@ -542,7 +544,7 @@ class Device:
             )
             if lower <= val < upper:
                 new_val = self.lookup[val]
-                print(f"    updating rwdata 0x{val:08X} -> 0x{new_val:08X}")
+                log.debug(f"    updating rwdata 0x{val:08X} -> 0x{new_val:08X}")
                 self.internal.rwdata[self.internal.RWDATA_DTCM_IDX][
                     i : i + 4
                 ] = new_val.to_bytes(4, "little")
@@ -573,7 +575,7 @@ class Device:
             self.internal[self.int_pos : self.int_pos + size] = ext
         else:
             self._move_ext_to_int(ext, self.int_pos, size=size)
-            print(f"    move_ext_to_int {hex(ext)} -> {hex(self.int_pos)}")
+            log.debug(f"    move_ext_to_int {hex(ext)} -> {hex(self.int_pos)}")
         self.int_pos += round_up_word(size)
 
         if reference is not None:
@@ -609,7 +611,7 @@ class Device:
                 self.ext_offset -= round_down_word(size)
             return new_loc
         except NotEnoughSpaceError:
-            print(
+            log.debug(
                 f"        {Fore.RED}Not Enough Internal space. Using external flash{Style.RESET_ALL}"
             )
             return self.move_ext_external(ext, size, reference)
@@ -629,7 +631,7 @@ class Device:
                 self.compressed_memory_pos : self.compressed_memory_pos + size
             ] = self.external[ext : ext + size]
         except NotEnoughSpaceError:
-            print(
+            log.debug(
                 f"        {Fore.RED}compressed_memory full. Attempting to put in internal{Style.RESET_ALL}"
             )
             return self.move_ext(ext, size, reference)
@@ -638,12 +640,12 @@ class Device:
         diff = new_len - current_len
         compression_ratio = size / diff
 
-        print(
+        log.debug(
             f"    {Fore.YELLOW}compression_ratio: {compression_ratio}{Style.RESET_ALL}"
         )
 
         if diff > self.int_free_space:
-            print(
+            log.debug(
                 f"        {Fore.RED}not putting into free memory due not enough free "
                 f"internal storage for compressed data.{Style.RESET_ALL}"
             )
@@ -653,7 +655,7 @@ class Device:
             return self.move_ext_external(ext, size, reference)
         elif compression_ratio < self.args.compression_ratio:
             # Revert putting this data into compressed_memory due to poor space_savings
-            print(
+            log.debug(
                 f"        {Fore.RED}not putting in free memory due to poor compression.{Style.RESET_ALL}"
             )
             self.compressed_memory.clear_range(
@@ -663,7 +665,7 @@ class Device:
         # Even though the data is already moved, this builds the reference lookup
         self._move_to_compressed_memory(ext, self.compressed_memory_pos, size=size)
 
-        print(
+        log.debug(
             f"    move_to_compressed_memory {hex(ext)} -> {hex(self.compressed_memory_pos)}"
         )
         if reference is not None:

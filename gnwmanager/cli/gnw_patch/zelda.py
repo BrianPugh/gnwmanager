@@ -50,14 +50,12 @@ Start      End        Description
 0x3F0000   0x400000   Empty
 """
 
-
-from pathlib import Path
+import logging
 
 from .exception import InvalidStockRomError
 from .firmware import Device, ExtFirmware, Firmware, IntFirmware
-from .utils import printd, printi
 
-build_dir = Path("build")  # TODO: expose this properly or put in better location
+log = logging.getLogger(__name__)
 
 
 class ZeldaGnW(Device, name="zelda"):
@@ -83,31 +81,6 @@ class ZeldaGnW(Device, name="zelda"):
     class FreeMemory(Firmware):
         FLASH_BASE = 0x240F2124
         FLASH_LEN = 0  # 0x24100000 - FLASH_BASE
-
-    def argparse(self, parser):
-        group = parser.add_argument_group("Low level flash savings flags")
-        group.add_argument(
-            "--no-la",
-            action="store_true",
-            help="Remove Link's Awakening rom (all languages).",
-        )
-        group.add_argument(
-            "--no-sleep-images",
-            action="store_true",
-            help="Remove the 5 sleeping images.",
-        )
-        group.add_argument(
-            "--no-second-beep",
-            action="store_true",
-            help="Remove the second beep in TIME/CLOCK.",
-        )
-        group.add_argument(
-            "--no-hour-tune",
-            action="store_true",
-            help="Remove the hour tune in TIME/CLOCK.",
-        )
-        self.args = parser.parse_args()
-        return self.args
 
     def _disable_save_encryption(self):
         # Skip ingame save encryption
@@ -150,24 +123,16 @@ class ZeldaGnW(Device, name="zelda"):
         self.external.set_range(0x3E_8000, 0x3F_0000, b"\xFF")
 
     def patch(self):
-        b_w_memcpy_inflate_asm = "b.w #" + hex(
-            0xFFFFFFFE & self.internal.address("memcpy_inflate")
-        )
+        b_w_memcpy_inflate_asm = "b.w #" + hex(0xFFFFFFFE & self.internal.address("memcpy_inflate"))
 
         self._erase_savedata()
 
-        if self.args.debug:
-            # Override fault handlers for easier debugging via gdb.
-            printi("Overriding handlers for debugging.")
-            self.internal.replace(0x8, "NMI_Handler")
-            self.internal.replace(0xC, "HardFault_Handler")
-
         self._disable_save_encryption()
 
-        printi("Invoke custom bootloader prior to calling stock Reset_Handler.")
+        log.debug("Invoke custom bootloader prior to calling stock Reset_Handler.")
         self.internal.replace(0x4, "bootloader")
 
-        printi("Intercept button presses for macros.")
+        log.debug("Intercept button presses for macros.")
         self.internal.bl(0xFE54, "read_buttons")
 
         # Disable OTFDEC
@@ -184,13 +149,13 @@ class ZeldaGnW(Device, name="zelda"):
             # Disable TIME/CLOCK second beep
             self.external.nop(0x32002E, 1)
 
-        printd("Compressing and moving LoZ2 TIMER data to int")
+        log.debug("Compressing and moving LoZ2 TIMER data to int")
         compressed_len = self.external.compress(0xD_0000, 0x2000)
         self.internal.asm(0xF430, b_w_memcpy_inflate_asm)
         self.move_to_int(0xD_0000, compressed_len, 0xFCF8)
 
         if self.args.no_la:
-            printi("Removing Link's Awakening (All Languages)")
+            log.debug("Removing Link's Awakening (All Languages)")
             self.external.clear_range(0xD2000, 0x1F4C00)
             self.external[0x315B54] = 0x00  # Ignore LA EN menu selection
             self.external[0x315B58] = 0x00  # Ignore LA FR menu selection
@@ -210,13 +175,9 @@ class ZeldaGnW(Device, name="zelda"):
             # removing to free up an island of space.
 
         # Compress, insert, and reference the modified rwdata
-        self.int_pos += self.internal.rwdata.write_table_and_data(
-            0x1B070, data_offset=self.int_pos
-        )
+        self.int_pos += self.internal.rwdata.write_table_and_data(0x1B070, data_offset=self.int_pos)
 
         internal_remaining_free = len(self.internal) - self.int_pos
-        compressed_memory_free = (
-            len(self.compressed_memory) - self.compressed_memory_pos
-        )
+        compressed_memory_free = len(self.compressed_memory) - self.compressed_memory_pos
 
         return internal_remaining_free, compressed_memory_free
