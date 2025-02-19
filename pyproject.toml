@@ -151,6 +151,7 @@ ignore = [
     "E402",
     "E501",
     "F401",
+    "SIM108",  # Use ternary operator instead of `if`-`else`-block
     "TRY003",  # Avoid specifying messages outside exception class; overly strict, especially for ValueError
 ]
 

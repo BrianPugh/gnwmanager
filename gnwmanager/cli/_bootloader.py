@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from typing import Annotated
 
 import httpx
@@ -22,6 +23,32 @@ def _resolve_latest_tag(repo) -> str:
         release_data = response.json()
         tag = release_data["tag_name"]
     return tag
+
+
+def get_bootloader(repo: str, tag: str = "latest") -> Path:
+    """Download bootloader (if necessary).
+
+    Returns
+    -------
+    Path
+        Path to downloaded bootloader.
+    """
+    if tag == "latest":
+        tag = _resolve_latest_tag(repo)
+
+    cache_folder = find_cache_folder() / "bootloader" / repo
+    cache_folder.mkdir(parents=True, exist_ok=True)
+
+    file_path = cache_folder / f"{tag}.bin"
+    if not file_path.exists() or file_path.stat().st_size == 0:
+        # Download a new copy
+        with httpx.Client(follow_redirects=True) as client:
+            download_url = f"https://github.com/{repo}/releases/download/{tag}/gnw_bootloader.bin"
+            response = client.get(download_url)
+            response.raise_for_status()
+            file_path.write_bytes(response.content)
+
+    return file_path
 
 
 @app.command
@@ -56,20 +83,7 @@ def flash_bootloader(
         Version tag to download from (e.g. v1.0.2)
         Defaults to "latest".
     """
-    if tag == "latest":
-        tag = _resolve_latest_tag(repo)
-
-    cache_folder = find_cache_folder() / "bootloader" / repo
-    cache_folder.mkdir(parents=True, exist_ok=True)
-
-    file_path = cache_folder / f"{tag}.bin"
-    if not file_path.exists() or file_path.stat().st_size == 0:
-        # Download a new copy
-        with httpx.Client(follow_redirects=True) as client:
-            download_url = f"https://github.com/{repo}/releases/download/{tag}/gnw_bootloader.bin"
-            response = client.get(download_url)
-            response.raise_for_status()
-            file_path.write_bytes(response.content)
+    file_path = get_bootloader(repo, tag)
 
     log.info(f"Flashing bootloader {file_path}")
     # Flash it to device
