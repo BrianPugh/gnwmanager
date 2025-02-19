@@ -1,9 +1,11 @@
 import hashlib
 import logging
+import struct
 
 from colorama import Fore, Style
 from Crypto.Cipher import AES
 from elftools.elf.elffile import ELFFile
+from dataclasses import dataclass
 
 from .compression import lz77_decompress, lzma_compress
 from .exception import (
@@ -13,9 +15,10 @@ from .exception import (
     ParsingError,
 )
 from .patch import FirmwarePatchMixin
-from .utils import round_down_word, round_up_word
+from .utils import round_down_word, round_up_word, round_up_page
 
 log = logging.getLogger(__name__)
+
 
 def _val_to_color(val):
     if 0x9010_0000 > val >= 0x9000_0000:
@@ -34,12 +37,49 @@ class Lookup(dict):
             k_color = _val_to_color(k)
             v_color = _val_to_color(v)
 
-            substrs.append(
-                f"    {k_color}0x{k:08X}{Style.RESET_ALL}: "
-                f"{v_color}0x{v:08X}{Style.RESET_ALL},"
-            )
+            substrs.append(f"    {k_color}0x{k:08X}{Style.RESET_ALL}: " f"{v_color}0x{v:08X}{Style.RESET_ALL},")
         substrs.append("}")
         return "\n".join(substrs)
+
+
+@dataclass
+class HeaderMetaData:
+    """4 bytes of data that can be stored at the hdmi-cec handler in the vector-table (0x01B8)"""
+
+    external_flash_size: int  # Actual size in bytes (will be divided by 4096 for storage)
+    is_mario: bool  # 1 bit
+
+    is_zelda: bool  # 1 bit
+
+    def pack(self) -> bytes:
+        # Convert size to 4K blocks (right shift by 12)
+        blocks_4k = round_up_page(self.external_flash_size) >> 12
+
+        # Ensure the shifted value fits in 3 bytes
+        if not (0 <= blocks_4k < (1 << 24)):
+            raise ValueError("external_flash_size must fit in 3 bytes when divided by 4096")
+
+        # Pack the flags into a single byte
+        flags = (int(self.is_mario) << 0) | (int(self.is_zelda) << 1)
+
+        # Pack as little-endian:
+        # - First 3 bytes: external_flash_size
+        # - Last byte: flags
+        return struct.pack("<I", (blocks_4k & 0xFFFFFF) | (flags << 24))
+
+    @classmethod
+    def unpack(cls, data: bytes) -> "HeaderMetaData":
+        # Unpack the 32-bit value
+        [value] = struct.unpack("<I", data)
+
+        # Extract fields
+        # Convert from 4K blocks back to bytes (left shift by 12)
+        external_flash_size = (value & 0xFFFFFF) << 12
+        flags = (value >> 24) & 0xFF
+        is_mario = bool(flags & (1 << 0))
+        is_zelda = bool(flags & (1 << 1))
+
+        return cls(external_flash_size, is_mario, is_zelda)
 
 
 class Firmware(FirmwarePatchMixin, bytearray):
@@ -72,16 +112,12 @@ class Firmware(FirmwarePatchMixin, bytearray):
                 try:
                     self[key.start]
                 except IndexError:
-                    raise IndexError(
-                        f"Index {key.start} ({hex(key.start)}) out of range"
-                    ) from None
+                    raise IndexError(f"Index {key.start} ({hex(key.start)}) out of range") from None
             if key.stop is not None:
                 try:
                     self[key.stop - 1]
                 except IndexError:
-                    raise IndexError(
-                        f"Index {key.stop - 1} ({hex(key.stop - 1)}) out of range"
-                    ) from None
+                    raise IndexError(f"Index {key.stop - 1} ({hex(key.stop - 1)}) out of range") from None
 
         return super().__getitem__(key)
 
@@ -200,9 +236,7 @@ class RWData:
 
         # Mark this area as reserved; there's nothing special about 0x77, its
         # just not 0x00
-        firmware.set_range(
-            table_start, table_start + 16 * self.MAX_TABLE_ELEMENTS + 4, b"\x77"
-        )
+        firmware.set_range(table_start, table_start + 16 * self.MAX_TABLE_ELEMENTS + 4, b"\x77")
 
     def __getitem__(self, k):
         return self.datas[k]
@@ -215,9 +249,7 @@ class RWData:
         """Add a new element to the table"""
 
         if len(self.datas) >= self.MAX_TABLE_ELEMENTS:
-            raise NotEnoughSpaceError(
-                f"MAX_TABLE_ELEMENTS value {self.MAX_TABLE_ELEMENTS} exceeded"
-            )
+            raise NotEnoughSpaceError(f"MAX_TABLE_ELEMENTS value {self.MAX_TABLE_ELEMENTS} exceeded")
 
         self.datas.append(data)
         self.dsts.append(dst)
@@ -452,17 +484,13 @@ class Device:
         self.int_pos = 0
         self.compressed_memory_pos = 0
 
-    def _move_copy(
-        self, dst, dst_offset: int, src, src_offset: int, size: int, delete: bool
-    ) -> int:
+    def _move_copy(self, dst, dst_offset: int, src, src_offset: int, size: int, delete: bool) -> int:
         dst[dst_offset : dst_offset + size] = src[src_offset : src_offset + size]
         if delete:
             src.clear_range(src_offset, src_offset + size)
 
         for i in range(size):
-            self.lookup[src.FLASH_BASE + src_offset + i] = (
-                dst.FLASH_BASE + dst_offset + i
-            )
+            self.lookup[src.FLASH_BASE + src_offset + i] = dst.FLASH_BASE + dst_offset + i
 
         return size
 
@@ -479,9 +507,7 @@ class Device:
     def _copy_ext_to_int(self, ext_offset: int, int_offset: int, size: int) -> int:
         return self._copy(self.internal, int_offset, self.external, ext_offset, size)
 
-    def _move_to_compressed_memory(
-        self, ext_offset: int, compressed_memory_offset: int, size: int
-    ) -> int:
+    def _move_to_compressed_memory(self, ext_offset: int, compressed_memory_offset: int, size: int) -> int:
         return self._move(
             self.compressed_memory,
             compressed_memory_offset,
@@ -527,9 +553,7 @@ class Device:
 
     @property
     def int_free_space(self):
-        out = (
-            len(self.internal) - self.int_pos - self.compressed_memory_compressed_len()
-        )
+        out = len(self.internal) - self.int_pos - self.compressed_memory_compressed_len()
         if self.internal.rwdata is not None:
             out -= self.internal.rwdata.compressed_len
         return out
@@ -539,15 +563,11 @@ class Device:
         upper = lower + size
 
         for i in range(0, len(self.internal.rwdata[self.internal.RWDATA_DTCM_IDX]), 4):
-            val = int.from_bytes(
-                self.internal.rwdata[self.internal.RWDATA_DTCM_IDX][i : i + 4], "little"
-            )
+            val = int.from_bytes(self.internal.rwdata[self.internal.RWDATA_DTCM_IDX][i : i + 4], "little")
             if lower <= val < upper:
                 new_val = self.lookup[val]
                 log.debug(f"    updating rwdata 0x{val:08X} -> 0x{new_val:08X}")
-                self.internal.rwdata[self.internal.RWDATA_DTCM_IDX][
-                    i : i + 4
-                ] = new_val.to_bytes(4, "little")
+                self.internal.rwdata[self.internal.RWDATA_DTCM_IDX][i : i + 4] = new_val.to_bytes(4, "little")
 
     def rwdata_erase(self, lower, size):
         """
@@ -557,13 +577,9 @@ class Device:
         upper = lower + size
 
         for i in range(0, len(self.internal.rwdata[self.internal.RWDATA_DTCM_IDX]), 4):
-            val = int.from_bytes(
-                self.internal.rwdata[self.internal.RWDATA_DTCM_IDX][i : i + 4], "little"
-            )
+            val = int.from_bytes(self.internal.rwdata[self.internal.RWDATA_DTCM_IDX][i : i + 4], "little")
             if lower <= val < upper:
-                self.internal.rwdata[self.internal.RWDATA_DTCM_IDX][
-                    i : i + 4
-                ] = b"\x00\x00\x00\x00"
+                self.internal.rwdata[self.internal.RWDATA_DTCM_IDX][i : i + 4] = b"\x00\x00\x00\x00"
 
     def move_to_int(self, ext, size, reference):
         if self.int_free_space < size:
@@ -611,9 +627,7 @@ class Device:
                 self.ext_offset -= round_down_word(size)
             return new_loc
         except NotEnoughSpaceError:
-            log.debug(
-                f"        {Fore.RED}Not Enough Internal space. Using external flash{Style.RESET_ALL}"
-            )
+            log.debug(f"        {Fore.RED}Not Enough Internal space. Using external flash{Style.RESET_ALL}")
             return self.move_ext_external(ext, size, reference)
 
     def move_to_compressed_memory(self, ext, size, reference):
@@ -627,47 +641,35 @@ class Device:
         current_len = self.compressed_memory_compressed_len()
 
         try:
-            self.compressed_memory[
-                self.compressed_memory_pos : self.compressed_memory_pos + size
-            ] = self.external[ext : ext + size]
+            self.compressed_memory[self.compressed_memory_pos : self.compressed_memory_pos + size] = self.external[
+                ext : ext + size
+            ]
         except NotEnoughSpaceError:
-            log.debug(
-                f"        {Fore.RED}compressed_memory full. Attempting to put in internal{Style.RESET_ALL}"
-            )
+            log.debug(f"        {Fore.RED}compressed_memory full. Attempting to put in internal{Style.RESET_ALL}")
             return self.move_ext(ext, size, reference)
 
         new_len = self.compressed_memory_compressed_len(size)
         diff = new_len - current_len
         compression_ratio = size / diff
 
-        log.debug(
-            f"    {Fore.YELLOW}compression_ratio: {compression_ratio}{Style.RESET_ALL}"
-        )
+        log.debug(f"    {Fore.YELLOW}compression_ratio: {compression_ratio}{Style.RESET_ALL}")
 
         if diff > self.int_free_space:
             log.debug(
                 f"        {Fore.RED}not putting into free memory due not enough free "
                 f"internal storage for compressed data.{Style.RESET_ALL}"
             )
-            self.compressed_memory.clear_range(
-                self.compressed_memory_pos, self.compressed_memory_pos + size
-            )
+            self.compressed_memory.clear_range(self.compressed_memory_pos, self.compressed_memory_pos + size)
             return self.move_ext_external(ext, size, reference)
         elif compression_ratio < self.args.compression_ratio:
             # Revert putting this data into compressed_memory due to poor space_savings
-            log.debug(
-                f"        {Fore.RED}not putting in free memory due to poor compression.{Style.RESET_ALL}"
-            )
-            self.compressed_memory.clear_range(
-                self.compressed_memory_pos, self.compressed_memory_pos + size
-            )
+            log.debug(f"        {Fore.RED}not putting in free memory due to poor compression.{Style.RESET_ALL}")
+            self.compressed_memory.clear_range(self.compressed_memory_pos, self.compressed_memory_pos + size)
             return self.move_ext(ext, size, reference)
         # Even though the data is already moved, this builds the reference lookup
         self._move_to_compressed_memory(ext, self.compressed_memory_pos, size=size)
 
-        log.debug(
-            f"    move_to_compressed_memory {hex(ext)} -> {hex(self.compressed_memory_pos)}"
-        )
+        log.debug(f"    move_to_compressed_memory {hex(ext)} -> {hex(self.compressed_memory_pos)}")
         if reference is not None:
             self.internal.lookup(reference)
         new_loc = self.compressed_memory_pos
@@ -677,8 +679,25 @@ class Device:
         return new_loc
 
     def __call__(self):
+        from . import MarioGnW, ZeldaGnW
+
         self.int_pos = self.internal.empty_offset
-        return self.patch()
+        out = self.patch()
+
+
+        is_mario, is_zelda = False, False
+        if isinstance(self, MarioGnW):
+            is_mario = True
+        elif isinstance(self, ZeldaGnW):
+            is_zelda = True
+        metadata = HeaderMetaData(
+            external_flash_size=len(self.external),
+            is_mario=is_mario,
+            is_zelda=is_zelda,
+        )
+        # hdmi-cec = 0x01B8; not used in the gnw hardware.
+        self.internal.replace(0x01B8, metadata.pack())
+        return out
 
     def patch(self):
         """Device specific argument parsing and patching routine.
