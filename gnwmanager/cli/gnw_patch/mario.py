@@ -227,6 +227,11 @@ class MarioGnW(Device, name="mario"):
                 b"\x00" * smb2_size,
             )
             self.ext_offset -= smb2_size
+
+            # Replace conditional-branch with unconditional
+            # TODO: this prevents hardlocking when selecting SMB2 from the menu,
+            # but it's not quite right and is glitchy.
+            self.internal.b(0x69FC, 0x6A8C)
         else:
             log.debug("Compressing and moving SMB2 ROM.")
             compressed_len = self.external.compress(smb2_addr, smb2_size)

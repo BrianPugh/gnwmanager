@@ -36,8 +36,8 @@ def _log_patching_results(device, internal_remaining_free, compressed_memory_rem
     log.info(f"    External Firmware Used: {len(device.external)} bytes")
 
 
-low_level_flash = Group("Low level flash saving flags")
-high_level_flash = Group("High level flash savings flags", validator=validators.MutuallyExclusive())
+low_level_flash = Group("Low Level Flags")
+high_level_flash = Group("High Level Flags", validator=validators.MutuallyExclusive())
 
 
 @flash_patch.command(default_parameter=Parameter(negative=()))
@@ -65,6 +65,12 @@ def mario(
 
     Parameters
     ----------
+    internal: Path
+        Path to internal flash dump from "gnwmanager dump".
+        Usually "internal_flash_backup_mario.bin"
+    external: Path
+        Path to external flash dump from "gnwmanager dump".
+        Usually "flash_backup_mario.bin"
     bootloader: bool
         Leave room for sd-card bootloader.
     disable_sleep: bool
