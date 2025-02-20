@@ -7,8 +7,6 @@ from cyclopts import Parameter, validators
 from gnwmanager.cli._parsers import GnWType, OffsetType, convert_location, validate_flash_range
 from gnwmanager.cli.main import app
 
-from .gnw_patch import MarioGnW, ZeldaGnW
-
 log = logging.getLogger(__name__)
 
 
