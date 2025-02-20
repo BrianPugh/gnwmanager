@@ -53,7 +53,7 @@ class ColoredFormatter(logging.Formatter):
 
     def format(self, record):
         color = self.LOG_COLORS.get(record.levelname, ColorCodes.WHITE)
-        record.msg = color + record.msg + ColorCodes.RESET
+        record.msg = color + str(record.msg) + ColorCodes.RESET
         return super().format(record)
 
 

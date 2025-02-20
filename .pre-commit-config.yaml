@@ -1,4 +1,4 @@
-exclude: ^(poetry.lock|.idea/|Drivers/|Core/)
+exclude: ^(poetry.lock|.idea/|Drivers/|Core/|gnwmanager/cli/gnw_patch/)
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: "v0.9.6"
