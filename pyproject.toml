@@ -20,10 +20,8 @@ packages = [{include = "gnwmanager"}]
 include = [
     "gnwmanager/firmware.bin",
     "gnwmanager/unlock.bin",
-    "gnwmanager/cli/gnw-patch/patches",
-]
-exclude = [
-    "gnwmanager/cli/gnw-patch/*",
+    "gnwmanager/cli/gnw_patch/binaries/mario/*.bin",
+    "gnwmanager/cli/gnw_patch/binaries/zelda/*.bin",
 ]
 
 [tool.poetry.scripts]
