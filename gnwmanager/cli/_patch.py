@@ -15,7 +15,7 @@ from gnwmanager.cli.main import app
 
 log = logging.getLogger(__name__)
 
-app.command(flash_patch := App("flash-patch"))
+app.command(flash_patch := App("flash-patch", help="Patch & flash nintendo firmware for dual-boot."))
 
 
 def _log_patching_results(device, internal_remaining_free, compressed_memory_remaining_free):
@@ -33,8 +33,10 @@ def _common_prepare(cls, internal: Path, external: Path, bootloader: bool):
     else:
         version = "default"
     log.info(f"loading {version}.bin")
-    patch_data = (importlib.resources.files("gnwmanager.cli.gnw_patch.binaries") / f"{version}.bin").read_bytes()
-    elf = importlib.resources.files("gnwmanager.cli.gnw_patch.binaries") / f"{version}.elf"
+    patch_data = (
+        importlib.resources.files(f"gnwmanager.cli.gnw_patch.binaries.{cls.name}") / f"{version}.bin"
+    ).read_bytes()
+    elf = importlib.resources.files(f"gnwmanager.cli.gnw_patch.binaries.{cls.name}") / f"{version}.elf"
     device = cls(internal, elf, external)
     device.crypt()  # Decrypt external firmware.
 
@@ -89,6 +91,7 @@ def mario(
         Usually "flash_backup_mario.bin"
     bootloader: bool
         Leave room and flash the sd-card bootloader.
+        The LEFT+GAME combination will launch the sd-card bootloader at 0x08032000.
     disable_sleep: bool
         Disables sleep timer.
     sleep_time: int
@@ -165,12 +168,21 @@ def zelda(
     ----------
     internal: Path
         Path to internal flash dump from "gnwmanager dump".
-        Usually "internal_flash_backup_mario.bin"
+        Usually "internal_flash_backup_zelda.bin"
     external: Path
         Path to external flash dump from "gnwmanager dump".
-        Usually "flash_backup_mario.bin"
+        Usually "flash_backup_zelda.bin"
     bootloader: bool
         Leave room and flash the sd-card bootloader.
+        The LEFT+GAME combination will launch the sd-card bootloader at 0x08032000.
+    no_la: bool
+        Remove Link's Awakening to save space.
+    no_sleep_images: bool
+        Remove the 5 sleeping images to save space.
+    no_second_beep: bool
+        Remove the second beep in TIME/CLOCK.
+    no_hour_tune: bool
+        Remove the hour tune in TIME/CLOCK.
     """
     device = _common_prepare(ZeldaGnW, internal, external, bootloader)
 
@@ -184,6 +196,9 @@ def zelda(
     internal_remaining_free, compressed_memory_remaining_free = device()
 
     _log_patching_results(device, internal_remaining_free, compressed_memory_remaining_free)
+
+    Path("internal-patched.bin").write_bytes(device.internal)
+    Path("external-patched.bin").write_bytes(device.external)
 
     gnw.start_gnwmanager()
     gnw.flash(1, 0, device.internal, progress=False)
