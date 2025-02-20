@@ -7,6 +7,7 @@ from typing import Annotated, Optional
 from cyclopts import App, Group, Parameter, validators
 from cyclopts.types import ExistingBinPath
 
+from gnwmanager.cli._bootloader import flash_bootloader
 from gnwmanager.cli._parsers import GnWType
 from gnwmanager.cli.gnw_patch.exception import NotEnoughSpaceError
 from gnwmanager.cli.gnw_patch.mario import MarioGnW
@@ -54,8 +55,9 @@ def _common_prepare(cls, internal: Path, external: Path, bootloader: bool):
     return device
 
 
-low_level_flash = Group("Low Level Flags")
-high_level_flash = Group("High Level Flags", validator=validators.MutuallyExclusive())
+low_level_flash_group = Group("Low Level Flags")
+high_level_flash_group = Group("High Level Flags", validator=validators.MutuallyExclusive())
+sd_bootloader_group = Group = "SD Bootloader"
 
 
 @flash_patch.command(default_parameter=Parameter(negative=()))
@@ -64,15 +66,17 @@ def mario(
     external: ExistingBinPath,
     *,
     gnw: GnWType,
-    bootloader: bool = False,
-    disable_sleep: Annotated[bool, Parameter(group=low_level_flash)] = False,
+    bootloader: Annotated[bool, Parameter(group=sd_bootloader_group)] = False,
+    bootloader_repo: Annotated[str, Parameter(group=sd_bootloader_group)] = "sylverb/game-and-watch-bootloader",
+    bootloader_tag: Annotated[str, Parameter(group=sd_bootloader_group)] = "latest",
+    disable_sleep: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
     sleep_time: Annotated[Optional[int], Parameter(validator=validators.Number(gte=1, lte=1092))] = None,
-    no_save: Annotated[bool, Parameter(group=low_level_flash)] = False,
-    no_mario_song: Annotated[bool, Parameter(group=low_level_flash)] = False,
-    no_sleep_images: Annotated[bool, Parameter(group=low_level_flash)] = False,
-    no_smb2: Annotated[bool, Parameter(group=low_level_flash)] = False,
-    slim: Annotated[bool, Parameter(group=high_level_flash)] = False,
-    internal_only: Annotated[bool, Parameter(group=high_level_flash)] = False,
+    no_save: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
+    no_mario_song: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
+    no_sleep_images: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
+    no_smb2: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
+    slim: Annotated[bool, Parameter(group=high_level_flash_group)] = False,
+    internal_only: Annotated[bool, Parameter(group=high_level_flash_group)] = False,
 ):
     """Patch & Flash original mario firmware.
 
@@ -92,6 +96,10 @@ def mario(
     bootloader: bool
         Leave room and flash the sd-card bootloader.
         The LEFT+GAME combination will launch the sd-card bootloader at 0x08032000.
+    bootloader_repo: str
+        Username/Repo to download the release from.
+    bootloader_tag: str
+        Version tag to download from (e.g. "v1.0.3")
     disable_sleep: bool
         Disables sleep timer.
     sleep_time: int
@@ -143,6 +151,8 @@ def mario(
     gnw.flash(1, 0, device.internal, progress=False)
     if device.external:
         gnw.flash(0, 0, device.external, progress=True)
+    if bootloader:
+        flash_bootloader(0x08032000, gnw=gnw, repo=bootloader_repo, tag=bootloader_tag, label="0x08032000")
 
 
 @flash_patch.command(default_parameter=Parameter(negative=()))
@@ -151,11 +161,13 @@ def zelda(
     external: ExistingBinPath,
     *,
     gnw: GnWType,
-    bootloader: bool = False,
-    no_la: Annotated[bool, Parameter(group=low_level_flash)] = False,
-    no_sleep_images: Annotated[bool, Parameter(group=low_level_flash)] = False,
-    no_second_beep: Annotated[bool, Parameter(group=low_level_flash)] = False,
-    no_hour_tune: Annotated[bool, Parameter(group=low_level_flash)] = False,
+    bootloader: Annotated[bool, Parameter(group=sd_bootloader_group)] = False,
+    bootloader_repo: Annotated[str, Parameter(group=sd_bootloader_group)] = "sylverb/game-and-watch-bootloader",
+    bootloader_tag: Annotated[str, Parameter(group=sd_bootloader_group)] = "latest",
+    no_la: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
+    no_sleep_images: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
+    no_second_beep: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
+    no_hour_tune: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
 ):
     """Patch & Flash original zelda firmware.
 
@@ -175,6 +187,10 @@ def zelda(
     bootloader: bool
         Leave room and flash the sd-card bootloader.
         The LEFT+GAME combination will launch the sd-card bootloader at 0x08032000.
+    bootloader_repo: str
+        Username/Repo to download the release from.
+    bootloader_tag: str
+        Version tag to download from (e.g. "v1.0.3")
     no_la: bool
         Remove Link's Awakening to save space.
     no_sleep_images: bool
@@ -204,3 +220,5 @@ def zelda(
     gnw.flash(1, 0, device.internal, progress=False)
     if device.external:
         gnw.flash(0, 0, device.external, progress=True)
+    if bootloader:
+        flash_bootloader(0x08032000, gnw=gnw, repo=bootloader_repo, tag=bootloader_tag, label="0x08032000")

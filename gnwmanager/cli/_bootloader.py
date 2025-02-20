@@ -25,7 +25,7 @@ def _resolve_latest_tag(repo) -> str:
     return tag
 
 
-def get_bootloader(repo: str, tag: str = "latest") -> Path:
+def get_bootloader(repo: str, tag: str = "latest", label="") -> Path:
     """Download bootloader (if necessary).
 
     Returns
@@ -39,11 +39,17 @@ def get_bootloader(repo: str, tag: str = "latest") -> Path:
     cache_folder = find_cache_folder() / "bootloader" / repo
     cache_folder.mkdir(parents=True, exist_ok=True)
 
-    file_path = cache_folder / f"{tag}.bin"
+    if label:
+        file_path = cache_folder / f"{tag}_{label}.bin"
+    else:
+        file_path = cache_folder / f"{tag}.bin"
     if not file_path.exists() or file_path.stat().st_size == 0:
         # Download a new copy
         with httpx.Client(follow_redirects=True) as client:
-            download_url = f"https://github.com/{repo}/releases/download/{tag}/gnw_bootloader.bin"
+            if label:
+                download_url = f"https://github.com/{repo}/releases/download/{tag}/gnw_bootloader_{label}.bin"
+            else:
+                download_url = f"https://github.com/{repo}/releases/download/{tag}/gnw_bootloader.bin"
             response = client.get(download_url)
             response.raise_for_status()
             file_path.write_bytes(response.content)
@@ -65,6 +71,7 @@ def flash_bootloader(
     gnw: GnWType,
     repo: str = "sylverb/game-and-watch-bootloader",
     tag: str = "latest",
+    label: str = "",
 ):
     """Download & flash pre-compiled SylverB's bootloader.
 
@@ -78,12 +85,14 @@ def flash_bootloader(
         Offset into flash.
     repo: str
         Username/Repo to download the release from.
-        Defaults to sylverb/game-and-watch-bootloader
     tag: str
-        Version tag to download from (e.g. v1.0.2)
-        Defaults to "latest".
+        Version tag to download from (e.g. "v1.0.3")
+    label: str
+        Suffix of the bootloader to download.
+        E.g. if label="0x08032000", then gnw_bootloader_0x08032000.bin will be downloaded.
+        Empty (default) for gnw_bootloader.bin.
     """
-    file_path = get_bootloader(repo, tag)
+    file_path = get_bootloader(repo, tag, label)
 
     log.info(f"Flashing bootloader {file_path}")
     # Flash it to device
