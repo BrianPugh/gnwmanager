@@ -21,7 +21,7 @@ This tutorial breaks it up by operating system in case you are really starting f
   ```
 
   ### Installing python
-  If you don't have a modern (>=3.8) version of python installed, you can install it with `Chocolately`:
+  If you don't have a modern (>=3.9) version of python installed, you can install it with `Chocolately`:
 
   ```bash
   choco install python
@@ -48,7 +48,7 @@ This tutorial breaks it up by operating system in case you are really starting f
   ```
 
   #### Installing python
-  If you don't have a modern (>=3.8) version of python installed, you can install it with `brew`:
+  If you don't have a modern (>=3.9) version of python installed, you can install it with `brew`:
 
   ```bash
   brew install python
@@ -64,7 +64,7 @@ This tutorial breaks it up by operating system in case you are really starting f
   <summary>Click to expand.</summary>
 
   #### Installing python
-  If you don't have a modern (>=3.8) version of python installed, you can install it with `apt-get`:
+  If you don't have a modern (>=3.9) version of python installed, you can install it with `apt-get`:
 
   ```bash
   sudo apt-get update

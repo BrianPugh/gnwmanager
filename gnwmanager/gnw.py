@@ -615,11 +615,8 @@ class GnW:
 
         self.reset_and_halt()
 
-        # TODO: this is deprecated, but the replacement was introduced in python3.9.
-        # Migrate to ``as_file`` once python3.8 hits EOL.
-        with importlib.resources.path("gnwmanager", "firmware.bin") as f:
-            firmware = f.read_bytes()
-            log.debug(f"Loaded {len(firmware)} bytes of gnwmanager firmware.")
+        firmware = (importlib.resources.files("gnwmanager") / "firmware.bin").read_bytes()
+        log.debug(f"Loaded {len(firmware)} bytes of gnwmanager firmware.")
 
         log.debug("Loading gnwmanager firmware to device.")
         self.write_memory(0x240E_6800, firmware)  # See STM32H7B0VBTx_FLASH.ld

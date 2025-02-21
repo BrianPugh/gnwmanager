@@ -213,9 +213,6 @@ def zelda(
 
     _log_patching_results(device, internal_remaining_free, compressed_memory_remaining_free)
 
-    Path("internal-patched.bin").write_bytes(device.internal)
-    Path("external-patched.bin").write_bytes(device.external)
-
     gnw.start_gnwmanager()
     gnw.flash(1, 0, device.internal, progress=False)
     if device.external:
