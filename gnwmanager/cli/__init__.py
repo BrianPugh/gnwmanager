@@ -1,3 +1,4 @@
+import gnwmanager.cli._boxart
 from gnwmanager.cli._bootloader import flash_bootloader
 from gnwmanager.cli._debug import debug
 from gnwmanager.cli._dump import dump
