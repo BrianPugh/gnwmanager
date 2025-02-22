@@ -7,12 +7,13 @@ import subprocess
 import tempfile
 from collections.abc import Generator
 from pathlib import Path
+from threading import Thread
 from time import sleep, time
 from typing import List, Tuple
 
 from gnwmanager.exceptions import DataError, DebugProbeConnectionError, MissingThirdPartyError
 from gnwmanager.ocdbackend.base import OCDBackend, TransferErrors
-from gnwmanager.utils import kill_processes_by_name
+from gnwmanager.utils import env_is_yes_like, kill_processes_by_name
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +33,13 @@ class OpenOCDAutoDetectError(OpenOCDError):
 TransferErrors.add(OpenOCDError)
 
 _ramdisk = Path("/dev/shm")
+
+
+def process_output(stream):
+    for line in iter(stream.readline, ""):
+        text = line.decode().rstrip()
+        if text:
+            log.debug(text)
 
 
 def _pi_find_gpio_number(gpio_name):
@@ -179,6 +187,12 @@ class OpenOCDBackend(OCDBackend):
         kill_processes_by_name("openocd")
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._openocd_process = _launch_openocd(self._address[1])
+
+        if env_is_yes_like("GNWMANAGER_OPENOCD_DEBUG"):
+            debug_thread = Thread(target=process_output, args=(self._openocd_process.stderr,))
+            debug_thread.daemon = True
+            debug_thread.start()
+
         for _ in range(5):
             try:
                 self._socket.connect(self._address)
@@ -220,6 +234,7 @@ class OpenOCDBackend(OCDBackend):
 
         while True:
             single_response = self._socket.recv(_BUFFER_SIZE)
+
             if single_response:
                 responses.append(single_response)
             else:
