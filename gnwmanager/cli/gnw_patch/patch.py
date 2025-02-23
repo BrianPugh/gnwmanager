@@ -3,6 +3,7 @@ import json
 import logging
 from contextlib import suppress
 from pathlib import Path
+from threading import Lock
 
 from .compact_json_encoder import CompactJSONEncoder
 from .compression import lzma_compress
@@ -19,6 +20,8 @@ def twos_compliment(value, bits):
         return (1 << bits) + value
 
 class CachedKeystone:
+    _lock = Lock()
+
     def __init__(self):
         path = importlib.resources.files("gnwmanager.cli.gnw_patch") / "keystone_cache.json"
         self.path = Path(path)
@@ -46,15 +49,18 @@ class CachedKeystone:
         if value is None:
             raise InvalidAsmError
 
-        self._cache[key] = value
+        with self._lock:
+            self._cache[key] = value
 
-        self.path.parent.mkdir(exist_ok=True, parents=True)
-        with self.path.open("w") as f:
-            json.dump(
-                self._cache, f, sort_keys=True, indent="\t", cls=CompactJSONEncoder
-            )
+            self.path.parent.mkdir(exist_ok=True, parents=True)
+            with self.path.open("w") as f:
+                json.dump(
+                    self._cache, f, sort_keys=True, indent="\t", cls=CompactJSONEncoder
+                )
 
         return value
+
+_cached_keystone = CachedKeystone()
 
 class FirmwarePatchMixin:
     """Patch commands that apply to a single firmware instance."""
@@ -201,7 +207,7 @@ class FirmwarePatchMixin:
         try:
             return self._ks_inst
         except AttributeError:
-            self._ks_inst = CachedKeystone()
+            self._ks_inst = _cached_keystone
         return self._ks_inst
 
     def asm(self, offset: int, data: str, size=None) -> int:
