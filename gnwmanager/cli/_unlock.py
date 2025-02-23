@@ -89,10 +89,7 @@ def unlock(
 
     assert model is not None
 
-    # TODO: this is deprecated, but the replacement was introduced in python3.9.
-    # Migrate to ``as_file`` once python3.8 hits EOL.
-    with importlib.resources.path("gnwmanager", "unlock.bin") as f:
-        unlock_firmware_data = f.read_bytes()
+    unlock_firmware_data = (importlib.resources.files("gnwmanager") / "unlock.bin").read_bytes()
 
     print(f"\nIf interrupted, resume unlocking with:\n    gnwmanager unlock --backup-dir={backup_dir}\n")
 

@@ -4,7 +4,7 @@
 
 <div align="center">
 
-![Python compat](https://img.shields.io/badge/>=python-3.8-blue.svg)
+![Python compat](https://img.shields.io/badge/>=python-3.9-blue.svg)
 [![PyPI](https://img.shields.io/pypi/v/gnwmanager.svg)](https://pypi.org/project/gnwmanager/)
 
 </div>

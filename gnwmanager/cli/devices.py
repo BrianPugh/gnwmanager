@@ -29,7 +29,7 @@ def _sha1(data: bytes) -> str:
 
 
 def _xor(a: bytes, b: bytes) -> bytes:
-    return bytearray(x ^ y for x, y in zip(a, b))
+    return bytes(x ^ y for x, y in zip(a, b))
 
 
 class DeviceModel(Registry, suffix="Model"):
@@ -95,7 +95,6 @@ class DeviceModel(Registry, suffix="Model"):
         to copy it to a computer.
         """
         data = self.gnw.backend.read_memory(0x2400_0000, 128 << 10)
-        Path("internal_dump.bin").write_bytes(data)  # TODO: remove
         self.validate_internal_flash(data)
         return data
 
