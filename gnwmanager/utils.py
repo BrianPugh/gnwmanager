@@ -1,5 +1,6 @@
 import hashlib
 import lzma
+import os
 import struct
 from contextlib import suppress
 from enum import Enum
@@ -47,6 +48,10 @@ def compress_lzma(data) -> bytes:
     return compressed_data[13:]
 
 
+def env_is_yes_like(key: str) -> bool:
+    return os.environ.get(key, "").lower() in {"yes", "y", "1", "true", "t"}
+
+
 def convert_framebuffer(data: bytes) -> Image.Image:
     """Convert a raw RGB565 framebuffer into a PIL Image.
 
@@ -60,6 +65,8 @@ def convert_framebuffer(data: bytes) -> Image.Image:
 
     img = Image.new("RGB", (320, 240))
     pixels = img.load()
+    if pixels is None:
+        raise FileNotFoundError
     index = 0
     for y in range(240):
         for x in range(320):
