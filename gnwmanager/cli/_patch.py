@@ -103,7 +103,7 @@ def mario(
     disable_sleep: bool
         Disables sleep timer.
     sleep_time: int
-        Go to sleep after this many seconds of inactivity.
+        Go to sleep after this many seconds of inactivity (valid range: [1, 1092]).
     no_save: bool
         Don't use up 2 pages (8192 bytes) of extflash for non-volatile saves.
         High scores and brightness/volume configurations will NOT survive homebrew launches.

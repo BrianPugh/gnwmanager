@@ -9,7 +9,7 @@ CI is **not** setup to recompile these binaries, primarily because it makes loca
 
 ```
 make clean
-make PATCH_PARAMS="--device=mario"
+PATCH_PARAMS="--device=mario" make
 cp build/gw_patch.bin ../gnwmanager/gnwmanager/cli/gnw_patch/binaries/mario/default.bin
 cp build/gw_patch.elf ../gnwmanager/gnwmanager/cli/gnw_patch/binaries/mario/default.elf
 
@@ -23,7 +23,7 @@ cp build/gw_patch.elf ../gnwmanager/gnwmanager/cli/gnw_patch/binaries/mario/0x08
 
 ```
 make clean
-make PATCH_PARAMS="--device=zelda"
+PATCH_PARAMS="--device=zelda" make
 cp build/gw_patch.bin ../gnwmanager/gnwmanager/cli/gnw_patch/binaries/zelda/default.bin
 cp build/gw_patch.elf ../gnwmanager/gnwmanager/cli/gnw_patch/binaries/zelda/default.elf
 
