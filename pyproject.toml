@@ -47,7 +47,7 @@ colorama = "^0.4.6"
 pycryptodome = "^3.21.0"
 
 [tool.poetry.group.docs.dependencies]
-sphinx = ">=6.2.1,<7.2.0"
+sphinx = ">=6.2.1,<7.5.0"
 sphinx_rtd_theme = ">=1.2.2,<2.1.0"
 gitpython = ">=3.1.31"
 sphinx-copybutton = "^0.5.2"
