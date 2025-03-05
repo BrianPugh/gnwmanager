@@ -13,7 +13,9 @@ class BadBackupError(Exception):
     """Bad backups detected."""
 
 
-def _verify_backups(backup_dir) -> str:
+def _verify_backups(backup_dir: Optional[Path]) -> str:
+    if backup_dir is None:
+        raise ValueError("Must specify --backup-dir.")
     for model, device_model_cls in DeviceModel.items():
         itcm = backup_dir / f"itcm_backup_{model}.bin"
         external_flash = backup_dir / f"flash_backup_{model}.bin"
@@ -54,6 +56,9 @@ def lock(
     if skip_check and backup_dir:
         raise ValueError("Only supply BACKUP_DIR or --skip-check.")
 
+    if not skip_check:
+        _verify_backups(backup_dir)
+
     gnw.start_gnwmanager()
 
     if gnw.is_locked():
@@ -61,12 +66,9 @@ def lock(
         gnw.backend.reset()
         return
 
-    if not skip_check:
-        _verify_backups(backup_dir)
-
     if interactive:
         print("This will lock your device!")
-        input('Press the "enter" key to continue: ')
+        input('Press the "enter" key to continue; ctrl-c to exit: ')
 
     gnw.write_uint32(0x52002008, 0x08192A3B)
     sleep(0.1)
@@ -79,4 +81,4 @@ def lock(
 
     gnw.backend.reset()
 
-    print("Locking complete! Completely power cycle your device.")
+    print("Locking complete! Completely power cycle your device (remove battery & usb power).")
