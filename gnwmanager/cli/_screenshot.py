@@ -27,6 +27,7 @@ def capture(
     framebuffer: str = "framebuffer",
     *,
     gnw: GnWType,
+    no_halt: bool = False,
 ):
     """Capture a live screenshot from device's framebuffer.
 
@@ -38,6 +39,8 @@ def capture(
         Project's ELF file. Defaults to searching "build/" directory.
     framebuffer: str
         Framebuffer variable name.
+    no_halt: bool
+        Do not pause device execution while dumping the framebuffer.
     """
     with SymTab(elf) if elf else SymTab.find() as symtab:
         framebuffer_sym = symtab[framebuffer]
@@ -49,7 +52,11 @@ def capture(
     if framebuffer_size != expected_framebuffer_size:
         raise ValueError(f"Unexpected framebuffer size {framebuffer_size}. Expected {expected_framebuffer_size}.")
 
+    if not no_halt:
+        gnw.backend.halt()
     data = gnw.read_memory(framebuffer_addr, framebuffer_size)
+    if not no_halt:
+        gnw.backend.resume()
     img = convert_framebuffer(data)
     img.save(dst)
 
