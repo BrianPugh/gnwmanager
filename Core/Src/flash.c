@@ -340,11 +340,13 @@ const jedec_config_t jedec_map[] = {
     JEDEC_CONFIG_DEF(0xC2, 0x25, 0x36, "MX25U3232F",  &config_quad_24b_mx,  4 << 20),   // Stock 4MB (Zelda)
     JEDEC_CONFIG_DEF(0xC2, 0x25, 0x37, "MX25U6432F",  &config_quad_24b_mx,  8 << 20),   // 8MB
     JEDEC_CONFIG_DEF(0xC2, 0x25, 0x38, "MX25U1283xF", &config_quad_24b_mx, 16 << 20),   // 16MB MX25U12832F, MX25U12835F
+    JEDEC_CONFIG_DEF(0xC2, 0x20, 0x18, "MX25L12873",  &config_quad_24b_mx, 16 << 20),   // 16 MB, 3.3v
 
     // MX 32 bit address
     JEDEC_CONFIG_DEF(0xC2, 0x25, 0x39, "MX25U25635F",    &config_quad_32b_mx, 32 << 20),   // 32 MB
     JEDEC_CONFIG_DEF(0xC2, 0x25, 0x3A, "MX25U51245G",    &config_quad_32b_mx, 64 << 20),   // 64 MB
     JEDEC_CONFIG_DEF(0xC2, 0x24, 0x3A, "MX25U51245G",    &config_quad_32b_mx, 64 << 20),   // 64 MB variant of unknown cause supplied by DigiKey (not listed in datasheet)
+    JEDEC_CONFIG_DEF(0xC2, 0x20, 0x1A, "MX25L51245G",    &config_quad_32b_mx, 64 << 20),   // 64 MB, 3.3v
     JEDEC_CONFIG_DEF(0xC2, 0x95, 0x3A, "MX25U51245G-54", &config_quad_32b_mx54, 64 << 20), // 64 MB
     JEDEC_CONFIG_DEF(0xC2, 0x25, 0x3B, "MX66U1G45G",     &config_quad_32b_mx, 128 << 20),   // 128 MB
     JEDEC_CONFIG_DEF(0xC2, 0x25, 0x3C, "MX66U2G45G",     &config_quad_32b_mx, 256 << 20),   // 256 MB
