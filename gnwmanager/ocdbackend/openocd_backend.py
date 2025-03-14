@@ -129,6 +129,11 @@ def _launch_openocd(port: int, timeout: float = 10.0):  # -> subprocess.Popen[by
                 err = err.decode()
                 log.debug(err)
 
+                if "Error: couldn't bind tcl to socket on port" in err:
+                    raise OpenOCDAutoDetectError(
+                        f"Couldn't successfully launch openocd; some other process is using port {port}."
+                    )
+
                 if "Interface ready" in err:
                     raise OpenOCDAutoDetectError(f"Was able to connect to {name} probe, but unable to talk to device.")
 
