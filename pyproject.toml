@@ -44,7 +44,7 @@ autoregistry = "^1.0.0"
 psutil = "^7.0.0"
 httpx = "^0.28.1"
 colorama = "^0.4.6"
-pycryptodome = "^3.21.0"
+pycryptodome = "^3.22.0"
 
 [tool.poetry.group.docs.dependencies]
 sphinx = ">=6.2.1,<7.5.0"
