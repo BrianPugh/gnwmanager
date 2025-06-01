@@ -32,7 +32,7 @@ pyocd = ["pyocd"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-cyclopts = "^3.14.1"
+cyclopts = "^3.16.2"
 pyocd = { version=">=0.35.1", optional=true }
 littlefs-python = ">=0.9.0"
 tqdm = "^4.66.6"
