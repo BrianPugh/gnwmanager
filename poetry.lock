@@ -1815,15 +1815,15 @@ six = "*"
 
 [[package]]
 name = "pyocd"
-version = "0.36.0"
+version = "0.38.0"
 description = "Cortex-M debugger for Python"
 optional = true
-python-versions = ">=3.7.0"
+python-versions = ">=3.8.0"
 groups = ["main"]
 markers = "extra == \"pyocd\""
 files = [
-    {file = "pyocd-0.36.0-py3-none-any.whl", hash = "sha256:422ec017f1c0be2fe8f7d43e7e73dfe8fdb413d53685a24d68d09c7d95ac11b3"},
-    {file = "pyocd-0.36.0.tar.gz", hash = "sha256:937782acc9daff054d50fb7c6f788cd94a84f80f0b85f25aacab99dc98228648"},
+    {file = "pyocd-0.38.0-py3-none-any.whl", hash = "sha256:db2d5c861f52fb4e1005e4611fbc85dda7cd0c64822b973f2551cba081733af4"},
+    {file = "pyocd-0.38.0.tar.gz", hash = "sha256:a3b959cdc7c716cdd9a2936ff0382aed9863db84765a34b3156cc742b21d47ba"},
 ]
 
 [package.dependencies]
@@ -1831,8 +1831,8 @@ capstone = ">=4.0,<5.0"
 cmsis-pack-manager = ">=0.5.2,<1.0"
 colorama = "<1.0"
 hidapi = {version = ">=0.10.1,<1.0", markers = "platform_system != \"Linux\""}
-importlib-metadata = ">=3.6"
-importlib-resources = "*"
+importlib_metadata = ">=3.6"
+importlib_resources = "*"
 intelhex = ">=2.0,<3.0"
 intervaltree = ">=3.0.2,<4.0"
 lark = ">=1.1.5,<2.0"
@@ -1847,7 +1847,7 @@ six = ">=1.15.0,<2.0"
 typing-extensions = ">=4.0,<5.0"
 
 [package.extras]
-pemicro = ["pyocd-pemicro (>=1.0.6)"]
+pemicro = ["pyocd_pemicro (>=1.0.6)"]
 test = ["coverage", "flake8", "pylint", "pytest (>=6.2)", "pytest-cov", "tox"]
 
 [[package]]
