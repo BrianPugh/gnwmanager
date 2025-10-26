@@ -80,6 +80,13 @@ Hook up your STLink to your game and watch as follows:
   <img width=512 src="https://raw.githubusercontent.com/BrianPugh/gnwmanager/main/assets/stlinkv2.png">
 </div>
 
+#### STLink Clone
+Attention, Pinout can be different:
+
+<div align="center">
+  <img width=512 src="https://github.com/user-attachments/assets/15398898-302b-42e5-ba1b-8779fecee650" />
+</div>
+
 #### Raspberry Pi (GPIO)
 Hook up your Raspberry Pi to your game and watch as follows:
 
