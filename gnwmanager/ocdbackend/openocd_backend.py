@@ -66,11 +66,11 @@ def _openocd_launch_commands(port: int) -> Generator[tuple[str, list[str]], None
         f"tcl_port {port}",
     ]
 
-    # STLink
+    # STLink — don't specify transport; the old "hla" driver auto-selects "hla_swd"
+    # and the newer native "st-link" driver (OpenOCD post-Nov 2024) auto-selects "swd".
     cmd = base_cmd.copy()
     cmd.extend(["-c", "adapter speed 4000"])
     cmd.extend(["-c", "source [find interface/stlink.cfg]"])
-    cmd.extend(["-c", "transport select hla_swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
     yield "stlink", cmd
 
