@@ -50,9 +50,6 @@ gnw$ tree
         └── [      0B DIR                     ] bar
 ```
 
-Note: `*` wildcard for files/folders will **not** be expanded by gnwmanager's shell.
-`*` wildcard expansion is handled by your computer's shell.
-
 #### ls
 List the contents of a directory
 
