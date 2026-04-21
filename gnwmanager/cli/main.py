@@ -257,6 +257,14 @@ def main(
             rich.print("Failed to open file on SD Card!")
         elif e.args == ("BAD_SD_WRITE",):
             rich.print("Failed to write file on SD Card!")
+        elif e.args == ("BAD_SD_UNLINK",):
+            rich.print("Failed to delete file on SD Card!")
+        elif e.args == ("BAD_SD_DIR",):
+            rich.print("Failed to open directory on SD Card!")
+        elif e.args == ("BAD_SD_LIST_TRUNC",):
+            rich.print("SD directory listing was truncated (too many entries or long names).")
+        elif e.args == ("BAD_SD_READ",):
+            rich.print("Failed to read file from SD Card!")
         else:
             rich.print(f"Unexpected response from debug probe. {e}")
     except ConnectionResetError:

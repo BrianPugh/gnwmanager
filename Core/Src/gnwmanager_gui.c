@@ -170,6 +170,10 @@ void gnwmanager_gui_draw(){
             (*gui.status == GNWMANAGER_STATUS_BAD_SD_FS_MOUNT)
             || (*gui.status == GNWMANAGER_STATUS_BAD_SD_OPEN)
             || (*gui.status == GNWMANAGER_STATUS_BAD_SD_WRITE)
+            || (*gui.status == GNWMANAGER_STATUS_BAD_SD_UNLINK)
+            || (*gui.status == GNWMANAGER_STATUS_BAD_SD_DIR)
+            || (*gui.status == GNWMANAGER_STATUS_BAD_SD_LIST_TRUNC)
+            || (*gui.status == GNWMANAGER_STATUS_BAD_SD_READ)
     );
 
     const glyph_t* run[] = {

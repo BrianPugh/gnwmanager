@@ -40,6 +40,9 @@ enum gnwmanager_action {
     GNWMANAGER_ACTION_ERASE_AND_FLASH = 0,
     GNWMANAGER_ACTION_HASH = 1,
     GNWMANAGER_ACTION_WRITE_FILE_TO_SD = 2,
+    GNWMANAGER_ACTION_LIST_SD_DIR = 3,
+    GNWMANAGER_ACTION_DELETE_FILE_FROM_SD = 4,
+    GNWMANAGER_ACTION_READ_FILE_FROM_SD = 5,
 };
 
 
@@ -280,6 +283,173 @@ static void gnwmanager_action_hash(work_context_t *context){
     context->response_ready = 1;
 }
 
+static void gnwmanager_action_list_sd_dir(work_context_t *context){
+    FRESULT res;
+    DIR dir;
+    FILINFO fno;
+    uint8_t *out = (uint8_t *)context->buffer;
+    const uint32_t cap = 256u << 10;
+    uint32_t used = 0;
+
+    if (sdcard_hw == GNWMANAGER_SDCARD_HW_UNDETECTED) {
+        sdcard_hw_detect();
+    }
+    if (sdcard_hw < GNWMANAGER_SDCARD_HW_1) {
+        gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_FS_MOUNT);
+        context->size = 0;
+        context->response_ready = 1;
+        return;
+    }
+
+    f_mount(&FatFs, (const TCHAR *)"", 1);
+    res = f_opendir(&dir, (const TCHAR *)context->file_path);
+    if (res != FR_OK) {
+        gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_DIR);
+        f_mount(NULL, "", 0);
+        context->size = 0;
+        context->response_ready = 1;
+        return;
+    }
+
+    for (;;) {
+        res = f_readdir(&dir, &fno);
+        if (res != FR_OK || fno.fname[0] == 0) {
+            break;
+        }
+        const char *name = fno.fname;
+        if (name[0] == '.' && name[1] == 0) {
+            continue;
+        }
+        if (name[0] == '.' && name[1] == '.' && name[2] == 0) {
+            continue;
+        }
+        if (used >= cap) {
+            gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_LIST_TRUNC);
+            f_closedir(&dir);
+            f_mount(NULL, "", 0);
+            context->size = used;
+            context->response_ready = 1;
+            return;
+        }
+        int n = snprintf((char *)out + used, cap - used, "%s%s\n", name,
+                         (fno.fattrib & AM_DIR) ? "/" : "");
+        if (n < 0 || (uint32_t)n >= cap - used) {
+            gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_LIST_TRUNC);
+            f_closedir(&dir);
+            f_mount(NULL, "", 0);
+            context->size = used;
+            context->response_ready = 1;
+            return;
+        }
+        used += (uint32_t)n;
+    }
+
+    f_closedir(&dir);
+    f_mount(NULL, "", 0);
+    gnwmanager_set_status(GNWMANAGER_STATUS_IDLE);
+    context->size = used;
+    context->response_ready = 1;
+}
+
+static void gnwmanager_action_delete_sd_file(work_context_t *context){
+    if (sdcard_hw == GNWMANAGER_SDCARD_HW_UNDETECTED) {
+        sdcard_hw_detect();
+    }
+    if (sdcard_hw < GNWMANAGER_SDCARD_HW_1) {
+        gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_FS_MOUNT);
+        context->response_ready = 1;
+        return;
+    }
+
+    f_mount(&FatFs, (const TCHAR *)"", 1);
+    FRESULT res = f_unlink((const TCHAR *)context->file_path);
+    f_mount(NULL, "", 0);
+
+    if (res != FR_OK) {
+        gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_UNLINK);
+    } else {
+        gnwmanager_set_status(GNWMANAGER_STATUS_IDLE);
+    }
+    context->response_ready = 1;
+}
+
+static void gnwmanager_action_read_sd_file(work_context_t *context){
+    FRESULT res;
+    UINT br = 0;
+    uint32_t want;
+
+    if (sdcard_hw == GNWMANAGER_SDCARD_HW_UNDETECTED) {
+        sdcard_hw_detect();
+    }
+    if (sdcard_hw < GNWMANAGER_SDCARD_HW_1) {
+        gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_FS_MOUNT);
+        context->size = 0;
+        context->response_ready = 1;
+        return;
+    }
+
+    f_mount(&FatFs, (const TCHAR *)"", 1);
+    res = f_open(&file, (const TCHAR *)context->file_path, FA_READ);
+    if (res != FR_OK) {
+        gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_OPEN);
+        f_mount(NULL, "", 0);
+        context->size = 0;
+        context->response_ready = 1;
+        return;
+    }
+
+    /* size==0 and offset==0: return file length in context->size (host progress). */
+    if (context->size == 0) {
+        if (context->offset != 0) {
+            gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_READ);
+            f_close(&file);
+            f_mount(NULL, "", 0);
+            context->size = 0;
+            context->response_ready = 1;
+            return;
+        }
+        FSIZE_t fsz = f_size(&file);
+        f_close(&file);
+        f_mount(NULL, "", 0);
+        gnwmanager_set_status(GNWMANAGER_STATUS_IDLE);
+        context->size = (fsz > (FSIZE_t)0xffffffffu) ? 0xffffffffu : (uint32_t)fsz;
+        context->response_ready = 1;
+        return;
+    }
+
+    want = context->size;
+    if (want > (256u << 10)) {
+        want = 256u << 10;
+    }
+
+    if (context->offset) {
+        res = f_lseek(&file, (FSIZE_t)context->offset);
+        if (res != FR_OK || f_tell(&file) != (FSIZE_t)context->offset) {
+            gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_READ);
+            f_close(&file);
+            f_mount(NULL, "", 0);
+            context->size = 0;
+            context->response_ready = 1;
+            return;
+        }
+    }
+
+    res = f_read(&file, (void *)context->buffer, want, &br);
+    f_close(&file);
+    f_mount(NULL, "", 0);
+
+    if (res != FR_OK) {
+        gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_READ);
+        context->size = 0;
+        context->response_ready = 1;
+        return;
+    }
+
+    gnwmanager_set_status(GNWMANAGER_STATUS_IDLE);
+    context->size = br;
+    context->response_ready = 1;
+}
+
 static bool ext_is_erased(uint32_t offset, uint32_t size){
     OSPI_EnableMemoryMappedMode();
     uint32_t *end = (uint32_t *)(0x90000000 + offset + size);
@@ -320,10 +490,26 @@ static void gnwmanager_run(void)
 
         // Attempt to find the next ready working_context in queue
         if((source_context = get_context()) == NULL){
-            gnwmanager_set_status(GNWMANAGER_STATUS_IDLE);
+            /* Do not overwrite a BAD_* status while the host still holds ready!=0 on a
+             * context (e.g. LIST_SD_DIR / DELETE_FILE_FROM_SD / HASH returned early);
+             * otherwise the next loop would set IDLE before the host reads the error. */
+            uint32_t st = comm.status;
+            uint8_t any_ready = (comm.contexts[0].ready != 0) || (comm.contexts[1].ready != 0);
+            if ((st & 0xffff0000u) == 0xbad00000u) {
+                if (!any_ready) {
+                    gnwmanager_set_status(GNWMANAGER_STATUS_IDLE);
+                }
+            } else {
+                gnwmanager_set_status(GNWMANAGER_STATUS_IDLE);
+            }
             break;
         }
         context_counter++;
+
+        /* Clear a stale BAD_* from a prior failure before handling this command. */
+        if ((comm.status & 0xffff0000u) == 0xbad00000u) {
+            gnwmanager_set_status(GNWMANAGER_STATUS_IDLE);
+        }
 
         switch(source_context->action){
             case GNWMANAGER_ACTION_ERASE_AND_FLASH:
@@ -333,6 +519,18 @@ static void gnwmanager_run(void)
                 gnwmanager_set_status(GNWMANAGER_STATUS_HASH);
                 gnwmanager_action_hash(source_context);
                 return;
+            case GNWMANAGER_ACTION_LIST_SD_DIR:
+                gnwmanager_set_status(GNWMANAGER_STATUS_PROG);
+                gnwmanager_action_list_sd_dir(source_context);
+                return;
+            case GNWMANAGER_ACTION_DELETE_FILE_FROM_SD:
+                gnwmanager_set_status(GNWMANAGER_STATUS_PROG);
+                gnwmanager_action_delete_sd_file(source_context);
+                return;
+            case GNWMANAGER_ACTION_READ_FILE_FROM_SD:
+                gnwmanager_set_status(GNWMANAGER_STATUS_PROG);
+                gnwmanager_action_read_sd_file(source_context);
+                return;
             case GNWMANAGER_ACTION_WRITE_FILE_TO_SD:
                 state = GNWMANAGER_IDLE_SD;
                 if (sdcard_hw == GNWMANAGER_SDCARD_HW_UNDETECTED) {
@@ -340,6 +538,7 @@ static void gnwmanager_run(void)
                 }
                 if (sdcard_hw < GNWMANAGER_SDCARD_HW_1) {
                     gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_FS_MOUNT);
+                    release_context(source_context);
                     state = GNWMANAGER_ERROR;
                     return;
                 }
@@ -562,7 +761,10 @@ static void gnwmanager_run(void)
         state = GNWMANAGER_IDLE;
         break;
     case GNWMANAGER_ERROR:
-        // Stay in state until reset.
+        /* Allow a new host command after release_context() cleared ready bits. */
+        if (comm.contexts[0].ready || comm.contexts[1].ready) {
+            state = GNWMANAGER_IDLE;
+        }
         break;
     }
 }
