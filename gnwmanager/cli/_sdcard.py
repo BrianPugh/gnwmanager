@@ -2,15 +2,17 @@ import logging
 from pathlib import Path
 from typing import Annotated
 
-from cyclopts import Parameter, validators
+from cyclopts import Group, Parameter, validators
 
 from gnwmanager.cli._parsers import GnWType
 from gnwmanager.cli.main import app
 
 log = logging.getLogger(__name__)
 
+group_sd = Group("SD Card (Only for game and watch with SD Card mod)")
 
-@app.command(group="SD Card (Only for game and watch with SD Card mod)")
+
+@app.command(group=group_sd)
 def sdls(
     path: str = "/",
     *,
@@ -25,7 +27,7 @@ def sdls(
     print(listing, end="" if listing.endswith("\n") else "\n")
 
 
-@app.command(group="SD Card (Only for game and watch with SD Card mod)")
+@app.command(group=group_sd)
 def sdrm(
     path: str,
     *,
@@ -38,7 +40,7 @@ def sdrm(
     gnw.sd_unlink(path)
 
 
-@app.command(group="SD Card (Only for game and watch with SD Card mod)")
+@app.command(group=group_sd)
 def sdpull(
     src_path: str,
     dest: Path,
@@ -59,7 +61,7 @@ def sdpull(
     dest.write_bytes(data)
 
 
-@app.command(group="SD Card (Only for game and watch with SD Card mod)")
+@app.command(group=group_sd)
 def sdpush(
     file: Annotated[Path, Parameter(validator=validators.Path(exists=True, dir_okay=False))],
     dest_path: str,
