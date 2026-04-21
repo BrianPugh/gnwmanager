@@ -30,6 +30,9 @@ actions: dict[str, int] = {
     "ERASE_AND_FLASH": 0,
     "HASH": 1,
     "WRITE_FILE_TO_SD": 2,
+    "LIST_SD_DIR": 3,
+    "DELETE_FILE_FROM_SD": 4,
+    "READ_FILE_FROM_SD": 5,
 }
 
 _comm: dict[str, Variable] = {
@@ -188,11 +191,13 @@ class GnW:
         t_deadline = t_start + timeout
         for i, context in enumerate(_contexts):
             while self.read_uint32(context["ready"]):
+                self._get_status()
                 if time() > t_deadline:
                     raise TimeoutError("wait_for_all_contexts_complete")
                 sleep(0.1)
             log.debug(f"Context {i} complete.")
         log.debug(f"Waited {time() - t_start:.3f}s for all contexts to complete.")
+        self._get_status()
         self.wait_for_idle(timeout=t_deadline - time())
 
     def wait_for_context_response(self, context, timeout=20):
@@ -608,6 +613,142 @@ class GnW:
             self.write_uint32("progress", int(26 * (i + 1) / len(chunks)))
 
         self.wait_for_all_contexts_complete()
+
+    def _sd_read_file_chunk(
+        self,
+        path: str,
+        offset: int,
+        max_bytes: int,
+        *,
+        blocking: bool = True,
+    ) -> bytes:
+        """Read up to ``max_bytes`` from ``path`` on the SD card starting at ``offset``."""
+        if not path:
+            raise ValueError("SD path cannot be empty.")
+        if offset < 0:
+            raise ValueError("offset must be >= 0")
+        if max_bytes < 0 or max_bytes > (256 << 10):
+            raise ValueError("max_bytes must be in [0, 256 KiB].")
+        if max_bytes == 0 and offset != 0:
+            raise ValueError("max_bytes==0 (stat) requires offset==0.")
+
+        context = self.get_context()
+        self.write_uint32(context["response_ready"], 0)
+        self.write_uint32(context["action"], actions["READ_FILE_FROM_SD"])
+        self.write_str(context["dest_path"], path)
+        self.write_uint32(context["offset"], offset)
+        self.write_uint32(context["size"], max_bytes)
+        self.write_uint32(context["ready"], self.context_counter)
+        self.context_counter += 1
+        log.debug(f"context_counter incremented to {self.context_counter}.")
+
+        self.wait_for_context_response(context)
+        self._get_status()
+        nbytes = self.read_uint32(context["size"])
+        data = self.read_memory(context["buffer"], nbytes) if nbytes else b""
+        self.write_uint32(context["ready"], 0)
+        if blocking:
+            self.wait_for_idle()
+        return data
+
+    def _sd_file_size(self, path: str) -> int:
+        """Return the size in bytes of ``path`` on the SD card (FatFs ``f_size``)."""
+        if not path.startswith("/"):
+            raise ValueError(f"path shall start with '/' {path}")
+        if path.endswith("/"):
+            raise ValueError(f"path shall not be a directory: {path}")
+
+        context = self.get_context()
+        self.write_uint32(context["response_ready"], 0)
+        self.write_uint32(context["action"], actions["READ_FILE_FROM_SD"])
+        self.write_str(context["dest_path"], path)
+        self.write_uint32(context["offset"], 0)
+        self.write_uint32(context["size"], 0)
+        self.write_uint32(context["ready"], self.context_counter)
+        self.context_counter += 1
+        log.debug(f"context_counter incremented to {self.context_counter}.")
+
+        self.wait_for_context_response(context)
+        self._get_status()
+        nbytes = self.read_uint32(context["size"])
+        self.write_uint32(context["ready"], 0)
+        self.wait_for_idle()
+        return nbytes
+
+    def sd_read_file(self, path: str, progress: bool = False) -> bytes:
+        """Read an entire file from the SD card (chunks of up to 256 KiB)."""
+        if path.endswith("/"):
+            raise ValueError(f"path shall not be a directory: {path}")
+        if not path.startswith("/"):
+            raise ValueError(f"path shall start with '/' {path}")
+
+        chunk_size = self.contexts[0]["buffer"].size
+        file_size = self._sd_file_size(path)
+
+        ranges: List[tuple[int, int]] = []
+        o = 0
+        while o < file_size:
+            nb = min(chunk_size, file_size - o)
+            ranges.append((o, nb))
+            o += nb
+        if file_size == 0:
+            ranges = [(0, chunk_size)]
+
+        log.info(f"Data fetched in {len(ranges)} packets.")
+        out = bytearray()
+        for i, (off, nb) in enumerate(tqdm(ranges, disable=not progress)):
+            log.info(f"Reading packet {i + 1}/{len(ranges)}.")
+            chunk = self._sd_read_file_chunk(path, off, nb, blocking=False)
+            out.extend(chunk)
+            self.write_uint32("progress", int(26 * (i + 1) / len(ranges)))
+
+        self.wait_for_all_contexts_complete()
+        return bytes(out)
+
+    def sd_unlink(self, path: str) -> None:
+        """Remove a file from the SD card (FatFs ``f_unlink``)."""
+        if not path.startswith("/"):
+            raise ValueError(f"path shall start with '/' {path}")
+        if path.endswith("/"):
+            raise ValueError(f"path shall be a file, not a directory: {path}")
+
+        context = self.get_context()
+        self.write_uint32(context["response_ready"], 0)
+        self.write_uint32(context["action"], actions["DELETE_FILE_FROM_SD"])
+        self.write_str(context["dest_path"], path)
+        self.write_uint32(context["ready"], self.context_counter)
+        self.context_counter += 1
+        log.debug(f"context_counter incremented to {self.context_counter}.")
+
+        self.wait_for_context_response(context)
+        self._get_status()
+        self.write_uint32(context["ready"], 0)
+        self.wait_for_idle()
+
+    def sd_list_dir(self, path: str) -> str:
+        """Return a newline-separated listing of ``path`` on the SD card."""
+        if not path.startswith("/"):
+            raise ValueError(f"path shall start with '/' {path}")
+
+        context = self.get_context()
+        self.write_uint32(context["response_ready"], 0)
+        self.write_uint32(context["action"], actions["LIST_SD_DIR"])
+        self.write_str(context["dest_path"], path)
+        self.write_uint32(context["ready"], self.context_counter)
+        self.context_counter += 1
+        log.debug(f"context_counter incremented to {self.context_counter}.")
+
+        self.wait_for_context_response(context)
+        status_enum = self.read_uint32("status")
+        nbytes = self.read_uint32(context["size"])
+        data = self.read_memory(context["buffer"], nbytes) if nbytes else b""
+        self.write_uint32(context["ready"], 0)
+        self.wait_for_idle()
+        if (status_enum & ERROR_MASK) == 0xBAD0_0000 and status_enum != 0xBAD0000C:
+            self._get_status()
+        if status_enum == 0xBAD0000C:
+            log.warning("SD directory listing was truncated (output larger than 256 KiB).")
+        return data.decode("utf-8", errors="replace")
 
     def start_gnwmanager(self, force=False, resume=True):
         if not force and self._gnwmanager_started:

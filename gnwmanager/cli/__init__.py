@@ -19,6 +19,6 @@ from gnwmanager.cli._patch import flash_patch
 from gnwmanager.cli._pull import pull
 from gnwmanager.cli._push import push
 from gnwmanager.cli._screenshot import screenshot
-from gnwmanager.cli._sdcard import sdpush
+from gnwmanager.cli._sdcard import sdls, sdpull, sdpush, sdrm
 from gnwmanager.cli._start import start
 from gnwmanager.cli._unlock import unlock
