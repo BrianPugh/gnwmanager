@@ -149,6 +149,20 @@ def _convert_hex_str_to_bytes(hex_str: bytes) -> bytes:
         raise ValueError(f"Error decoding expected hex response: {hex_str}") from None
 
 
+def _parse_md_response(res: str, addr: int, width: str) -> int:
+    """Parse a `mdw`/`mdb` response, raising a helpful error if the target was lost."""
+    if not res:
+        raise OpenOCDError(
+            f"OpenOCD lost contact with the target while reading 0x{addr:08X}. "
+            "The CPU likely entered low-power/standby and could not be halted — "
+            "make sure the Game & Watch is powered on with the power button held while gnwmanager connects."
+        )
+    try:
+        return int(res.split(": ")[-1], 16)
+    except ValueError:
+        raise DataError(f'Unable to parse read_{width} response: "{res}"') from None
+
+
 def find_openocd_executable() -> Path:
     openocd_executable = os.environ.get("OPENOCD", "openocd")
     if shutil.which(openocd_executable) is None:
@@ -255,17 +269,11 @@ class OpenOCDBackend(OCDBackend):
     def read_uint32(self, addr: int) -> int:
         """Reads a uint32 from addr."""
         res = self(f"mdw 0x{addr:08X}", decode=False).strip().decode()
-        try:
-            return int(res.split(": ")[-1], 16)
-        except ValueError:
-            raise DataError(f'Unable to parse read_uint32 response: "{res}"') from None
+        return _parse_md_response(res, addr, "uint32")
 
     def read_uint8(self, addr: int) -> int:
         res = self(f"mdb 0x{addr:08X}", decode=False).strip().decode()
-        try:
-            return int(res.split(": ")[-1], 16)
-        except ValueError:
-            raise DataError(f'Unable to parse read_uint32 response: "{res}"') from None
+        return _parse_md_response(res, addr, "uint8")
 
     def read_memory(self, addr: int, size: int) -> bytes:
         """Reads a block of memory."""
