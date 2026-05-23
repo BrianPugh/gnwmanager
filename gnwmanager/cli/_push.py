@@ -37,6 +37,25 @@ def _should_ignore(file_name):
     return any(regex.search(file_name) for regex in ignore_regexes)
 
 
+def _expand_glob(local_paths: list[Path]) -> list[Path]:
+    """Expand glob patterns in paths.
+
+    On Unix, the shell expands globs before they reach Python, but on Windows
+    the literal pattern (e.g. ``*``) is passed through.
+    """
+    expanded: list[Path] = []
+    for local_path in local_paths:
+        if any(c in local_path.name for c in ("*", "?", "[")):
+            matches = sorted(local_path.parent.glob(local_path.name))
+            if matches:
+                expanded.extend(matches)
+            else:
+                expanded.append(local_path)
+        else:
+            expanded.append(local_path)
+    return expanded
+
+
 @app.command(group="Filesystem")
 def push(
     gnw_path: Path,
@@ -59,6 +78,8 @@ def push(
     gnw.start_gnwmanager()
 
     fs = gnw.filesystem(offset=offset)
+
+    local_paths = _expand_glob(local_paths)
 
     gnw_path_is_dir = True if len(local_paths) > 1 else is_existing_gnw_dir(fs, gnw_path)
 
