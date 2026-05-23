@@ -62,7 +62,7 @@ def arm_toolchain(platform: str):
             "zypper": [["sudo", "zypper", "--non-interactive", "install", "cross-arm-none-gcc-cs"]],
         },
         "darwin": {
-            "brew": [["brew", "install", "arm-gcc-bin"]],
+            "brew": [["brew", "install", "arm-none-eabi-gcc"]],
         },
         "win32": {
             "choco": [["choco", "install", "gcc-arm-embedded", "-y"]],
