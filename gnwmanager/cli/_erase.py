@@ -34,5 +34,4 @@ def erase(
 
     if location in ("bank2", "all"):
         log.info("Erasing bank2.")
-        gnw.erase(1, 0, 0, whole_chip=True)
         gnw.erase(2, 0, 0, whole_chip=True)
