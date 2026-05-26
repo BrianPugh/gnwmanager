@@ -56,4 +56,4 @@ def flash(
         raise ValueError("Unsupported destination address.")
 
     log.info(f"Flashing {len(data)} bytes to {'bank ' + str(bank) if bank else 'ext'} with relative-offset {offset}.")
-    gnw.flash(bank, offset, data, progress=progress)
+    gnw.flash(bank, offset, data, progress=progress, desc=file.name)

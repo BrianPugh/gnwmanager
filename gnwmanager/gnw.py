@@ -4,6 +4,7 @@ from collections import namedtuple
 from copy import deepcopy
 from itertools import count
 from math import ceil
+from pathlib import PurePosixPath
 from time import sleep, time
 from typing import Dict, List, Literal, NamedTuple, Optional, Union
 
@@ -402,6 +403,7 @@ class GnW:
         offset: int,
         data: bytes,
         progress: bool = False,
+        desc: Optional[str] = None,
     ):
         """High level convenience function for flashing any-length data to any flash location."""
         if bank == 0:
@@ -409,7 +411,7 @@ class GnW:
             if len(data) > self.external_flash_size:
                 raise ValueError("Data cannot fit into external flash.")
 
-            self._flash_ext(offset, data, progress=progress)
+            self._flash_ext(offset, data, progress=progress, desc=desc)
         elif bank in (1, 2):
             data = pad_bytes(data, 8192)
             if len(data) > (256 << 10):
@@ -495,6 +497,7 @@ class GnW:
         offset: int,
         data: bytes,
         progress: bool = False,
+        desc: Optional[str] = None,
     ):
         validate_extflash_offset(offset)
 
@@ -513,7 +516,7 @@ class GnW:
         ]
 
         log.info(f"{len(packets)} packets need to be programmed.")
-        for i, packet in enumerate(tqdm(packets) if progress else packets):
+        for i, packet in enumerate(tqdm(packets, desc=desc) if progress else packets):
             log.info(f"Programming packet {i + 1}/{len(packets)}.")
             self.program(0, packet.addr, packet.data, blocking=False)
             self.write_uint32("progress", int(26 * (i + 1) / len(packets)))
@@ -610,7 +613,7 @@ class GnW:
             log.info("Programming empty file.")
             self._sd_write_file_chunk(path, 0, 1, blocking=False)
 
-        for i, packet in enumerate(tqdm(chunks) if progress else chunks):
+        for i, packet in enumerate(tqdm(chunks, desc=PurePosixPath(path).name) if progress else chunks):
             log.info(f"Programming packet {i + 1}/{len(chunks)}.")
             self._sd_write_file_chunk(path, i, len(chunks), packet, blocking=False)
             self.write_uint32("progress", int(26 * (i + 1) / len(chunks)))
@@ -699,7 +702,7 @@ class GnW:
 
         log.info(f"Data fetched in {len(ranges)} packets.")
         out = bytearray()
-        for i, (off, nb) in enumerate(tqdm(ranges, disable=not progress)):
+        for i, (off, nb) in enumerate(tqdm(ranges, desc=PurePosixPath(path).name, disable=not progress)):
             log.info(f"Reading packet {i + 1}/{len(ranges)}.")
             chunk = self._sd_read_file_chunk(path, off, nb, blocking=False)
             out.extend(chunk)
