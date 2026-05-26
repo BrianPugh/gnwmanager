@@ -170,46 +170,133 @@ class GnW:
         byte_val = val.encode("utf-8") + b"\x00"
         self.write_memory(key, byte_val)
 
-    def wait_for_idle(self, timeout: float = 20):
-        """Block until the on-device status is IDLE."""
+    def wait_for_idle(self, timeout: float = 120):
+        """Block until the on-device status is IDLE.
+
+        `timeout` is a *no-progress* budget, not a total wall-clock budget:
+        the deadline resets every time the device's status string changes.
+        A slow operation that keeps making forward progress is tolerated
+        indefinitely; only a stall with no status change for `timeout`
+        seconds raises.
+
+        Parameters
+        ----------
+        timeout: float
+            Maximum seconds to wait without observing any status change.
+
+        Raises
+        ------
+        TimeoutError
+            If the on-device status does not change for `timeout` seconds.
+        """
         log.debug("Waiting for device to idle.")
         t_start = time()
-        t_deadline = t_start + timeout
+        t_progress = t_start
+        last_status = None
 
         for i in count():
             status_str = self._get_status()
             if status_str == "IDLE":
                 break
+            if status_str != last_status:
+                t_progress = time()
+                last_status = status_str
             if i % 10 == 0:
                 log.debug(f"waiting for device to IDLE; current status: {status_str}")
-            if time() > t_deadline:
-                raise TimeoutError("wait_for_idle")
+            if time() - t_progress > timeout:
+                raise TimeoutError(
+                    f"wait_for_idle: no status progress for {timeout:.1f}s (status={status_str})"
+                )
             sleep(0.1)
         log.debug(f"Waited {time() - t_start:.3f}s for device idle.")
 
-    def wait_for_all_contexts_complete(self, timeout=20):
+    def wait_for_all_contexts_complete(self, timeout=120):
+        """Wait for every in-flight context slot to be acked by the device.
+
+        `timeout` is a *no-progress* budget per context, not a total
+        wall-clock budget: while waiting on a given context the deadline
+        resets every time its `ready` field or the device `status` changes.
+        Slow but advancing operations (e.g. a long FAT sync on a slow SD
+        card) are tolerated indefinitely; only a stall with no observable
+        state change for `timeout` seconds raises.
+
+        Parameters
+        ----------
+        timeout: float
+            Maximum seconds to wait without observing any change in the
+            current context's `ready` field or the device status. The same
+            budget is also passed to the trailing `wait_for_idle` call.
+
+        Raises
+        ------
+        TimeoutError
+            If no progress is observed on a context for `timeout` seconds.
+        """
         log.debug("Waiting for all contexts to complete.")
         t_start = time()
-        t_deadline = t_start + timeout
         for i, context in enumerate(_contexts):
-            while self.read_uint32(context["ready"]):
-                self._get_status()
-                if time() > t_deadline:
-                    raise TimeoutError("wait_for_all_contexts_complete")
+            t_progress = time()
+            last_ready = None
+            last_status = None
+            while True:
+                cur_ready = self.read_uint32(context["ready"])
+                if not cur_ready:
+                    break
+                cur_status = self._get_status()
+                if cur_ready != last_ready or cur_status != last_status:
+                    t_progress = time()
+                    last_ready = cur_ready
+                    last_status = cur_status
+                if time() - t_progress > timeout:
+                    raise TimeoutError(
+                        f"wait_for_all_contexts_complete: no progress for {timeout:.1f}s "
+                        f"on context {i} (ready=0x{cur_ready:x}, status={cur_status})"
+                    )
                 sleep(0.1)
             log.debug(f"Context {i} complete.")
         log.debug(f"Waited {time() - t_start:.3f}s for all contexts to complete.")
         self._get_status()
-        self.wait_for_idle(timeout=t_deadline - time())
+        self.wait_for_idle(timeout=timeout)
 
-    def wait_for_context_response(self, context, timeout=20):
+    def wait_for_context_response(self, context, timeout=120):
+        """Wait for the device to write a response into `context`.
+
+        `timeout` is a *no-progress* budget, not a total wall-clock budget:
+        the deadline resets every time the device status string changes
+        (the status is polled each iteration, which also surfaces device
+        errors via `_get_status`). A slow but advancing query is tolerated
+        indefinitely; only a stall with no status change for `timeout`
+        seconds raises.
+
+        Parameters
+        ----------
+        context: dict
+            The context slot previously handed work; its `response_ready`
+            flag is polled.
+        timeout: float
+            Maximum seconds to wait without observing any status change.
+
+        Raises
+        ------
+        TimeoutError
+            If the device status does not change for `timeout` seconds
+            before `response_ready` becomes non-zero.
+        """
         context_index = _contexts.index(context)
         log.debug(f"Waiting on context {context_index} for response.")
         t_start = time()
-        t_deadline = t_start + timeout
+        t_progress = t_start
+        last_status = None
         while not self.read_uint32(context["response_ready"]):
-            if time() > t_deadline:
-                raise TimeoutError("wait_for_context_response")
+            cur_status = self._get_status()
+            if cur_status != last_status:
+                t_progress = time()
+                last_status = cur_status
+            if time() - t_progress > timeout:
+                raise TimeoutError(
+                    f"wait_for_context_response: no progress for {timeout:.1f}s "
+                    f"on context {context_index} (status={cur_status})"
+                )
             sleep(0.1)
         log.debug(f"Waited {time() - t_start:.3f}s for context {context_index} response.")
 
@@ -241,18 +328,51 @@ class GnW:
                 raise DataError(status_str)
         return status_str
 
-    def get_context(self, timeout=20):
+    def get_context(self, timeout=120):
+        """Return the next available context slot (first with `ready == 0`).
+
+        `timeout` is a *no-progress* budget, not a total wall-clock budget:
+        the deadline resets every time any slot's `ready` value or the
+        device status changes. While the device keeps draining queued work
+        the wait can extend indefinitely; only a stall with no observable
+        state change for `timeout` seconds raises.
+
+        Parameters
+        ----------
+        timeout: float
+            Maximum seconds to wait without observing any change in either
+            slot's `ready` field or the device status.
+
+        Raises
+        ------
+        TimeoutError
+            If no slot becomes available and no progress is observed for
+            `timeout` seconds.
+        """
         t_start = time()
-        t_deadline = t_start + timeout
+        t_progress = t_start
+        last_ready = None
+        last_status = None
         while True:
+            ready_states = []
             for i, context in enumerate(_contexts):
-                if not self.read_uint32(context["ready"]):
+                ready = self.read_uint32(context["ready"])
+                if not ready:
                     log.debug(f"Got context {i} in {time() - t_start:.3f}s.")
                     return context
-                self._get_status()
-                if time() > t_deadline:
-                    log.debug(f"Timeout ({timeout}s) reached waiting to get an available context.")
-                    raise TimeoutError
+                ready_states.append(ready)
+            cur_ready = tuple(ready_states)
+            cur_status = self._get_status()
+            if cur_ready != last_ready or cur_status != last_status:
+                t_progress = time()
+                last_ready = cur_ready
+                last_status = cur_status
+            if time() - t_progress > timeout:
+                log.debug(f"Timeout ({timeout}s no-progress) waiting for an available context.")
+                raise TimeoutError(
+                    f"get_context: no progress for {timeout:.1f}s "
+                    f"(ready={[f'0x{r:x}' for r in ready_states]}, status={cur_status})"
+                )
             sleep(0.1)
 
     def filesystem(self, offset: Optional[int] = None, **kwargs):
