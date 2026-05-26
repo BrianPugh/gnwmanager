@@ -801,7 +801,7 @@ static void gnwmanager_run(void)
 
 void gnwmanager_main(gnwmanager_status_t status)
 {
-    uint8_t power_was_pressed = ((buttons_get() & B_POWER) != 0);
+    uint8_t reset_was_pressed = ((buttons_get() & (B_POWER | B_B)) != 0);
 
     memset((void *)&comm, 0, sizeof(comm));
     comm.status = status;
@@ -818,11 +818,11 @@ void gnwmanager_main(gnwmanager_status_t status)
         // Error happened during system setup.
         gnwmanager_gui_draw();
         while(true){
-            uint8_t power_pressed = ((buttons_get() & B_POWER) != 0);
-            if((!power_was_pressed) && power_pressed){
+            uint8_t reset_pressed = ((buttons_get() & (B_POWER | B_B)) != 0);
+            if((!reset_was_pressed) && reset_pressed){
                 NVIC_SystemReset();
             }
-            power_was_pressed = power_pressed;
+            reset_was_pressed = reset_pressed;
             wdog_refresh();
         }
     }
@@ -833,11 +833,11 @@ void gnwmanager_main(gnwmanager_status_t status)
 
 
     while (true) {
-        uint8_t power_pressed = ((buttons_get() & B_POWER) != 0);
-        if((!power_was_pressed) && power_pressed){
+        uint8_t reset_pressed = ((buttons_get() & (B_POWER | B_B)) != 0);
+        if((!reset_was_pressed) && reset_pressed){
             NVIC_SystemReset();
         }
-        power_was_pressed = power_pressed;
+        reset_was_pressed = reset_pressed;
 
         if(comm.status_override){
             gui.status = &comm.status_override;
