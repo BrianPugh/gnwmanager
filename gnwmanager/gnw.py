@@ -73,6 +73,7 @@ def _populate_comm():
         _contexts[i]["dest_path"] = last_variable = Variable(last_variable.address + last_variable.size, 256)
         _contexts[i]["block"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
         _contexts[i]["total_blocks"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
+        _contexts[i]["compressed_sha256"] = last_variable = Variable(last_variable.address + last_variable.size, 32)
 
         _contexts[i]["ready"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
 
@@ -379,6 +380,7 @@ class GnW:
         if compress:
             self.write_uint32(context["compressed_size"], len(compressed_data))
             self.write_memory(context["buffer"], compressed_data)
+            self.write_memory(context["compressed_sha256"], sha256(compressed_data))
         else:
             self.write_uint32(context["compressed_size"], 0)
             self.write_memory(context["buffer"], data)
@@ -573,6 +575,7 @@ class GnW:
         if compress:
             self.write_uint32(context["compressed_size"], len(compressed_data))
             self.write_memory(context["buffer"], compressed_data)
+            self.write_memory(context["compressed_sha256"], sha256(compressed_data))
         else:
             self.write_uint32(context["compressed_size"], 0)
             self.write_memory(context["buffer"], data)

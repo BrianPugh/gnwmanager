@@ -88,6 +88,9 @@ typedef struct {
             // total blocks for file
             uint32_t total_blocks;
 
+            // sha256 of the bytes the host placed in `buffer`. All-zero = skip check.
+            uint8_t compressed_sha256[32];
+
             /* Add future variables here */
 
             // This work context is ready for the on-device gnwmanager to process.
@@ -604,6 +607,33 @@ static void gnwmanager_run(void)
     case GNWMANAGER_DECOMPRESSING:
     case GNWMANAGER_DECOMPRESSING_SD:
         if(working_context->compressed_size){
+            // If the host populated compressed_sha256, verify the compressed bytes
+            // match before LZMA touches them, so a transfer/cache corruption surfaces
+            // as BAD_HASH_RAM rather than the more confusing BAD_DECOMPRESS.
+            // All-zero = host didn't populate; skip.
+            uint8_t expected_or = 0;
+            for(int k = 0; k < 32; k++){
+                expected_or |= working_context->compressed_sha256[k];
+            }
+            if(expected_or){
+                if(HAL_HASHEx_SHA256_Start(&hhash,
+                    (uint8_t *)working_context->buffer, working_context->compressed_size,
+                    program_calculated_sha256,
+                    HAL_MAX_DELAY
+                )){
+                    Error_Handler();
+                }
+                if(memcmp((const void *)program_calculated_sha256,
+                          (const void *)working_context->compressed_sha256, 32) != 0){
+                    memcpy((void *)comm.actual_hash, program_calculated_sha256, 32);
+                    memcpy((void *)comm.expected_hash,
+                           (void *)working_context->compressed_sha256, 32);
+                    gnwmanager_set_status(GNWMANAGER_STATUS_BAD_HASH_RAM);
+                    state = GNWMANAGER_ERROR;
+                    break;
+                }
+            }
+
             // Decompress the data; nothing after this state should reference decompression.
             uint32_t n_decomp_bytes;
             n_decomp_bytes = lzma_inflate(comm.decompress_buffer, sizeof(comm.decompress_buffer),
