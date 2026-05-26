@@ -35,7 +35,6 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include <string.h>
-#include <time.h>
 #include "main.h"
 #include "ff.h"
 #include "user_diskio_spi.h"
@@ -229,19 +228,17 @@ DRESULT disk_ioctl (
 
 DWORD get_fattime (void)
 {
-    time_t t;
-    struct tm *stm;
+    // RTC is UTC; FAT stores wall-clock fields directly, so read the RTC
+    // straight through instead of round-tripping via Unix time + localtime().
+    HAL_RTC_GetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN);
+    HAL_RTC_GetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN);
 
-
-    t = GW_GetUnixTime();
-    stm = localtime(&t);
-
-    return (DWORD)(stm->tm_year - 80) << 25 |
-           (DWORD)(stm->tm_mon + 1) << 21 |
-           (DWORD)stm->tm_mday << 16 |
-           (DWORD)stm->tm_hour << 11 |
-           (DWORD)stm->tm_min << 5 |
-           (DWORD)stm->tm_sec >> 1;
+    return ((DWORD)(2000 + GW_currentDate.Year - 1980) << 25) |
+           ((DWORD)GW_currentDate.Month << 21) |
+           ((DWORD)GW_currentDate.Date << 16) |
+           ((DWORD)GW_currentTime.Hours << 11) |
+           ((DWORD)GW_currentTime.Minutes << 5) |
+           ((DWORD)GW_currentTime.Seconds >> 1);
 }
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

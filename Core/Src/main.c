@@ -1101,6 +1101,15 @@ void Error_Handler(void)
   /* USER CODE END Error_Handler_Debug */
 }
 
+// Override newlib's __assert_func so failed assert()s don't drag the entire
+// nano-vfprintf chain (~1.5KB) into the firmware via fiprintf(stderr,...).
+// Args are dropped because stderr writes go nowhere on this device anyway.
+void __assert_func(const char *file, int line, const char *func, const char *failedexpr)
+{
+  (void)file; (void)line; (void)func; (void)failedexpr;
+  Error_Handler();
+}
+
 void HAL_Delay(uint32_t Delay)
 {
   while (Delay--) {

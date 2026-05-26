@@ -326,7 +326,11 @@ static void gnwmanager_action_list_sd_dir(work_context_t *context){
         if (name[0] == '.' && name[1] == '.' && name[2] == 0) {
             continue;
         }
-        if (used >= cap) {
+        // Inlined "%s%s\n" formatting — keeps the entire newlib nano-vfprintf
+        // stack out of the firmware (~1.7KB saved).
+        const uint32_t name_len = (uint32_t)strlen(name);
+        const uint32_t suffix_len = (fno.fattrib & AM_DIR) ? 2u : 1u;  // '/'+'\n' or just '\n'
+        if (name_len + suffix_len > cap - used) {
             gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_LIST_TRUNC);
             f_closedir(&dir);
             f_mount(NULL, "", 0);
@@ -334,17 +338,12 @@ static void gnwmanager_action_list_sd_dir(work_context_t *context){
             context->response_ready = 1;
             return;
         }
-        int n = snprintf((char *)out + used, cap - used, "%s%s\n", name,
-                         (fno.fattrib & AM_DIR) ? "/" : "");
-        if (n < 0 || (uint32_t)n >= cap - used) {
-            gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_LIST_TRUNC);
-            f_closedir(&dir);
-            f_mount(NULL, "", 0);
-            context->size = used;
-            context->response_ready = 1;
-            return;
+        memcpy(out + used, name, name_len);
+        used += name_len;
+        if (fno.fattrib & AM_DIR) {
+            out[used++] = '/';
         }
-        used += (uint32_t)n;
+        out[used++] = '\n';
     }
 
     f_closedir(&dir);
