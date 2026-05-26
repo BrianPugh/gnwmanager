@@ -30,8 +30,10 @@ void sdcard_init_spi1() {
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-    // Reset sd card by setting VCC to 0 for 5ms
-    timer_on(0, 5); 
+    // Reset sd card by setting VCC to 0 for 50ms (5ms was borderline for
+    // discharging the SD slot's bulk caps when a prior crashed application
+    // left the card mid-write).
+    timer_on(0, 50);
     while (timer_status(0));
     /* PA15 = 0v : Enable SD Card VCC */
     HAL_GPIO_WritePin(SD_VCC_GPIO_Port, SD_VCC_Pin, GPIO_PIN_SET);
