@@ -878,7 +878,10 @@ void gnwmanager_main(gnwmanager_status_t status)
 
     while (true) {
         uint8_t reset_pressed = ((buttons_get() & (B_POWER | B_B)) != 0);
-        if((!reset_was_pressed) && reset_pressed){
+        uint8_t truly_idle = (comm.status == GNWMANAGER_STATUS_IDLE)
+                          && !comm.upload_in_progress
+                          && !comm.download_in_progress;
+        if((!reset_was_pressed) && reset_pressed && truly_idle){
             NVIC_SystemReset();
         }
         reset_was_pressed = reset_pressed;
