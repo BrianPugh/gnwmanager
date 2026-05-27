@@ -31,6 +31,7 @@ typedef enum {  // For the gnwmanager state machine
     GNWMANAGER_DECOMPRESSING_SD       ,
     GNWMANAGER_CHECK_HASH_RAM_SD      ,
     GNWMANAGER_PROGRAM_SD             ,
+    GNWMANAGER_HASH_RETRY_WAIT        ,  // Wait for host to re-transmit a buffer after BAD_HASH_RAM_COMPRESSED
 
     GNWMANAGER_ERROR = 0xF000,
 } gnwmanager_state_t;
@@ -134,6 +135,15 @@ struct gnwmanager_comm {  // Values are read or written by the debugger
             uint8_t expected_hash[32];
 
             uint8_t actual_hash[32];
+
+            // Retry handshake: when the device detects BAD_HASH_RAM_COMPRESSED it
+            // writes the failed context index here, transitions to HASH_RETRY_WAIT,
+            // and waits for the host to (a) re-transmit the data into the same
+            // context buffer and (b) bump retry_request. The device then echoes
+            // retry_request into retry_ack and re-runs the hash check.
+            uint32_t failed_context_idx;  // output: which comm.buffer[i] needs re-transmit
+            uint32_t retry_request;       // input: host increments to request a retry
+            uint32_t retry_ack;           // output: device echoes after consuming retry_request
         };
         struct {
             // Force spacing, allowing for backward-compatible additional variables
@@ -627,8 +637,14 @@ static void gnwmanager_run(void)
                     memcpy((void *)comm.actual_hash, program_calculated_sha256, 32);
                     memcpy((void *)comm.expected_hash,
                            (void *)working_context->compressed_sha256, 32);
+                    /* Publish which comm.buffer[i] needs re-transmit BEFORE
+                     * setting status: the host reads status first and uses
+                     * failed_context_idx to drive the retry. source_context
+                     * is still valid here — release_context() runs further
+                     * down on the success path. */
+                    comm.failed_context_idx = (uint32_t)(source_context - &comm.contexts[0]);
                     gnwmanager_set_status(GNWMANAGER_STATUS_BAD_HASH_RAM_COMPRESSED);
-                    state = GNWMANAGER_ERROR;
+                    state = GNWMANAGER_HASH_RETRY_WAIT;
                     break;
                 }
             }
@@ -796,6 +812,26 @@ static void gnwmanager_run(void)
         }
         // Hash OK in FLASH
         state = GNWMANAGER_IDLE;
+        break;
+    case GNWMANAGER_HASH_RETRY_WAIT:
+        /* Park until the host bumps retry_request. The host has by then
+         * re-transmitted the source buffer (and compressed_sha256) into the
+         * same comm.contexts[failed_context_idx] / comm.buffer[failed_context_idx].
+         * Re-sync working_context from source_context and re-enter
+         * DECOMPRESSING_* to re-run the compressed-hash check. */
+        if (comm.retry_request != comm.retry_ack) {
+            memcpy((void *)working_context, (void *)source_context, sizeof(work_context_t));
+            /* Clear BAD status so the GUI doesn't get stuck showing the error
+             * across retries. The host polls retry_ack to know the retry was
+             * consumed, so update status first to ensure that when the host
+             * sees retry_ack == retry_request, the post-retry status is
+             * already visible (no stale BAD read). */
+            gnwmanager_set_status(GNWMANAGER_STATUS_HASH);
+            state = (source_context->action == GNWMANAGER_ACTION_WRITE_FILE_TO_SD)
+                  ? GNWMANAGER_DECOMPRESSING_SD
+                  : GNWMANAGER_DECOMPRESSING;
+            comm.retry_ack = comm.retry_request;
+        }
         break;
     case GNWMANAGER_ERROR:
         /* Allow a new host command after release_context() cleared ready bits. */

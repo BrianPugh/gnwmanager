@@ -27,6 +27,29 @@ class Variable(NamedTuple):
 
 ERROR_MASK = 0xFFFF_0000
 
+# Status strings that indicate the bytes the host wrote to device RAM didn't
+# survive the debug-probe transfer intact. The data on device flash/SD is fine;
+# the corruption is in the in-flight buffer.
+#
+# BAD_HASH_RAM_COMPRESSED is handled in-protocol via chunk-level retry (the
+# device parks in HASH_RETRY_WAIT and the host re-transmits to the same context
+# buffer). BAD_HASH_RAM (decompressed-data check failure) falls through to the
+# operation-level retry wrapper, which reloads firmware and starts over.
+_TRANSFER_CORRUPTION_PREFIXES = ("BAD_HASH_RAM_COMPRESSED", "BAD_HASH_RAM")
+
+# Operation-level: full reload + restart on persistent transfer corruption.
+_MAX_TRANSFER_RETRIES = 2
+
+# Chunk-level: re-transmit a single context buffer without reloading firmware.
+_MAX_CHUNK_RETRIES = 3
+
+
+def _is_transfer_corruption_error(exc: "DataError") -> bool:
+    if not exc.args or not isinstance(exc.args[0], str):
+        return False
+    return exc.args[0].startswith(_TRANSFER_CORRUPTION_PREFIXES)
+
+
 actions: dict[str, int] = {
     "ERASE_AND_FLASH": 0,
     "HASH": 1,
@@ -55,7 +78,15 @@ def _populate_comm():
     _comm["download_in_progress"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
     _comm["expected_hash"] = last_variable = Variable(last_variable.address + last_variable.size, 32)
     _comm["actual_hash"] = last_variable = Variable(last_variable.address + last_variable.size, 32)
-    _comm["dest_path"] = last_variable = Variable(last_variable.address + last_variable.size, 256)
+
+    # Per-chunk retry handshake. When the device detects BAD_HASH_RAM_COMPRESSED
+    # it parks in HASH_RETRY_WAIT, publishes the index of the corrupted context
+    # buffer, and waits for the host to re-transmit the data and bump
+    # retry_request. The device echoes retry_request into retry_ack once it
+    # has re-loaded working_context from the (rewritten) source context.
+    _comm["failed_context_idx"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
+    _comm["retry_request"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
+    _comm["retry_ack"] = last_variable = Variable(last_variable.address + last_variable.size, 4)
 
     for i in range(2):
         struct_start = _comm["flashapp_comm"].address + ((i + 1) * 1024)
@@ -119,6 +150,12 @@ class GnW:
         self._external_flash_block_size = 0
         self._gnwmanager_started = False
         self.default_filesystem_offset = 0
+        # Per-context retry state for the BAD_HASH_RAM_COMPRESSED chunk-retry
+        # handshake. Each slot holds either None (nothing recoverable in flight)
+        # or a dict with the buffer bytes + hashes the host wrote, plus an
+        # `attempts` counter. Populated by program()/sd_write_file_chunk()
+        # whenever they push compressed data to a context.
+        self._in_flight_retry: list[Optional[dict]] = [None, None]
 
     @property
     def external_flash_size(self) -> int:
@@ -176,6 +213,85 @@ class GnW:
         # earlier bursts (large buffers, long paths) have landed (manifests as
         # BAD_HASH_RAM_COMPRESSED for sdpush/flash). Cheap: one extra word read.
         self.read_uint32(context["buffer"].address)
+
+    def _record_in_flight_compressed(self, context, *, buffer_data: bytes,
+                                     compressed_sha256: bytes, expected_sha256: bytes):
+        """Stash what was written to this context so the chunk-retry handshake can resend it.
+
+        Driven from `_get_status` on BAD_HASH_RAM_COMPRESSED.
+        """
+        idx = _contexts.index(context)
+        self._in_flight_retry[idx] = {
+            "buffer_data": buffer_data,
+            "compressed_sha256": compressed_sha256,
+            "expected_sha256": expected_sha256,
+            "attempts": 0,
+        }
+
+    def _try_chunk_retry(self) -> bool:
+        """Re-transmit a corrupted context buffer via the HASH_RETRY_WAIT handshake.
+
+        Returns True if a retry was issued (caller should re-poll status),
+        False if no retry is possible (caller surfaces the error). Exhausted
+        attempts and a missing in-flight record (e.g. an uncompressed transfer
+        — but those don't trip BAD_HASH_RAM_COMPRESSED) both fall back to
+        operation-level retry.
+        """
+        failed_idx = self.read_uint32("failed_context_idx")
+        if failed_idx not in (0, 1):
+            return False
+        saved = self._in_flight_retry[failed_idx]
+        if saved is None or saved["attempts"] >= _MAX_CHUNK_RETRIES:
+            return False
+
+        context = _contexts[failed_idx]
+        saved["attempts"] += 1
+        log.warning(
+            f"BAD_HASH_RAM_COMPRESSED on context {failed_idx}; "
+            f"re-transmitting buffer (attempt {saved['attempts']}/{_MAX_CHUNK_RETRIES})."
+        )
+
+        self.write_uint32("upload_in_progress", 1)
+        self.write_memory(context["buffer"], saved["buffer_data"])
+        self.write_memory(context["compressed_sha256"], saved["compressed_sha256"])
+        self.write_memory(context["expected_sha256"], saved["expected_sha256"])
+        self._drain_pending_writes(context)
+
+        new_request = self.read_uint32("retry_request") + 1
+        self.write_uint32("retry_request", new_request)
+        self.write_uint32("upload_in_progress", 0)
+
+        # Wait for the device to consume retry_request — at that point it has
+        # already re-loaded working_context and transitioned back to DECOMPRESSING.
+        deadline = time() + 10
+        while self.read_uint32("retry_ack") != new_request:
+            if time() > deadline:
+                log.warning(f"Retry ack timeout on context {failed_idx}.")
+                return False
+            sleep(0.01)
+        return True
+
+    def _with_transfer_retry(self, op_name: str, fn, *args, **kwargs):
+        """Run ``fn`` and retry on transfer-corruption errors (BAD_HASH_RAM*).
+
+        The failure surfaces in a later status poll rather than at the call
+        that queued the bad chunk, so we can't isolate the failing chunk —
+        retry reloads firmware (resetting the context state machine) and
+        re-runs the whole operation. Re-flashing is idempotent: the firmware
+        short-circuits chunks whose hash already matches.
+        """
+        for attempt in range(_MAX_TRANSFER_RETRIES + 1):
+            try:
+                return fn(*args, **kwargs)
+            except DataError as e:
+                if attempt == _MAX_TRANSFER_RETRIES or not _is_transfer_corruption_error(e):
+                    raise
+                first_line = e.args[0].splitlines()[0]
+                log.warning(
+                    f"{op_name}: {first_line} on attempt {attempt + 1}/{_MAX_TRANSFER_RETRIES + 1}; "
+                    "reloading firmware and retrying."
+                )
+                self.start_gnwmanager(force=True)
 
     def wait_for_idle(self, timeout: float = 120):
         """Block until the on-device status is IDLE.
@@ -309,6 +425,9 @@ class GnW:
 
     def reset_context_counter(self):
         self.context_counter = 1
+        # Any prior in-flight buffers are gone with the device's RAM; the
+        # next program/sd_write_file_chunk will repopulate as needed.
+        self._in_flight_retry = [None, None]
         log.debug(f"context_counter reset to {self.context_counter}.")
 
     def reset(self):
@@ -324,16 +443,21 @@ class GnW:
         self._gnwmanager_started = False
 
     def _get_status(self, raise_on_error=True) -> str:
-        status_enum = self.read_uint32("status")
-        status_str = flashapp_status_enum_to_str.get(status_enum, "UNKNOWN")
-        if raise_on_error and (status_enum & ERROR_MASK) == 0xBAD0_0000:
-            if status_str in ("BAD_HASH_RAM", "BAD_HASH_RAM_COMPRESSED", "BAD_HASH_FLASH"):
-                expected_hash = self.read_memory("expected_hash")
-                actual_hash = self.read_memory("actual_hash")
-                raise DataError(f"{status_str}:\nExpected: {expected_hash.hex()}\nActual: {actual_hash.hex()}")
-            else:
+        while True:
+            status_enum = self.read_uint32("status")
+            status_str = flashapp_status_enum_to_str.get(status_enum, "UNKNOWN")
+            if raise_on_error and (status_enum & ERROR_MASK) == 0xBAD0_0000:
+                # In-protocol chunk retry: device parks in HASH_RETRY_WAIT and
+                # we resend the corrupted buffer without reloading firmware.
+                # Falls through to the DataError raise once retries are spent.
+                if status_str == "BAD_HASH_RAM_COMPRESSED" and self._try_chunk_retry():
+                    continue
+                if status_str in ("BAD_HASH_RAM", "BAD_HASH_RAM_COMPRESSED", "BAD_HASH_FLASH"):
+                    expected_hash = self.read_memory("expected_hash")
+                    actual_hash = self.read_memory("actual_hash")
+                    raise DataError(f"{status_str}:\nExpected: {expected_hash.hex()}\nActual: {actual_hash.hex()}")
                 raise DataError(status_str)
-        return status_str
+            return status_str
 
     def get_context(self, timeout=120):
         """Return the next available context slot (first with `ready == 0`).
@@ -365,6 +489,10 @@ class GnW:
             for i, context in enumerate(_contexts):
                 ready = self.read_uint32(context["ready"])
                 if not ready:
+                    # Slot is free → its prior work succeeded; drop stale
+                    # retry tracking so a future BAD_HASH_RAM_COMPRESSED on
+                    # this slot can't pull data from a finished chunk.
+                    self._in_flight_retry[i] = None
                     log.debug(f"Got context {i} in {time() - t_start:.3f}s.")
                     return context
                 ready_states.append(ready)
@@ -506,9 +634,16 @@ class GnW:
         self.write_memory(context["expected_sha256"], data_hash)
 
         if compress:
+            compressed_hash = sha256(compressed_data)
             self.write_uint32(context["compressed_size"], len(compressed_data))
             self.write_memory(context["buffer"], compressed_data)
-            self.write_memory(context["compressed_sha256"], sha256(compressed_data))
+            self.write_memory(context["compressed_sha256"], compressed_hash)
+            self._record_in_flight_compressed(
+                context,
+                buffer_data=compressed_data,
+                compressed_sha256=compressed_hash,
+                expected_sha256=data_hash,
+            )
         else:
             self.write_uint32(context["compressed_size"], 0)
             self.write_memory(context["buffer"], data)
@@ -535,18 +670,19 @@ class GnW:
         desc: Optional[str] = None,
     ):
         """High level convenience function for flashing any-length data to any flash location."""
+        op_name = f"flash bank={bank} offset=0x{offset:x}"
         if bank == 0:
             data = pad_bytes(data, self.external_flash_block_size)
             if len(data) > self.external_flash_size:
                 raise ValueError("Data cannot fit into external flash.")
 
-            self._flash_ext(offset, data, progress=progress, desc=desc)
+            self._with_transfer_retry(op_name, self._flash_ext, offset, data, progress=progress, desc=desc)
         elif bank in (1, 2):
             data = pad_bytes(data, 8192)
             if len(data) > (256 << 10):
                 raise ValueError("Data cannot fit into internal flash.")
 
-            self.program(bank, offset, data)
+            self._with_transfer_retry(op_name, self.program, bank, offset, data)
         else:
             raise ValueError
 
@@ -705,9 +841,16 @@ class GnW:
         self.write_memory(context["expected_sha256"], data_hash)
 
         if compress:
+            compressed_hash = sha256(compressed_data)
             self.write_uint32(context["compressed_size"], len(compressed_data))
             self.write_memory(context["buffer"], compressed_data)
-            self.write_memory(context["compressed_sha256"], sha256(compressed_data))
+            self.write_memory(context["compressed_sha256"], compressed_hash)
+            self._record_in_flight_compressed(
+                context,
+                buffer_data=compressed_data,
+                compressed_sha256=compressed_hash,
+                expected_sha256=data_hash,
+            )
         else:
             self.write_uint32(context["compressed_size"], 0)
             self.write_memory(context["buffer"], data)
@@ -735,6 +878,9 @@ class GnW:
             raise ValueError(f"path shall not be a folder {path}")
         if not path.startswith("/"):
             raise ValueError(f"path shall start with '/' {path}")
+        self._with_transfer_retry(f"sdpush {path}", self._sd_write_file_impl, path, data, progress)
+
+    def _sd_write_file_impl(self, path: str, data: bytes, progress: bool):
         chunk_size = self.contexts[0]["buffer"].size  # Assumes all contexts have same size buffer
         chunks = chunk_bytes(data, chunk_size)
 
