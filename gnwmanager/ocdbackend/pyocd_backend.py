@@ -56,7 +56,10 @@ class PyOCDBackend(OCDBackend):
         name = self.probe.product_name
 
         lookup = {
-            "Picoprobe (CMSIS-DAP)": 10_000_000,
+            # Bit-banged SWD via RP2040 PIO, no level shifting. Hand-soldered
+            # G&W flying leads degrade fast above ~2 MHz (BAD_HASH_RAM_COMPRESSED).
+            # Matches the openocd backend's CMSIS-DAP default.
+            "Picoprobe (CMSIS-DAP)": 2_000_000,
             "STM32 STLink": 10_000_000,
             "CMSIS-DAP_LU": 500_000,
             "J-Link EDU": 15_000_000,

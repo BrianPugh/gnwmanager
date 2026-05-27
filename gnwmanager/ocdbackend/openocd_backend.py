@@ -82,9 +82,11 @@ def _openocd_launch_commands(port: int) -> Generator[tuple[str, list[str]], None
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
     yield "jlink", cmd
 
-    # CMSIS-DAP (pi pico)
+    # CMSIS-DAP (pi pico). Bit-banged SWD via RP2040 PIO with no level shifting;
+    # signal integrity on hand-soldered G&W flying leads degrades quickly above
+    # ~2 MHz and surfaces as BAD_HASH_RAM_COMPRESSED. 2 MHz is the safe default.
     cmd = base_cmd.copy()
-    cmd.extend(["-c", "adapter speed 4000"])
+    cmd.extend(["-c", "adapter speed 2000"])
     cmd.extend(["-c", "source [find interface/cmsis-dap.cfg]"])
     cmd.extend(["-c", "transport select swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
