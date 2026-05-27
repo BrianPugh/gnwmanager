@@ -181,41 +181,41 @@ static bool SD_RxDataBlock(BYTE *buff, UINT len)
     return TRUE;
 }
 
-/* transmit data block */
-static bool SD_TxDataBlock(const uint8_t *buff, BYTE token)
+/* transmit data block; returns the SD data response token status (low 5 bits):
+ *   0x05 = accepted
+ *   0x0B = CRC error (recoverable: card discards block, stays in receive state)
+ *   0x0D = write error (fatal: card rejected block, abort with STOP_TRAN)
+ *   0xFF = no valid response / card not ready
+ */
+static uint8_t SD_TxDataBlock(const uint8_t *buff, BYTE token)
 {
-    uint8_t resp = 0;
-    uint8_t i = 0;
+    uint8_t resp;
     /* wait SD ready */
     if (SD_ReadyWait() != 0xFF)
-        return FALSE;
+        return 0xFF;
     /* transmit token */
     SPI_TxByte(token);
-    /* if it's not STOP_TRAN token, transmit data and wait for response */
-    if (token != 0xFD)
-    {
-        SPI_TxBuffer((uint8_t *)buff, 512);
-        /* discard CRC */
-        SPI_RxByte();
-        SPI_RxByte();
-        /* receive response (max 65 bytes) */
-        while (i <= 64)
-        {
-            resp = SPI_RxByte();
-            if ((resp & 0x1F) == 0x05)
-                break;
-            i++;
-        }
-        /* clear remaining response bytes (max 64 to avoid infinite loop) */
-        for (i = 0; i < 64 && SPI_RxByte() == 0; i++)
-            ;
+    /* STOP_TRAN has no data + response; just wait for card to leave busy. */
+    if (token == 0xFD)
+        return (SD_ReadyWait() == 0xFF) ? 0x05 : 0xFF;
+    SPI_TxBuffer((uint8_t *)buff, 512);
+    /* discard CRC */
+    SPI_RxByte();
+    SPI_RxByte();
+    /* The data response token has shape xxx0sss1 and follows within a byte or two
+     * (spec: 1 byte). Scan up to 8 bytes for a token-shaped response. */
+    resp = 0xFF;
+    for (uint8_t i = 0; i < 8; i++) {
+        resp = SPI_RxByte();
+        if ((resp & 0x11) == 0x01)
+            break;
     }
-    else
-    {
-        /* STOP_TRAN: wait for card to leave busy state */
-        return (SD_ReadyWait() == 0xFF);
-    }
-    return (resp & 0x1F) == 0x05;
+    if ((resp & 0x11) != 0x01)
+        return 0xFF;
+    /* Card holds MISO low while programming; wait until it releases the bus.
+     * Some cards stay busy 100ms+ during garbage collection. */
+    SD_ReadyWait();
+    return resp & 0x1F;
 }
 
 /* transmit command */
@@ -464,25 +464,44 @@ DRESULT USER_SPI_write(
 
     if (count == 1)
     {
-        /* WRITE_BLOCK */
-        if ((SD_SendCmd(CMD24, sector) == 0) && SD_TxDataBlock(buff, 0xFE))
-            count = 0;
+        /* WRITE_BLOCK with retries on transient CRC errors. CMD24 carries the
+         * sector address, so re-issuing the whole sequence is always safe. */
+        for (uint8_t attempt = 0; attempt < 3; attempt++)
+        {
+            if (SD_SendCmd(CMD24, sector) != 0)
+                continue;
+            uint8_t status = SD_TxDataBlock(buff, 0xFE);
+            if (status == 0x05) { count = 0; break; }
+            if (status == 0x0D) break; /* card-reported write error: not recoverable */
+        }
     }
     else
     {
         /* WRITE_MULTIPLE_BLOCK */
         if (CardType & CT_SDC)
         {
-            SD_SendCmd(CMD55, 0);
-            SD_SendCmd(CMD23, count); /* ACMD23 */
+            /* ACMD23 pre-erase: only fire CMD23 if CMD55 was accepted, so a card
+             * that rejects ACMD55 doesn't leave the bus mid-handshake. */
+            if (SD_SendCmd(CMD55, 0) <= 1)
+                SD_SendCmd(CMD23, count);
         }
 
         if (SD_SendCmd(CMD25, sector) == 0)
         {
             do
             {
-                if (!SD_TxDataBlock(buff, 0xFC))
-                    break;
+                /* Per spec, CRC errors during multi-block write leave the card
+                 * in receive state at the same auto-incrementing address, so the
+                 * same block can be retransmitted safely. Other failures
+                 * (write error, no response) leave the card state ambiguous —
+                 * abort to STOP_TRAN rather than risk a misaligned retry. */
+                uint8_t status = 0;
+                for (uint8_t attempt = 0; attempt < 3; attempt++)
+                {
+                    status = SD_TxDataBlock(buff, 0xFC);
+                    if (status != 0x0B) break;
+                }
+                if (status != 0x05) break;
                 buff += 512;
             } while (--count);
 
