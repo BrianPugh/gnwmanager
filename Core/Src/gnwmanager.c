@@ -717,6 +717,9 @@ static void gnwmanager_run(void)
                 // This is first block, open file
                 res = f_open(&file, (const char *)working_context->file_path, FA_WRITE | FA_CREATE_ALWAYS);
                 if (res != FR_OK) {
+                    /* Unmount so the next attempt re-mounts cleanly; otherwise
+                     * FATFS retains stale state from this failed open. */
+                    f_mount(NULL, "", 0);
                     gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_OPEN);
                     state = GNWMANAGER_ERROR;
                     break;
@@ -725,6 +728,11 @@ static void gnwmanager_run(void)
             if (working_context->size > 0) {
                 res = f_write(&file, (const void *)working_context->buffer, working_context->size, &bytes_written);
                 if (res != FR_OK || bytes_written < working_context->size) {
+                    /* Close + unmount so the half-written file's directory entry
+                     * is at least finalized, and the next sdpush starts from a
+                     * clean FATFS/FIL state. */
+                    f_close(&file);
+                    f_mount(NULL, "", 0);
                     gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_WRITE);
                     state = GNWMANAGER_ERROR;
                     break;
