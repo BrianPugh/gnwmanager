@@ -13,6 +13,7 @@ flashapp_status_enum_to_str = {
     0xBAD0000B: "BAD_SD_DIR",
     0xBAD0000C: "BAD_SD_LIST_TRUNC",
     0xBAD0000D: "BAD_SD_READ",
+    0xBAD0000E: "BAD_HASH_RAM_COMPRESSED",
     0xCAFE0000: "IDLE",
     0xCAFE0001: "ERASE",
     0xCAFE0002: "PROG",

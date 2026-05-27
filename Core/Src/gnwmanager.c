@@ -627,7 +627,7 @@ static void gnwmanager_run(void)
                     memcpy((void *)comm.actual_hash, program_calculated_sha256, 32);
                     memcpy((void *)comm.expected_hash,
                            (void *)working_context->compressed_sha256, 32);
-                    gnwmanager_set_status(GNWMANAGER_STATUS_BAD_HASH_RAM);
+                    gnwmanager_set_status(GNWMANAGER_STATUS_BAD_HASH_RAM_COMPRESSED);
                     state = GNWMANAGER_ERROR;
                     break;
                 }

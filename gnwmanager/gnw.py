@@ -170,6 +170,13 @@ class GnW:
         byte_val = val.encode("utf-8") + b"\x00"
         self.write_memory(key, byte_val)
 
+    def _drain_pending_writes(self, context):
+        # ADIv5 posted-write drain: any AP read flushes pending writes through the
+        # debug adapter. Without this, the running CPU can see `ready` flip before
+        # earlier bursts (large buffers, long paths) have landed (manifests as
+        # BAD_HASH_RAM_COMPRESSED for sdpush/flash). Cheap: one extra word read.
+        self.read_uint32(context["buffer"].address)
+
     def wait_for_idle(self, timeout: float = 120):
         """Block until the on-device status is IDLE.
 
@@ -320,7 +327,7 @@ class GnW:
         status_enum = self.read_uint32("status")
         status_str = flashapp_status_enum_to_str.get(status_enum, "UNKNOWN")
         if raise_on_error and (status_enum & ERROR_MASK) == 0xBAD0_0000:
-            if status_str in ("BAD_HASH_RAM", "BAD_HASH_FLASH"):
+            if status_str in ("BAD_HASH_RAM", "BAD_HASH_RAM_COMPRESSED", "BAD_HASH_FLASH"):
                 expected_hash = self.read_memory("expected_hash")
                 actual_hash = self.read_memory("actual_hash")
                 raise DataError(f"{status_str}:\nExpected: {expected_hash.hex()}\nActual: {actual_hash.hex()}")
@@ -505,6 +512,8 @@ class GnW:
         else:
             self.write_uint32(context["compressed_size"], 0)
             self.write_memory(context["buffer"], data)
+
+        self._drain_pending_writes(context)
 
         log.debug(f"Activating PROGRAM: {data_hash.hex()}")
         self.write_uint32(context["ready"], self.context_counter)
@@ -703,6 +712,8 @@ class GnW:
             self.write_uint32(context["compressed_size"], 0)
             self.write_memory(context["buffer"], data)
 
+        self._drain_pending_writes(context)
+
         log.debug(f"Activating PROGRAM: {data_hash.hex()}")
         self.write_uint32(context["ready"], self.context_counter)
         self.context_counter += 1
@@ -764,6 +775,7 @@ class GnW:
         self.write_str(context["dest_path"], path)
         self.write_uint32(context["offset"], offset)
         self.write_uint32(context["size"], max_bytes)
+        self._drain_pending_writes(context)
         self.write_uint32(context["ready"], self.context_counter)
         self.context_counter += 1
         log.debug(f"context_counter incremented to {self.context_counter}.")
@@ -790,6 +802,7 @@ class GnW:
         self.write_str(context["dest_path"], path)
         self.write_uint32(context["offset"], 0)
         self.write_uint32(context["size"], 0)
+        self._drain_pending_writes(context)
         self.write_uint32(context["ready"], self.context_counter)
         self.context_counter += 1
         log.debug(f"context_counter incremented to {self.context_counter}.")
@@ -842,6 +855,7 @@ class GnW:
         self.write_uint32(context["response_ready"], 0)
         self.write_uint32(context["action"], actions["DELETE_FILE_FROM_SD"])
         self.write_str(context["dest_path"], path)
+        self._drain_pending_writes(context)
         self.write_uint32(context["ready"], self.context_counter)
         self.context_counter += 1
         log.debug(f"context_counter incremented to {self.context_counter}.")
@@ -860,6 +874,7 @@ class GnW:
         self.write_uint32(context["response_ready"], 0)
         self.write_uint32(context["action"], actions["LIST_SD_DIR"])
         self.write_str(context["dest_path"], path)
+        self._drain_pending_writes(context)
         self.write_uint32(context["ready"], self.context_counter)
         self.context_counter += 1
         log.debug(f"context_counter incremented to {self.context_counter}.")

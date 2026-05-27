@@ -17,6 +17,7 @@ enum gnwmanager_status { // For signaling program status to computer
     GNWMANAGER_STATUS_BAD_SD_DIR      = 0xbad0000b,
     GNWMANAGER_STATUS_BAD_SD_LIST_TRUNC = 0xbad0000c,
     GNWMANAGER_STATUS_BAD_SD_READ       = 0xbad0000d,
+    GNWMANAGER_STATUS_BAD_HASH_RAM_COMPRESSED = 0xbad0000e,
 
     GNWMANAGER_STATUS_IDLE            = 0xcafe0000,
     GNWMANAGER_STATUS_ERASE     ,
