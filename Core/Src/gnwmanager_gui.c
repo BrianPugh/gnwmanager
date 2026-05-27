@@ -137,7 +137,7 @@ void gnwmanager_gui_draw(){
         gui.run_state = IS_RUNNING ? (gui.run_state + 1) % 10 : 0;
     }
 
-    DRAW(10, 16, &img_idle, *gui.status == GNWMANAGER_STATUS_IDLE);
+    DRAW(10, 16, &img_idle, *gui.status == GNWMANAGER_STATUS_IDLE && !*gui.download_in_progress && !*gui.upload_in_progress);
     DRAW(54, 16, &img_prog, *gui.status == GNWMANAGER_STATUS_PROG);
     DRAW(10, 37, &img_erase, *gui.status == GNWMANAGER_STATUS_ERASE);
 
