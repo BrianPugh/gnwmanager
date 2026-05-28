@@ -267,6 +267,14 @@ static void release_context(work_context_t *context){
     memset((void *)context, 0, sizeof(work_context_t));
 }
 
+bool gnwmanager_is_idle(void){
+    return comm.status == GNWMANAGER_STATUS_IDLE
+        && comm.contexts[0].ready == 0
+        && comm.contexts[1].ready == 0
+        && !comm.upload_in_progress
+        && !comm.download_in_progress;
+}
+
 void gnwmanager_set_status(gnwmanager_status_t status){
     static gnwmanager_status_t prev_status = 0;
     comm.status = status;
@@ -878,10 +886,7 @@ void gnwmanager_main(gnwmanager_status_t status)
 
     while (true) {
         uint8_t reset_pressed = ((buttons_get() & (B_POWER | B_B)) != 0);
-        uint8_t truly_idle = (comm.status == GNWMANAGER_STATUS_IDLE)
-                          && !comm.upload_in_progress
-                          && !comm.download_in_progress;
-        if((!reset_was_pressed) && reset_pressed && truly_idle){
+        if((!reset_was_pressed) && reset_pressed && gnwmanager_is_idle()){
             NVIC_SystemReset();
         }
         reset_was_pressed = reset_pressed;
