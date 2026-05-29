@@ -248,25 +248,36 @@ def main(
     except DebugProbeConnectionError as e:
         rich.print(f"[red]Error communicating with device ({e}). Is it ON and connected?[/red]")
         close_on_exit = False
+        if exit_on_error:
+            sys.exit(1)
     except DataError as e:
+        first_arg = e.args[0] if e.args and isinstance(e.args[0], str) else ""
         if e.args == ("BAD_FLASH_COMM",):
-            rich.print("Failed to communicate with external flash chip. Check your soldering!")
+            rich.print("[red]Failed to communicate with external flash chip. Check your soldering![/red]")
         elif e.args == ("BAD_SD_FS_MOUNT",):
-            rich.print("Failed to mount filesystem on SD Card!")
+            rich.print("[red]Failed to mount filesystem on SD Card![/red]")
         elif e.args == ("BAD_SD_OPEN",):
-            rich.print("Failed to open file on SD Card!")
+            rich.print("[red]Failed to open file on SD Card![/red]")
         elif e.args == ("BAD_SD_WRITE",):
-            rich.print("Failed to write file on SD Card!")
+            rich.print("[red]Failed to write file on SD Card![/red]")
         elif e.args == ("BAD_SD_UNLINK",):
-            rich.print("Failed to delete file on SD Card!")
+            rich.print("[red]Failed to delete file on SD Card![/red]")
         elif e.args == ("BAD_SD_DIR",):
-            rich.print("Failed to open directory on SD Card!")
+            rich.print("[red]Failed to open directory on SD Card![/red]")
         elif e.args == ("BAD_SD_LIST_TRUNC",):
-            rich.print("SD directory listing was truncated (too many entries or long names).")
+            rich.print("[red]SD directory listing was truncated (too many entries or long names).[/red]")
         elif e.args == ("BAD_SD_READ",):
-            rich.print("Failed to read file from SD Card!")
+            rich.print("[red]Failed to read file from SD Card![/red]")
+        elif first_arg.startswith(("BAD_HASH_RAM_COMPRESSED", "BAD_HASH_RAM", "BAD_HASH_FLASH")):
+            status = first_arg.split(":", 1)[0]
+            rich.print(
+                f"[red]Transfer corruption ({status}) persisted after retries. "
+                "Try lowering `--frequency` or check your wiring/soldering.[/red]"
+            )
         else:
-            rich.print(f"Unexpected response from debug probe. {e}")
+            rich.print(f"[red]Unexpected response from debug probe. {e}[/red]")
+        if exit_on_error:
+            sys.exit(1)
     except ConnectionResetError:
         print(traceback.format_exc())
         close_on_exit = False
