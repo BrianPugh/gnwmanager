@@ -135,6 +135,10 @@ class ZeldaGnW(Device, name="zelda"):
         log.debug("Intercept button presses for macros.")
         self.internal.bl(0xFE54, "read_buttons")
 
+        log.debug("Warm-boot power-off fix: force standby-wake init path + skip state-6 standby.")
+        self.internal.nop(0xEBD0, 1)      # 0x0800EBC8 SBF gate: bpl -> nop (always return 1)
+        self.internal.b(0xEAA0, 0xEAC2)   # 0x0800EA8C state-6 standby: bpl -> b (never standby)
+
         # Disable OTFDEC
         self.internal.nop(0x16536, 2)
         self.internal.nop(0x1653A, 1)
