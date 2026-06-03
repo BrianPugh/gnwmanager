@@ -66,7 +66,9 @@ void gui_draw_glyph(uint16_t x_pos, uint16_t y_pos, const glyph_t *glyph, pixel_
 #define IS_ERROR_STATUS ((*gui.status & 0xFFFF0000) == 0xbad00000)
 #define SLEEPING_THRESH 5
 #define IS_SLEEPING (gui.counter_to_sleep == SLEEPING_THRESH)
-#define IS_RUNNING (!IS_SLEEPING && !IS_ERROR_STATUS)
+// Walking animation only when the device is actually doing work; "truly idle"
+// (no queued contexts, no host transfer) shows the IDLE icon instead.
+#define IS_BUSY (!gnwmanager_is_idle() && !IS_ERROR_STATUS)
 
 gnwmanager_gui_t gui;
 
@@ -125,19 +127,21 @@ void gnwmanager_gui_draw(){
         prev_status = *gui.status;
     }
 
-    if(*gui.status != GNWMANAGER_STATUS_IDLE || *gui.download_in_progress || *gui.upload_in_progress){
+    bool truly_idle = gnwmanager_is_idle();
+
+    if(!truly_idle){
         gui.counter_to_sleep = 0;
     }
 
     if(step){
-        if(!IS_SLEEPING && *gui.status == GNWMANAGER_STATUS_IDLE)
+        if(!IS_SLEEPING && truly_idle)
             gui.counter_to_sleep++;
 
         gui.sleep_z_state = IS_SLEEPING ? (gui.sleep_z_state + 1) % 4 : 0;
-        gui.run_state = IS_RUNNING ? (gui.run_state + 1) % 10 : 0;
+        gui.run_state = IS_BUSY ? (gui.run_state + 1) % 10 : 0;
     }
 
-    DRAW(10, 16, &img_idle, *gui.status == GNWMANAGER_STATUS_IDLE);
+    DRAW(10, 16, &img_idle, truly_idle);
     DRAW(54, 16, &img_prog, *gui.status == GNWMANAGER_STATUS_PROG);
     DRAW(10, 37, &img_erase, *gui.status == GNWMANAGER_STATUS_ERASE);
 
@@ -190,7 +194,7 @@ void gnwmanager_gui_draw(){
     };
     for(uint8_t i=0; i<10; i++){
         DRAW(RUN_ORIGIN_X + i * RUN_SPACING, RUN_ORIGIN_Y, run[i],
-                (i == gui.run_state) && IS_RUNNING);
+                (i == gui.run_state) && IS_BUSY);
     }
 
     const glyph_t* progress[] = {

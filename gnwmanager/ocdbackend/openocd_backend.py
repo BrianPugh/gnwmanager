@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import os
 import re
@@ -5,11 +6,12 @@ import shutil
 import socket
 import subprocess
 import tempfile
+from collections import deque
 from collections.abc import Generator
 from pathlib import Path
 from threading import Thread
 from time import sleep, time
-from typing import List, Tuple
+from typing import Deque, List, Tuple
 
 from gnwmanager.exceptions import DataError, DebugProbeConnectionError, MissingThirdPartyError
 from gnwmanager.ocdbackend.base import OCDBackend, TransferErrors
@@ -35,11 +37,20 @@ TransferErrors.add(OpenOCDError)
 _ramdisk = Path("/dev/shm")
 
 
-def process_output(stream):
-    for line in iter(stream.readline, ""):
-        text = line.decode().rstrip()
+def _drain_stderr(stream, buffer: "Deque[str]", level: int) -> None:
+    """Continuously drain a subprocess stderr pipe.
+
+    OpenOCD's stderr is a fixed-size OS pipe (~64 KB). If nothing reads it, the
+    buffer eventually fills, OpenOCD's next write to stderr blocks, and it stops
+    servicing the TCL command socket — wedging all transfers mid-session. This
+    thread keeps the pipe drained at all times, retaining recent lines in
+    ``buffer`` for later error reporting.
+    """
+    for line in iter(stream.readline, b""):
+        text = line.decode(errors="replace").rstrip()
         if text:
-            log.debug(text)
+            buffer.append(text)
+            log.log(level, text)
 
 
 def _pi_find_gpio_number(gpio_name):
@@ -82,9 +93,11 @@ def _openocd_launch_commands(port: int) -> Generator[tuple[str, list[str]], None
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
     yield "jlink", cmd
 
-    # CMSIS-DAP (pi pico)
+    # CMSIS-DAP (pi pico). Bit-banged SWD via RP2040 PIO with no level shifting;
+    # signal integrity on hand-soldered G&W flying leads degrades quickly past
+    # ~1 MHz and surfaces as BAD_HASH_RAM_COMPRESSED. 1 MHz is the safe default.
     cmd = base_cmd.copy()
-    cmd.extend(["-c", "adapter speed 4000"])
+    cmd.extend(["-c", "adapter speed 1000"])
     cmd.extend(["-c", "source [find interface/cmsis-dap.cfg]"])
     cmd.extend(["-c", "transport select swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
@@ -194,6 +207,8 @@ class OpenOCDBackend(OCDBackend):
         super().__init__()
         self._address = ("localhost", port)
         self._openocd_process = None
+        self._stderr_buffer: Deque[str] = deque(maxlen=1000)
+        self._stderr_thread = None
         self.version = _get_openocd_version()
 
     def open(self) -> OCDBackend:
@@ -202,10 +217,16 @@ class OpenOCDBackend(OCDBackend):
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._openocd_process = _launch_openocd(self._address[1])
 
-        if env_is_yes_like("GNWMANAGER_OPENOCD_DEBUG"):
-            debug_thread = Thread(target=process_output, args=(self._openocd_process.stderr,))
-            debug_thread.daemon = True
-            debug_thread.start()
+        # Always drain stderr, otherwise the OS pipe buffer fills and OpenOCD
+        # deadlocks mid-session. GNWMANAGER_OPENOCD_DEBUG only controls whether
+        # the drained lines are surfaced (INFO) or kept quiet (DEBUG).
+        level = logging.INFO if env_is_yes_like("GNWMANAGER_OPENOCD_DEBUG") else logging.DEBUG
+        self._stderr_thread = Thread(
+            target=_drain_stderr,
+            args=(self._openocd_process.stderr, self._stderr_buffer, level),
+            daemon=True,
+        )
+        self._stderr_thread.start()
 
         for _ in range(5):
             try:
@@ -224,7 +245,24 @@ class OpenOCDBackend(OCDBackend):
             if self._openocd_process and self._openocd_process.poll() is None:
                 self._openocd_process.terminate()
                 self._openocd_process.wait()
+            if self._stderr_thread is not None:
+                self._stderr_thread.join(timeout=2)
+                self._stderr_thread = None
             self._openocd_process = None
+
+    def _collect_stderr(self) -> str:
+        """Wait for OpenOCD to exit and return its drained stderr output.
+
+        Reads from the buffer filled by the background drain thread instead of
+        calling ``process.communicate()`` (which would race with that thread for
+        the pipe).
+        """
+        if self._openocd_process is not None:
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                self._openocd_process.wait(timeout=2)
+        if self._stderr_thread is not None:
+            self._stderr_thread.join(timeout=2)
+        return "\n".join(self._stderr_buffer)
 
     def __call__(self, cmd: str, *, decode=True) -> bytes:
         """Invoke an OpenOCD command."""
@@ -233,8 +271,7 @@ class OpenOCDBackend(OCDBackend):
             return self._receive_response(decode=decode)
         except (BrokenPipeError, ConnectionResetError) as e:
             assert self._openocd_process is not None
-            _, err = self._openocd_process.communicate()
-            err = err.decode()
+            err = self._collect_stderr()
             log.debug(err)
             if "Error connecting DP: cannot read IDR" in err:
                 raise DebugProbeConnectionError(

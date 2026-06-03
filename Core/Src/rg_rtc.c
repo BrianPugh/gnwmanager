@@ -6,202 +6,62 @@
 RTC_TimeTypeDef GW_currentTime = {0};
 RTC_DateTypeDef GW_currentDate = {0};
 
-// Getters
-uint8_t GW_GetCurrentHour(void) {
-
-    // Get time. According to STM docs, both functions need to be called at once.
-    HAL_RTC_GetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN);
-    HAL_RTC_GetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN);
-
-    return GW_currentTime.Hours;
-
-}
-uint8_t GW_GetCurrentMinute(void) {
-
-    // Get time. According to STM docs, both functions need to be called at once.
-    HAL_RTC_GetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN);
-    HAL_RTC_GetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN);
-
-    return GW_currentTime.Minutes;
-}
-uint8_t GW_GetCurrentSecond(void) {
-
-    // Get time. According to STM docs, both functions need to be called at once.
-    HAL_RTC_GetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN);
-    HAL_RTC_GetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN);
-
-    return GW_currentTime.Seconds;
+// Howard Hinnant's days_from_civil / civil_from_days. UTC only, no DST/tz —
+// replaces newlib mktime/gmtime which otherwise drag in ~2.4KB of tz code.
+static int32_t days_from_civil(int y, unsigned m, unsigned d) {
+    y -= m <= 2;
+    const int era = y / 400;
+    const unsigned yoe = (unsigned)(y - era * 400);
+    const unsigned doy = (153u * (m > 2 ? m - 3u : m + 9u) + 2u) / 5u + d - 1u;
+    const unsigned doe = yoe * 365u + yoe / 4u - yoe / 100u + doy;
+    return era * 146097 + (int32_t)doe - 719468;
 }
 
-uint8_t GW_GetCurrentMonth(void) {
-
-    // Get time. According to STM docs, both functions need to be called at once.
-    HAL_RTC_GetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN);
-    HAL_RTC_GetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN);
-
-    return GW_currentDate.Month;
-}
-uint8_t GW_GetCurrentDay(void) {
-
-    // Get time. According to STM docs, both functions need to be called at once.
-    HAL_RTC_GetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN);
-    HAL_RTC_GetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN);
-
-    return GW_currentDate.Date;
-}
-
-uint8_t GW_GetCurrentWeekday(void) {
-
-    // Get time. According to STM docs, both functions need to be called at once.
-    HAL_RTC_GetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN);
-    HAL_RTC_GetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN);
-
-    return GW_currentDate.WeekDay;
-}
-uint8_t GW_GetCurrentYear(void) {
-
-    // Get time. According to STM docs, both functions need to be called at once.
-    HAL_RTC_GetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN);
-    HAL_RTC_GetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN);
-
-    return GW_currentDate.Year;
-}
-
-// Setters
-void GW_SetCurrentHour(const uint8_t hour) {
-
-    // Update time before we can set it
-    HAL_RTC_GetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN);
-    HAL_RTC_GetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN);
-
-    // Set time
-    GW_currentTime.Hours = hour;
-    if (HAL_RTC_SetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN) != HAL_OK)
-    {
-        Error_Handler();
-    }
-}
-void GW_SetCurrentMinute(const uint8_t minute) {
-
-    // Update time before we can set it
-    HAL_RTC_GetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN);
-    HAL_RTC_GetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN);
-
-    // Set time
-    GW_currentTime.Minutes = minute;
-    if (HAL_RTC_SetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN) != HAL_OK)
-    {
-        Error_Handler();
-    }
-}
-
-void GW_SetCurrentSecond(const uint8_t second) {
-
-    // Update time before we can set it
-    HAL_RTC_GetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN);
-    HAL_RTC_GetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN);
-
-    // Set time
-    GW_currentTime.Seconds = second;
-    if (HAL_RTC_SetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN) != HAL_OK)
-    {
-        Error_Handler();
-    }
-}
-
-void GW_SetCurrentMonth(const uint8_t month) {
-
-    // Update time before we can set it
-    HAL_RTC_GetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN);
-    HAL_RTC_GetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN);
-
-    // Set date
-    GW_currentDate.Month = month;
-
-    if (HAL_RTC_SetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN) != HAL_OK)
-    {
-        Error_Handler();
-    }
-}
-void GW_SetCurrentDay(const uint8_t day) {
-
-    // Update time before we can set it
-    HAL_RTC_GetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN);
-    HAL_RTC_GetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN);
-
-    // Set date
-    GW_currentDate.Date = day;
-
-    if (HAL_RTC_SetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN) != HAL_OK)
-    {
-        Error_Handler();
-    }
-}
-
-void GW_SetCurrentWeekday(const uint8_t weekday) {
-
-    // Update time before we can set it
-    HAL_RTC_GetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN);
-    HAL_RTC_GetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN);
-
-    // Set date
-    GW_currentDate.WeekDay = weekday;
-
-    if (HAL_RTC_SetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN) != HAL_OK)
-    {
-        Error_Handler();
-    }
-}
-void GW_SetCurrentYear(const uint8_t year) {
-
-    // Update time before we can set it
-    HAL_RTC_GetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN);
-    HAL_RTC_GetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN);
-
-    // Set date
-    GW_currentDate.Year = year;
-
-    if (HAL_RTC_SetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN) != HAL_OK)
-    {
-        Error_Handler();
-    }
+static void civil_from_days(int32_t z, int *y, unsigned *m, unsigned *d) {
+    z += 719468;
+    const int era = (z >= 0 ? z : z - 146096) / 146097;
+    const unsigned doe = (unsigned)(z - era * 146097);
+    const unsigned yoe = (doe - doe / 1460u + doe / 36524u - doe / 146096u) / 365u;
+    const unsigned doy = doe - (365u * yoe + yoe / 4u - yoe / 100u);
+    const unsigned mp = (5u * doy + 2u) / 153u;
+    *d = doy - (153u * mp + 2u) / 5u + 1u;
+    *m = mp < 10u ? mp + 3u : mp - 9u;
+    *y = (int)yoe + era * 400 + (*m <= 2);
 }
 
 time_t GW_GetUnixTime(void) {
-    // Function to return Unix timestamp since 1st Jan 1970.
-    // The time is returned as an 64-bit value, but only the top 32-bits are populated.
-
-    time_t timestamp;
-    struct tm timeStruct;
-
     HAL_RTC_GetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN);
     HAL_RTC_GetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN);
 
-    timeStruct.tm_year = GW_currentDate.Year + 100;  // tm_year base is 1900, RTC can only save 0 - 99, so bump to 2000.
-    timeStruct.tm_mday = GW_currentDate.Date;
-    timeStruct.tm_mon  = GW_currentDate.Month - 1;
-
-    timeStruct.tm_hour = GW_currentTime.Hours;
-    timeStruct.tm_min  = GW_currentTime.Minutes;
-    timeStruct.tm_sec  = GW_currentTime.Seconds;
-
-    timestamp = mktime(&timeStruct);
-
-    return timestamp;
+    int32_t days = days_from_civil(2000 + GW_currentDate.Year,
+                                   GW_currentDate.Month,
+                                   GW_currentDate.Date);
+    return (time_t)days * 86400
+         + (time_t)GW_currentTime.Hours * 3600
+         + (time_t)GW_currentTime.Minutes * 60
+         + (time_t)GW_currentTime.Seconds;
 }
 
-void GW_SetUnixTime(uint32_t time){
-    struct tm *timeStruct;
-    const int64_t time_64 = time;
-    timeStruct = gmtime(&time_64);
+void GW_SetUnixTime(uint32_t time) {
+    int32_t days = (int32_t)(time / 86400u);
+    uint32_t tod = time % 86400u;
+    int year;
+    unsigned month, day;
+    civil_from_days(days, &year, &month, &day);
 
-    GW_SetCurrentYear(timeStruct->tm_year - 100);
-    GW_SetCurrentMonth(timeStruct->tm_mon + 1);
-    GW_SetCurrentDay(timeStruct->tm_mday);
+    // RTC weekday: 1=Mon..7=Sun. 1970-01-01 is a Thursday (days=0 -> 4).
+    GW_currentDate.WeekDay = (uint8_t)(((unsigned)(days + 3) % 7u) + 1u);
+    GW_currentDate.Year    = (uint8_t)(year - 2000);
+    GW_currentDate.Month   = (uint8_t)month;
+    GW_currentDate.Date    = (uint8_t)day;
 
-    GW_SetCurrentHour(timeStruct->tm_hour);
-    GW_SetCurrentMinute(timeStruct->tm_min);
-    GW_SetCurrentSecond(timeStruct->tm_sec);
+    GW_currentTime.Hours   = (uint8_t)(tod / 3600u);
+    GW_currentTime.Minutes = (uint8_t)((tod / 60u) % 60u);
+    GW_currentTime.Seconds = (uint8_t)(tod % 60u);
 
-    GW_SetCurrentWeekday(timeStruct->tm_wday ? timeStruct->tm_wday : 7);
+    if (HAL_RTC_SetTime(&hrtc, &GW_currentTime, RTC_FORMAT_BIN) != HAL_OK ||
+        HAL_RTC_SetDate(&hrtc, &GW_currentDate, RTC_FORMAT_BIN) != HAL_OK)
+    {
+        Error_Handler();
+    }
 }

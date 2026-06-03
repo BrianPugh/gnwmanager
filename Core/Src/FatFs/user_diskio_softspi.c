@@ -262,7 +262,12 @@ static void finish_read_cmd(void)
     SoftSpi_WriteDummyRead(sd.spi, NULL, 2);
 }
 
-static bool finish_write_cmd(void)
+/* Returns the SD data response token status (low 5 bits):
+ *   0x05 = accepted
+ *   0x0B = CRC error (recoverable)
+ *   0x0D = write error (fatal)
+ */
+static uint8_t finish_write_cmd(void)
 {
     uint8_t rbyte;
 
@@ -276,10 +281,7 @@ static bool finish_write_cmd(void)
         SoftSpi_WriteDummyRead(sd.spi, &rbyte, 1);
     } while (rbyte == 0xFF); // Fix : add timeout
 
-    if ((rbyte & 0xF) != 0x05)
-    {
-        return false;
-    }
+    uint8_t status = rbyte & 0x1F;
 
     // Wait for data to be written
     do
@@ -287,7 +289,7 @@ static bool finish_write_cmd(void)
         SoftSpi_WriteDummyRead(sd.spi, &rbyte, 1);
     } while (rbyte == 0x00); // Fix : add timeout
 
-    return true;
+    return status;
 }
 
 //-----[ SD Card Functions ]-----
@@ -581,25 +583,10 @@ DRESULT USER_SOFTSPI_write(
 
     if (count == 1)
     {
-        /* WRITE_SINGLE_BLOCK */
-        do
-        {
-            response = send_cmd(WRITE_SINGLE_BLOCK, sector);
-        } while (response.r0);
-
-        // Send dummy pre-send byte and start block token
-        SoftSpi_WriteDummyRead(sd.spi, NULL, 1);
-        SoftSpi_WriteRead(sd.spi, &start_block_token, NULL, 1);
-
-        SoftSpi_WriteRead(sd.spi, buff, NULL, BLOCK_SIZE);
-
-        if (finish_write_cmd()) {
-            count = 0;
-        }
-    }
-    else
-    {
-        do
+        /* WRITE_SINGLE_BLOCK with retries on transient CRC errors. CMD24
+         * carries the sector address, so re-issuing the whole sequence is
+         * always safe. */
+        for (uint8_t attempt = 0; attempt < 3; attempt++)
         {
             do
             {
@@ -612,9 +599,35 @@ DRESULT USER_SOFTSPI_write(
 
             SoftSpi_WriteRead(sd.spi, buff, NULL, BLOCK_SIZE);
 
-            if(!finish_write_cmd()) {
-                break;
+            uint8_t status = finish_write_cmd();
+            if (status == 0x05) { count = 0; break; }
+            if (status == 0x0D) break; /* card-reported write error: not recoverable */
+        }
+    }
+    else
+    {
+        do
+        {
+            uint8_t status = 0;
+            for (uint8_t attempt = 0; attempt < 3; attempt++)
+            {
+                do
+                {
+                    response = send_cmd(WRITE_SINGLE_BLOCK, sector);
+                } while (response.r0);
+
+                // Send dummy pre-send byte and start block token
+                SoftSpi_WriteDummyRead(sd.spi, NULL, 1);
+                SoftSpi_WriteRead(sd.spi, &start_block_token, NULL, 1);
+
+                SoftSpi_WriteRead(sd.spi, buff, NULL, BLOCK_SIZE);
+
+                status = finish_write_cmd();
+                /* Single-block writes carry their own address, so any
+                 * non-fatal failure is safe to retry. */
+                if (status == 0x05 || status == 0x0D) break;
             }
+            if (status != 0x05) break;
 
             buff += BLOCK_SIZE;
             if (!(CardType & CT_BLOCK))

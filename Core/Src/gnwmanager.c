@@ -31,6 +31,7 @@ typedef enum {  // For the gnwmanager state machine
     GNWMANAGER_DECOMPRESSING_SD       ,
     GNWMANAGER_CHECK_HASH_RAM_SD      ,
     GNWMANAGER_PROGRAM_SD             ,
+    GNWMANAGER_HASH_RETRY_WAIT        ,  // Wait for host to re-transmit a buffer after BAD_HASH_RAM_COMPRESSED
 
     GNWMANAGER_ERROR = 0xF000,
 } gnwmanager_state_t;
@@ -88,6 +89,9 @@ typedef struct {
             // total blocks for file
             uint32_t total_blocks;
 
+            // sha256 of the bytes the host placed in `buffer`. All-zero = skip check.
+            uint8_t compressed_sha256[32];
+
             /* Add future variables here */
 
             // This work context is ready for the on-device gnwmanager to process.
@@ -131,6 +135,15 @@ struct gnwmanager_comm {  // Values are read or written by the debugger
             uint8_t expected_hash[32];
 
             uint8_t actual_hash[32];
+
+            // Retry handshake: when the device detects BAD_HASH_RAM_COMPRESSED it
+            // writes the failed context index here, transitions to HASH_RETRY_WAIT,
+            // and waits for the host to (a) re-transmit the data into the same
+            // context buffer and (b) bump retry_request. The device then echoes
+            // retry_request into retry_ack and re-runs the hash check.
+            uint32_t failed_context_idx;  // output: which comm.buffer[i] needs re-transmit
+            uint32_t retry_request;       // input: host increments to request a retry
+            uint32_t retry_ack;           // output: device echoes after consuming retry_request
         };
         struct {
             // Force spacing, allowing for backward-compatible additional variables
@@ -254,6 +267,14 @@ static void release_context(work_context_t *context){
     memset((void *)context, 0, sizeof(work_context_t));
 }
 
+bool gnwmanager_is_idle(void){
+    return comm.status == GNWMANAGER_STATUS_IDLE
+        && comm.contexts[0].ready == 0
+        && comm.contexts[1].ready == 0
+        && !comm.upload_in_progress
+        && !comm.download_in_progress;
+}
+
 void gnwmanager_set_status(gnwmanager_status_t status){
     static gnwmanager_status_t prev_status = 0;
     comm.status = status;
@@ -323,7 +344,11 @@ static void gnwmanager_action_list_sd_dir(work_context_t *context){
         if (name[0] == '.' && name[1] == '.' && name[2] == 0) {
             continue;
         }
-        if (used >= cap) {
+        // Inlined "%s%s\n" formatting — keeps the entire newlib nano-vfprintf
+        // stack out of the firmware (~1.7KB saved).
+        const uint32_t name_len = (uint32_t)strlen(name);
+        const uint32_t suffix_len = (fno.fattrib & AM_DIR) ? 2u : 1u;  // '/'+'\n' or just '\n'
+        if (name_len + suffix_len > cap - used) {
             gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_LIST_TRUNC);
             f_closedir(&dir);
             f_mount(NULL, "", 0);
@@ -331,17 +356,12 @@ static void gnwmanager_action_list_sd_dir(work_context_t *context){
             context->response_ready = 1;
             return;
         }
-        int n = snprintf((char *)out + used, cap - used, "%s%s\n", name,
-                         (fno.fattrib & AM_DIR) ? "/" : "");
-        if (n < 0 || (uint32_t)n >= cap - used) {
-            gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_LIST_TRUNC);
-            f_closedir(&dir);
-            f_mount(NULL, "", 0);
-            context->size = used;
-            context->response_ready = 1;
-            return;
+        memcpy(out + used, name, name_len);
+        used += name_len;
+        if (fno.fattrib & AM_DIR) {
+            out[used++] = '/';
         }
-        used += (uint32_t)n;
+        out[used++] = '\n';
     }
 
     f_closedir(&dir);
@@ -604,6 +624,39 @@ static void gnwmanager_run(void)
     case GNWMANAGER_DECOMPRESSING:
     case GNWMANAGER_DECOMPRESSING_SD:
         if(working_context->compressed_size){
+            // If the host populated compressed_sha256, verify the compressed bytes
+            // match before LZMA touches them, so a transfer/cache corruption surfaces
+            // as BAD_HASH_RAM rather than the more confusing BAD_DECOMPRESS.
+            // All-zero = host didn't populate; skip.
+            uint8_t expected_or = 0;
+            for(int k = 0; k < 32; k++){
+                expected_or |= working_context->compressed_sha256[k];
+            }
+            if(expected_or){
+                if(HAL_HASHEx_SHA256_Start(&hhash,
+                    (uint8_t *)working_context->buffer, working_context->compressed_size,
+                    program_calculated_sha256,
+                    HAL_MAX_DELAY
+                )){
+                    Error_Handler();
+                }
+                if(memcmp((const void *)program_calculated_sha256,
+                          (const void *)working_context->compressed_sha256, 32) != 0){
+                    memcpy((void *)comm.actual_hash, program_calculated_sha256, 32);
+                    memcpy((void *)comm.expected_hash,
+                           (void *)working_context->compressed_sha256, 32);
+                    /* Publish which comm.buffer[i] needs re-transmit BEFORE
+                     * setting status: the host reads status first and uses
+                     * failed_context_idx to drive the retry. source_context
+                     * is still valid here — release_context() runs further
+                     * down on the success path. */
+                    comm.failed_context_idx = (uint32_t)(source_context - &comm.contexts[0]);
+                    gnwmanager_set_status(GNWMANAGER_STATUS_BAD_HASH_RAM_COMPRESSED);
+                    state = GNWMANAGER_HASH_RETRY_WAIT;
+                    break;
+                }
+            }
+
             // Decompress the data; nothing after this state should reference decompression.
             uint32_t n_decomp_bytes;
             n_decomp_bytes = lzma_inflate(comm.decompress_buffer, sizeof(comm.decompress_buffer),
@@ -688,6 +741,9 @@ static void gnwmanager_run(void)
                 // This is first block, open file
                 res = f_open(&file, (const char *)working_context->file_path, FA_WRITE | FA_CREATE_ALWAYS);
                 if (res != FR_OK) {
+                    /* Unmount so the next attempt re-mounts cleanly; otherwise
+                     * FATFS retains stale state from this failed open. */
+                    f_mount(NULL, "", 0);
                     gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_OPEN);
                     state = GNWMANAGER_ERROR;
                     break;
@@ -696,6 +752,11 @@ static void gnwmanager_run(void)
             if (working_context->size > 0) {
                 res = f_write(&file, (const void *)working_context->buffer, working_context->size, &bytes_written);
                 if (res != FR_OK || bytes_written < working_context->size) {
+                    /* Close + unmount so the half-written file's directory entry
+                     * is at least finalized, and the next sdpush starts from a
+                     * clean FATFS/FIL state. */
+                    f_close(&file);
+                    f_mount(NULL, "", 0);
                     gnwmanager_set_status(GNWMANAGER_STATUS_BAD_SD_WRITE);
                     state = GNWMANAGER_ERROR;
                     break;
@@ -760,6 +821,26 @@ static void gnwmanager_run(void)
         // Hash OK in FLASH
         state = GNWMANAGER_IDLE;
         break;
+    case GNWMANAGER_HASH_RETRY_WAIT:
+        /* Park until the host bumps retry_request. The host has by then
+         * re-transmitted the source buffer (and compressed_sha256) into the
+         * same comm.contexts[failed_context_idx] / comm.buffer[failed_context_idx].
+         * Re-sync working_context from source_context and re-enter
+         * DECOMPRESSING_* to re-run the compressed-hash check. */
+        if (comm.retry_request != comm.retry_ack) {
+            memcpy((void *)working_context, (void *)source_context, sizeof(work_context_t));
+            /* Clear BAD status so the GUI doesn't get stuck showing the error
+             * across retries. The host polls retry_ack to know the retry was
+             * consumed, so update status first to ensure that when the host
+             * sees retry_ack == retry_request, the post-retry status is
+             * already visible (no stale BAD read). */
+            gnwmanager_set_status(GNWMANAGER_STATUS_HASH);
+            state = (source_context->action == GNWMANAGER_ACTION_WRITE_FILE_TO_SD)
+                  ? GNWMANAGER_DECOMPRESSING_SD
+                  : GNWMANAGER_DECOMPRESSING;
+            comm.retry_ack = comm.retry_request;
+        }
+        break;
     case GNWMANAGER_ERROR:
         /* Allow a new host command after release_context() cleared ready bits. */
         if (comm.contexts[0].ready || comm.contexts[1].ready) {
@@ -772,7 +853,7 @@ static void gnwmanager_run(void)
 
 void gnwmanager_main(gnwmanager_status_t status)
 {
-    uint8_t power_was_pressed = ((buttons_get() & B_POWER) != 0);
+    uint8_t reset_was_pressed = ((buttons_get() & (B_POWER | B_B)) != 0);
 
     memset((void *)&comm, 0, sizeof(comm));
     comm.status = status;
@@ -789,11 +870,11 @@ void gnwmanager_main(gnwmanager_status_t status)
         // Error happened during system setup.
         gnwmanager_gui_draw();
         while(true){
-            uint8_t power_pressed = ((buttons_get() & B_POWER) != 0);
-            if((!power_was_pressed) && power_pressed){
+            uint8_t reset_pressed = ((buttons_get() & (B_POWER | B_B)) != 0);
+            if((!reset_was_pressed) && reset_pressed){
                 NVIC_SystemReset();
             }
-            power_was_pressed = power_pressed;
+            reset_was_pressed = reset_pressed;
             wdog_refresh();
         }
     }
@@ -804,11 +885,11 @@ void gnwmanager_main(gnwmanager_status_t status)
 
 
     while (true) {
-        uint8_t power_pressed = ((buttons_get() & B_POWER) != 0);
-        if((!power_was_pressed) && power_pressed){
+        uint8_t reset_pressed = ((buttons_get() & (B_POWER | B_B)) != 0);
+        if((!reset_was_pressed) && reset_pressed && gnwmanager_is_idle()){
             NVIC_SystemReset();
         }
-        power_was_pressed = power_pressed;
+        reset_was_pressed = reset_pressed;
 
         if(comm.status_override){
             gui.status = &comm.status_override;

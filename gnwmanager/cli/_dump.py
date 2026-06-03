@@ -59,7 +59,7 @@ def dump(
                 raise ValueError("Must specify size if reading from RAM address.")
 
         chunk_size = 256 << 10
-        for _ in tqdm(range(0, size, chunk_size)):
+        for _ in tqdm(range(0, size, chunk_size), desc=dst.name):
             chunk_size = min(chunk_size, size)
             chunks.append(gnw.read_memory(addr, chunk_size))
             addr += chunk_size

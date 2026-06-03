@@ -1,4 +1,5 @@
 #pragma once
+#include <stdbool.h>
 #include <stdint.h>
 
 enum gnwmanager_status { // For signaling program status to computer
@@ -17,6 +18,7 @@ enum gnwmanager_status { // For signaling program status to computer
     GNWMANAGER_STATUS_BAD_SD_DIR      = 0xbad0000b,
     GNWMANAGER_STATUS_BAD_SD_LIST_TRUNC = 0xbad0000c,
     GNWMANAGER_STATUS_BAD_SD_READ       = 0xbad0000d,
+    GNWMANAGER_STATUS_BAD_HASH_RAM_COMPRESSED = 0xbad0000e,
 
     GNWMANAGER_STATUS_IDLE            = 0xcafe0000,
     GNWMANAGER_STATUS_ERASE     ,
@@ -29,3 +31,7 @@ typedef uint32_t gnwmanager_status_t;  // All computer interactions are uint32_t
 
 void gnwmanager_main(gnwmanager_status_t status);
 void gnwmanager_set_status(gnwmanager_status_t status);
+
+// True only when the device is fully idle: status is IDLE, no contexts queued
+// by the host, and no host upload/download in flight.
+bool gnwmanager_is_idle(void);

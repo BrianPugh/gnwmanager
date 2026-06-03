@@ -150,7 +150,7 @@ def mario(
     gnw.start_gnwmanager()
     gnw.flash(1, 0, bytes(device.internal), progress=False)
     if device.external:
-        gnw.flash(0, 0, bytes(device.external), progress=True)
+        gnw.flash(0, 0, bytes(device.external), progress=True, desc="patched firmware")
     if bootloader:
         flash_bootloader(0x08032000, gnw=gnw, repo=bootloader_repo, tag=bootloader_tag, label="0x08032000")
 
@@ -216,6 +216,6 @@ def zelda(
     gnw.start_gnwmanager()
     gnw.flash(1, 0, bytes(device.internal), progress=False)
     if device.external:
-        gnw.flash(0, 0, bytes(device.external), progress=True)
+        gnw.flash(0, 0, bytes(device.external), progress=True, desc="patched firmware")
     if bootloader:
         flash_bootloader(0x08032000, gnw=gnw, repo=bootloader_repo, tag=bootloader_tag, label="0x08032000")

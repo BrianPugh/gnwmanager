@@ -117,7 +117,7 @@ class DeviceModel(Registry, suffix="Model"):
 
     @classmethod
     def autodetect(cls, gnw: GnW):
-        for device_constructor in DeviceModel.values():
+        for device_constructor in DeviceModel.values():  # pyright: ignore[reportAttributeAccessIssue]
             device = device_constructor(gnw)
             with suppress(HashMismatchError):
                 device.read_itcm()
