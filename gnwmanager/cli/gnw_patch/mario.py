@@ -46,6 +46,10 @@ class MarioGnW(Device, name="mario"):
         log.debug("Intercept button presses for macros.")
         self.internal.bl(0x6B52, "read_buttons")
 
+        log.debug("Warm-boot power-off fix: force standby-wake init path + skip state-6 standby.")
+        self.internal.nop(0x6038, 1)     # 0x08006030 SBF gate: bpl -> nop (always return 1)
+        self.internal.b(0x5F08, 0x5F2A)  # 0x08005EF4 state-6 standby: bpl -> b (never standby)
+
         log.debug("Mute clock audio on first boot.")
         self.internal.asm(0x49E0, "mov.w r1, #0x00000")
 
