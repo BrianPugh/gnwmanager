@@ -25,8 +25,10 @@ def write_pixels(prefix, fn, invert=False):
         ]
 
         for x in range(img.width):
-            pixel = img.getpixel((x, y))
-            pixel = sum(pixel) / len(pixel)
+            raw = img.getpixel((x, y))
+            assert raw is not None
+            channels = raw if isinstance(raw, tuple) else (raw,)
+            pixel = sum(channels) / len(channels)
 
             if invert:
                 if pixel < 127:

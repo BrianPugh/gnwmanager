@@ -214,8 +214,9 @@ class GnW:
         # BAD_HASH_RAM_COMPRESSED for sdpush/flash). Cheap: one extra word read.
         self.read_uint32(context["buffer"].address)
 
-    def _record_in_flight_compressed(self, context, *, buffer_data: bytes,
-                                     compressed_sha256: bytes, expected_sha256: bytes):
+    def _record_in_flight_compressed(
+        self, context, *, buffer_data: bytes, compressed_sha256: bytes, expected_sha256: bytes
+    ):
         """Stash what was written to this context so the chunk-retry handshake can resend it.
 
         Driven from `_get_status` on BAD_HASH_RAM_COMPRESSED.
@@ -327,9 +328,7 @@ class GnW:
             if i % 10 == 0:
                 log.debug(f"waiting for device to IDLE; current status: {status_str}")
             if time() - t_progress > timeout:
-                raise TimeoutError(
-                    f"wait_for_idle: no status progress for {timeout:.1f}s (status={status_str})"
-                )
+                raise TimeoutError(f"wait_for_idle: no status progress for {timeout:.1f}s (status={status_str})")
             sleep(0.1)
         log.debug(f"Waited {time() - t_start:.3f}s for device idle.")
 

@@ -97,6 +97,9 @@ exclude_lines = [
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+# Allow passing bytearray/memoryview where bytes is expected (pyright >=1.1.4xx
+# disables this promotion by default).
+disableBytesTypePromotions = false
 
 [tool.ruff]
 target-version = 'py38'

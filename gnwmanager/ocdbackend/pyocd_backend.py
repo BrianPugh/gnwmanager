@@ -14,6 +14,7 @@ with suppress(ImportError):
 class PyOCDBackend(OCDBackend):
     def __init__(self, connect_mode="attach"):
         super().__init__()
+        import pyocd
         from pyocd.core.helpers import ConnectHelper
         from pyocd.target import TARGET
 
