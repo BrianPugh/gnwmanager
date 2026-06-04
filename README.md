@@ -145,13 +145,13 @@ When sharing `gnwmanager` output, it is recommended to increase the verbosity le
 
 ## Developer Installation
 If developing for GnWManager, perform the following steps to setup your local environment.
-We use [pre-commit](https://pre-commit.com/) to run linting, and [poetry](https://python-poetry.org/) for python management.
+We use [pre-commit](https://pre-commit.com/) to run linting, and [uv](https://docs.astral.sh/uv/) for python management.
 
 ```bash
 git clone git@github.com:BrianPugh/gnwmanager.git
 cd gnwmanager
-pre-commit install  # Ensures linting passes prior to committing
-poetry install
+uv sync  # Creates a virtual environment and installs dependencies.
+uv run pre-commit install  # Ensures linting passes prior to committing
 make -j4  # Builds stm32 firmware binaries.
 ```
 

@@ -1,71 +1,92 @@
 [build-system]
-requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning>=0.21.5"]
-build-backend = "poetry_dynamic_versioning.backend"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
-[tool.poetry-dynamic-versioning]
-enable = true
-vcs = "git"
-style = "semver"
-
-[tool.poetry]
+[project]
 name = "gnwmanager"
-version = "0.0.0"  # Do not change, let poetry-dynamic-versioning handle it.
-homepage = "https://github.com/BrianPugh/gnwmanager"
-repository = "https://github.com/BrianPugh/gnwmanager"
-license = "Apache-2.0"
+dynamic = ["version"]
 description = ""
-authors = ["Brian Pugh"]
+license = { text = "Apache-2.0" }
+authors = [{ name = "Brian Pugh" }]
 readme = "README.md"
-packages = [{include = "gnwmanager"}]
-include = [
-    {path="gnwmanager/firmware.bin", format=["sdist", "wheel"]},
-    {path="gnwmanager/unlock.bin", format=["sdist", "wheel"]},
-    {path="gnwmanager/cli/gnw_patch/binaries/mario/*.bin", format=["sdist", "wheel"]},
-    {path="gnwmanager/cli/gnw_patch/binaries/zelda/*.bin", format=["sdist", "wheel"]},
+requires-python = ">=3.9"
+dependencies = [
+    "cyclopts>=3.22.5,<4",
+    "littlefs-python>=0.9.0",
+    "tqdm>=4.66.6,<5",
+    "pillow>=11.3.0,<12",
+    "tamp>=1.7.0,<2",
+    "rich>=14.1.0,<15",
+    "pyelftools>=0.29",
+    "autoregistry>=1.0.0,<2",
+    "psutil>=7.0.0,<8",
+    "httpx>=0.28.1,<0.29",
+    "colorama>=0.4.6,<0.5",
+    "pycryptodome>=3.23.0,<4",
 ]
 
-[tool.poetry.scripts]
+[project.urls]
+homepage = "https://github.com/BrianPugh/gnwmanager"
+repository = "https://github.com/BrianPugh/gnwmanager"
+
+[project.optional-dependencies]
+pyocd = ["pyocd>=0.35.1"]
+
+[project.scripts]
 gnwmanager = "gnwmanager.cli.main:run_app"
 
-[tool.poetry.extras]
-pyocd = ["pyocd"]
+[dependency-groups]
+dev = [
+    "coverage[toml]>=5.1",
+    "pre-commit>=2.16.0",
+    "pytest>=7.1.2",
+    "pytest-cov>=3.0.0",
+    "pytest-mock>=3.7.0",
+]
+docs = [
+    "sphinx>=6.2.1,<7.5.0",
+    "sphinx_rtd_theme>=1.2.2,<2.1.0",
+    "gitpython>=3.1.47",
+    "sphinx-copybutton>=0.5.2,<0.6",
+]
+debug = [
+    "ipdb>=0.13.9",
+    "line_profiler>=3.5.1",
+]
+# keystone-engine is only needed to *regenerate* the gnw_patch firmware patch
+# binaries (it's lazily imported in gnwmanager/cli/gnw_patch/patch.py). It ships
+# no macOS arm64 wheel, so on Apple Silicon it builds from sdist; install with
+# `uv sync --group patch`, prefixing `_PYTHON_HOST_PLATFORM=macosx-11.0-arm64`
+# if the self-built wheel's platform tag is rejected.
+patch = [
+    "keystone-engine>=0.9.2,<0.10",
+]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-cyclopts = "^3.22.5"
-pyocd = { version=">=0.35.1", optional=true }
-littlefs-python = ">=0.9.0"
-tqdm = "^4.66.6"
-pillow = "^11.3.0"
-tamp = "^1.7.0"
-rich = "^14.1.0"
-pyelftools = ">=0.29"
-autoregistry = "^1.0.0"
-psutil = "^7.0.0"
-httpx = "^0.28.1"
-colorama = "^0.4.6"
-pycryptodome = "^3.23.0"
+# --- Build backend (hatchling + hatch-vcs) -------------------------------------
+# Version is derived from git tags (replaces the previous
+# poetry-dynamic-versioning setup). hatch-vcs wraps setuptools-scm; a tagged
+# commit (e.g. v0.22.0) builds as 0.22.0, untagged commits as 0.22.1.devN+g<sha>.
+[tool.hatch.version]
+source = "vcs"
 
-[tool.poetry.group.docs.dependencies]
-sphinx = ">=6.2.1,<7.5.0"
-sphinx_rtd_theme = ">=1.2.2,<2.1.0"
-gitpython = ">=3.1.47"
-sphinx-copybutton = "^0.5.2"
+[tool.hatch.build.targets.wheel]
+packages = ["gnwmanager"]
 
-[tool.poetry.group.dev.dependencies]
-coverage = {extras = ["toml"], version = ">=5.1"}
-pre_commit = ">=2.16.0"
-pytest = ">=7.1.2"
-pytest-cov = ">=3.0.0"
-pytest-mock = ">=3.7.0"
-keystone-engine = "^0.9.2"
+# `firmware.bin`/`unlock.bin` are produced by `make` and the `*.bin` files under
+# gnw_patch/binaries match the repo's global `*.bin` gitignore. Hatchling excludes
+# VCS-ignored files by default, so force-include them as build artifacts (parity
+# with the old [tool.poetry] include list).
+[tool.hatch.build]
+artifacts = [
+    "gnwmanager/firmware.bin",
+    "gnwmanager/unlock.bin",
+    "gnwmanager/cli/gnw_patch/binaries/mario/*.bin",
+    "gnwmanager/cli/gnw_patch/binaries/zelda/*.bin",
+]
 
-[tool.poetry.group.debug]
-optional = true
-
-[tool.poetry.group.debug.dependencies]
-ipdb = ">=0.13.9"
-line_profiler = ">=3.5.1"
+[tool.uv]
+# Rebuild (and recompute the dynamic version) when commits or tags change.
+cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true, tags = true } }]
 
 [tool.coverage.run]
 branch = true
@@ -184,5 +205,5 @@ staticmethod-decorators = [
 ]
 
 [tool.codespell]
-skip = 'poetry.lock,'
+skip = 'uv.lock,'
 ignore-words-list = "ptd,hsi"
