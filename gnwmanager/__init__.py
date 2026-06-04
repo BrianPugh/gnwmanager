@@ -1,5 +1,9 @@
-# Don't manually change, let poetry-dynamic-versioning handle it.
-__version__ = "0.0.0"
+import importlib.metadata
+
+try:
+    __version__ = importlib.metadata.version(__name__)
+except importlib.metadata.PackageNotFoundError:  # Package isn't installed (e.g. raw source tree).
+    __version__ = "0.0.0"
 
 __all__ = []
 
