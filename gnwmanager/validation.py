@@ -7,8 +7,8 @@ def validate_extflash_offset(val):
 
 def validate_intflash_offset(val):
     if val >= 0x8100_0000:
-        raise ValueError(f"Provided extflash offset 0x{val:08X}, did you mean 0x{(val - 0x8100_0000):08X} ?")
+        raise ValueError(f"Provided intflash offset 0x{val:08X}, did you mean 0x{(val - 0x8100_0000):08X} ?")
     if val >= 0x8000_0000:
-        raise ValueError(f"Provided extflash offset 0x{val:08X}, did you mean 0x{(val - 0x8000_0000):08X} ?")
+        raise ValueError(f"Provided intflash offset 0x{val:08X}, did you mean 0x{(val - 0x8000_0000):08X} ?")
     if val % 8192 != 0:
-        raise ValueError("Extflash offset must be a multiple of 8192.")
+        raise ValueError("Intflash offset must be a multiple of 8192.")
