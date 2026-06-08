@@ -123,6 +123,14 @@ class ZeldaGnW(Device, name="zelda"):
         self.external.set_range(0x3E_8000, 0x3F_0000, b"\xFF")
 
     def patch(self):
+        if getattr(self.args, "offset_size", 0):
+            raise ValueError(
+                "The Zelda OFW does not support relocating external flash to an offset: "
+                "unlike Mario it has no relocatable base register and reaches its external "
+                "data through absolute 0x90xxxxxx pointers, so the data is fixed at "
+                "0x90000000. Re-run with ext_offset=0."
+            )
+
         b_w_memcpy_inflate_asm = "b.w #" + hex(0xFFFFFFFE & self.internal.address("memcpy_inflate"))
 
         self._erase_savedata()
