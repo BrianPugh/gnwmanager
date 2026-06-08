@@ -44,7 +44,15 @@ enum gnwmanager_action {
     GNWMANAGER_ACTION_LIST_SD_DIR = 3,
     GNWMANAGER_ACTION_DELETE_FILE_FROM_SD = 4,
     GNWMANAGER_ACTION_READ_FILE_FROM_SD = 5,
+    GNWMANAGER_ACTION_SCAN_LFS = 6,
+    GNWMANAGER_ACTION_SCAN_GEOMETRY = 7,
 };
+
+typedef struct {
+    uint32_t address;
+    uint32_t size;
+    char type[16];
+} gnwmanager_partition_t;
 
 
 typedef struct {
@@ -470,6 +478,247 @@ static void gnwmanager_action_read_sd_file(work_context_t *context){
     context->response_ready = 1;
 }
 
+static inline bool safe_memcmp(volatile const uint8_t *p1, const uint8_t *p2, size_t len) {
+    for (size_t i = 0; i < len; i++) {
+        if (p1[i] != p2[i]) return false;
+    }
+    return true;
+}
+
+static bool is_lfs_superblock(uint32_t addr, uint32_t flash_size) {
+    if (addr < 0x90000000 || addr + 32 > 0x90000000 + flash_size) return false;
+    volatile const uint8_t *block = (volatile const uint8_t *)addr;
+    if (!safe_memcmp(block + 8, (const uint8_t *)"littlefs", 8)) return false;
+    uint32_t version = block[20] | (block[21] << 8) | (block[22] << 16) | (block[23] << 24);
+    uint32_t block_size = block[24] | (block[25] << 8) | (block[26] << 16) | (block[27] << 24);
+    uint32_t block_count = block[28] | (block[29] << 8) | (block[30] << 16) | (block[31] << 24);
+    return ((version >> 16) == 2 && block_size >= 128 && block_size <= 8192 && block_count > 0);
+}
+
+static void gnwmanager_action_scan_lfs(work_context_t *context) {
+    OSPI_EnableMemoryMappedMode();
+    uint32_t flash_size = OSPI_GetSize();
+    uint32_t mib = 1024 * 1024;
+    gnwmanager_partition_t *partitions = (gnwmanager_partition_t *)context->buffer;
+    uint32_t count = 0;
+    uint32_t max_count = (256 << 10) / sizeof(gnwmanager_partition_t);
+
+    // Scan backwards at 1MiB boundaries
+    for (uint32_t boundary = flash_size; boundary >= mib; boundary -= mib) {
+        uint32_t sb_addr = 0x90000000 + boundary - 4096;
+        if (is_lfs_superblock(sb_addr, flash_size)) {
+            const uint8_t *block = (const uint8_t *)sb_addr;
+            uint32_t block_size = block[24] | (block[25] << 8) | (block[26] << 16) | (block[27] << 24);
+            uint32_t block_count = block[28] | (block[29] << 8) | (block[30] << 16) | (block[31] << 24);
+            uint32_t p_size = block_size * block_count;
+
+            if (p_size > 0 && block_size > 0 && p_size <= flash_size && boundary >= p_size) {
+                uint32_t p_start = boundary - p_size;
+                if (p_start + p_size <= flash_size && (p_start % 4096 == 0)) {
+                    if (count < max_count) {
+                        partitions[count].address = p_start;
+                        partitions[count].size = p_size;
+                        strcpy(partitions[count].type, "LittleFS");
+                        count++;
+                    }
+                }
+            }
+        }
+    }
+    context->size = count * sizeof(gnwmanager_partition_t);
+    context->response_ready = 1;
+}
+
+static void gnwmanager_action_scan_geometry(work_context_t *context) {
+    OSPI_EnableMemoryMappedMode();
+    uint32_t flash_size = OSPI_GetSize();
+    gnwmanager_partition_t *partitions = (gnwmanager_partition_t *)context->buffer;
+    uint32_t count = 0;
+    uint32_t max_count = (256 << 10) / sizeof(gnwmanager_partition_t);
+
+    static const uint8_t mario_int_sig[] = {0x30, 0x13, 0x01, 0x20};
+    static const uint8_t zelda_int_sig[] = {0x20, 0xb6, 0x01, 0x20};
+    static const uint8_t zelda_stock_sig[] = {0x3C, 0x13, 0x96, 0xC5, 0x79, 0x38, 0x71, 0xD6};
+    static const uint8_t zelda_patched_sig[] = {0x22, 0x21, 0x23, 0x22, 0x22, 0x22, 0x22, 0x22};
+    static const uint8_t mario_stock_sig[] = {0xFE, 0x6E, 0xF8, 0x01, 0x30, 0x77, 0x2D, 0x3A};
+    static const uint8_t mario_patched_sig[] = {0x78, 0xD8, 0xA9, 0x10, 0x8D, 0x00, 0x20, 0xA2};
+
+    // 2. External Flash Check
+    uint32_t strides[] = {1024 * 1024, 512 * 1024, 256 * 1024, 128 * 1024, 64 * 1024};
+
+    for (int s = 0; s < 5; s++) {
+        uint32_t stride = strides[s];
+        for (uint32_t addr = 0; addr <= flash_size; addr += stride) {
+            // Geometric skip: skip addresses already covered by a larger stride
+            if (stride < 1024 * 1024 && (addr % (stride * 2) == 0)) continue;
+
+            uint32_t phys_addr = addr;
+            uint32_t mapped_addr = 0x90000000 + phys_addr;
+            volatile const uint8_t *sector = (volatile const uint8_t *)mapped_addr;
+
+            bool is_lfs = false;
+
+            // LittleFS Check (Forward: superblock at phys_addr)
+            if (is_lfs_superblock(mapped_addr, flash_size)) {
+                is_lfs = true;
+                uint32_t anchor_addr = phys_addr;
+                if (phys_addr + 4096 + 32 <= flash_size && is_lfs_superblock(mapped_addr + 4096, flash_size)) {
+                    anchor_addr = phys_addr + 4096;
+                }
+
+                volatile const uint8_t *block = (volatile const uint8_t *)(0x90000000 + anchor_addr);
+                uint32_t bsize = block[24] | (block[25] << 8) | (block[26] << 16) | (block[27] << 24);
+                uint32_t bcount = block[28] | (block[29] << 8) | (block[30] << 16) | (block[31] << 24);
+                uint32_t p_size = bsize * bcount;
+                if (p_size > 0 && bsize > 0 && p_size <= flash_size && anchor_addr + bsize >= p_size) {
+                    uint32_t p_start = (anchor_addr + bsize) - p_size;
+                    if (p_start + p_size <= flash_size && (p_start % 4096 == 0)) {
+                        bool exists = false;
+                        for (uint32_t i = 0; i < count; i++) {
+                            if (p_start == partitions[i].address && p_size == partitions[i].size) {
+                                exists = true; break;
+                            }
+                        }
+                        if (!exists && count < max_count) {
+                            partitions[count].address = p_start;
+                            partitions[count].size = p_size;
+                            strcpy(partitions[count].type, "LittleFS");
+                            count++;
+                        }
+                    }
+                }
+            }
+            // LittleFS Check (Inverted: superblock at phys_addr - 4096)
+            else if (phys_addr >= 4096 && is_lfs_superblock(mapped_addr - 4096, flash_size)) {
+                is_lfs = true;
+                uint32_t anchor_addr = phys_addr - 4096;
+                volatile const uint8_t *block = (volatile const uint8_t *)(0x90000000 + anchor_addr);
+                uint32_t bsize = block[24] | (block[25] << 8) | (block[26] << 16) | (block[27] << 24);
+                uint32_t bcount = block[28] | (block[29] << 8) | (block[30] << 16) | (block[31] << 24);
+                uint32_t p_size = bsize * bcount;
+                if (p_size > 0 && bsize > 0 && p_size <= flash_size && anchor_addr + bsize >= p_size) {
+                    uint32_t p_start = (anchor_addr + bsize) - p_size;
+                    if (p_start + p_size <= flash_size && (p_start % 4096 == 0)) {
+                        bool exists = false;
+                        for (uint32_t i = 0; i < count; i++) {
+                            if (p_start == partitions[i].address && p_size == partitions[i].size) {
+                                exists = true; break;
+                            }
+                        }
+                        if (!exists && count < max_count) {
+                            partitions[count].address = p_start;
+                            partitions[count].size = p_size;
+                            strcpy(partitions[count].type, "LittleFS");
+                            count++;
+                        }
+                    }
+                }
+            }
+
+            if (is_lfs) continue;
+
+            // Coverage skip: skip addresses already identified as being inside a partition
+            bool covered = false;
+            for (uint32_t i = 0; i < count; i++) {
+                if (addr >= partitions[i].address && addr < partitions[i].address + partitions[i].size) {
+                    covered = true; break;
+                }
+            }
+            if (covered) continue;
+            // FAT Check
+            else if (phys_addr + 512 <= flash_size && sector[510] == 0x55 && sector[511] == 0xAA && (sector[0] == 0xEB || sector[0] == 0xE9)) {
+                uint32_t bps   = sector[0x0B] | (sector[0x0C] << 8);
+                uint32_t tot16 = sector[0x13] | (sector[0x14] << 8);
+                uint32_t tot32 = sector[0x20] | (sector[0x21] << 8) | (sector[0x22] << 16) | (sector[0x23] << 24);
+                uint32_t total_sectors = tot16 ? tot16 : tot32;
+                if (bps >= 512 && bps <= 4096 && total_sectors) {
+                    uint32_t p_size = total_sectors * bps;
+                    if (count < max_count) {
+                        partitions[count].address = phys_addr;
+                        partitions[count].size = p_size;
+                        strcpy(partitions[count].type, "FAT");
+                        count++;
+                    }
+                }
+            }
+            // FrogFS check
+            else if (phys_addr + 12 <= flash_size && safe_memcmp(sector, (const uint8_t *)"FROG", 4)) {
+                uint32_t bin_sz = sector[8] | (sector[9] << 8) | (sector[10] << 16) | (sector[11] << 24);
+                if (count < max_count) {
+                    partitions[count].address = phys_addr;
+                    partitions[count].size = bin_sz;
+                    strcpy(partitions[count].type, "FrogFS");
+                    count++;
+                }
+            }
+            // Internal Flash Backup Check
+            else if (phys_addr + 131072 <= flash_size && (safe_memcmp(sector, mario_int_sig, 4) || safe_memcmp(sector, zelda_int_sig, 4))) {
+                if (safe_memcmp(sector, mario_int_sig, 4)) {
+                    if (count < max_count) {
+                        partitions[count].address = phys_addr;
+                        partitions[count].size = 131072;
+                        if (sector[131071] == 0xFF) {
+                            strcpy(partitions[count].type, "Mario OFW (Int)");
+                        } else {
+                            strcpy(partitions[count].type, "Mario Pat(Int)");
+                        }
+                        count++;
+                    }
+                }
+                else if (safe_memcmp(sector, zelda_int_sig, 4)) {
+                    if (count < max_count) {
+                        partitions[count].address = phys_addr;
+                        partitions[count].size = 131072;
+                        if (sector[131071] == 0xFF) {
+                            strcpy(partitions[count].type, "Zelda OFW (Int)");
+                        } else {
+                            strcpy(partitions[count].type, "Zelda Pat(Int)");
+                        }
+                        count++;
+                    }
+                }
+            }
+            // Asset Blobs Check
+            else if (phys_addr + 8 <= flash_size) {
+                if (safe_memcmp(sector, zelda_stock_sig, 8)) {
+                    if (count < max_count && phys_addr + 4 * 1024 * 1024 <= flash_size) {
+                        partitions[count].address = phys_addr;
+                        partitions[count].size = 4 * 1024 * 1024;
+                        strcpy(partitions[count].type, "Zelda OFW");
+                        count++;
+                    }
+                }
+                else if (safe_memcmp(sector, zelda_patched_sig, 8)) {
+                    if (count < max_count && phys_addr >= 0x20000 && (phys_addr - 0x20000 + 4 * 1024 * 1024 <= flash_size)) {
+                        partitions[count].address = phys_addr - 0x20000;
+                        partitions[count].size = 4 * 1024 * 1024;
+                        strcpy(partitions[count].type, "Zelda Assets");
+                        count++;
+                    }
+                }
+                else if (safe_memcmp(sector, mario_stock_sig, 8)) {
+                    if (count < max_count && phys_addr + 1 * 1024 * 1024 <= flash_size) {
+                        partitions[count].address = phys_addr;
+                        partitions[count].size = 1 * 1024 * 1024;
+                        strcpy(partitions[count].type, "Mario OFW");
+                        count++;
+                    }
+                }
+                else if (safe_memcmp(sector, mario_patched_sig, 8)) {
+                    if (count < max_count && phys_addr + 1 * 1024 * 1024 <= flash_size) {
+                        partitions[count].address = phys_addr;
+                        partitions[count].size = 1 * 1024 * 1024;
+                        strcpy(partitions[count].type, "Mario Assets");
+                        count++;
+                    }
+                }
+            }
+        }
+    }
+    context->size = count * sizeof(gnwmanager_partition_t);
+    context->response_ready = 1;
+}
+
 static bool ext_is_erased(uint32_t offset, uint32_t size){
     OSPI_EnableMemoryMappedMode();
     uint32_t *end = (uint32_t *)(0x90000000 + offset + size);
@@ -550,6 +799,14 @@ static void gnwmanager_run(void)
             case GNWMANAGER_ACTION_READ_FILE_FROM_SD:
                 gnwmanager_set_status(GNWMANAGER_STATUS_PROG);
                 gnwmanager_action_read_sd_file(source_context);
+                return;
+            case GNWMANAGER_ACTION_SCAN_LFS:
+                gnwmanager_set_status(GNWMANAGER_STATUS_PROG);
+                gnwmanager_action_scan_lfs(source_context);
+                return;
+            case GNWMANAGER_ACTION_SCAN_GEOMETRY:
+                gnwmanager_set_status(GNWMANAGER_STATUS_PROG);
+                gnwmanager_action_scan_geometry(source_context);
                 return;
             case GNWMANAGER_ACTION_WRITE_FILE_TO_SD:
                 state = GNWMANAGER_IDLE_SD;

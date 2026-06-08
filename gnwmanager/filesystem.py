@@ -1,3 +1,4 @@
+import logging
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Union
@@ -7,27 +8,89 @@ from littlefs.context import UserContext
 from littlefs.errors import LittleFSError
 from littlefs.lfs import LFSConfig
 
-from gnwmanager.gnw import GnW
+from gnwmanager.gnw import GnW, Partition
 from gnwmanager.utils import sha256
 from gnwmanager.validation import validate_extflash_offset
+from gnwmanager.exceptions import TooManyLFSPartitionsFoundError
+
+log = logging.getLogger(__name__)
 
 _gnw_cache = {}
 
 
+def _test_lfs_integrity(gnw: GnW, partition: Partition, max_nodes: int = 50) -> bool:
+    """Safely test LittleFS structural integrity with a read-only mount and bounded walk.
+
+    Parameters
+    ----------
+    gnw: GnW
+        Game and Watch object.
+    partition: Partition
+        The partition candidate to test.
+    max_nodes: int
+        Maximum number of filesystem nodes to traverse before passing the integrity check.
+        If a partition is corrupt, it usually fails during mount or within the first few nodes.
+
+    Returns
+    -------
+    bool
+        True if the filesystem appears intact, False if LFS_ERR_CORRUPT is encountered.
+    """
+    filesystem_end = partition.address + partition.size
+    # Create a fresh cache specifically for this test so we don't pollute the main one
+    test_cache = {}
+    lfs_context = LfsDriverContext(gnw, filesystem_end, cache=test_cache, read_only=True)
+
+    fs = LittleFS(
+        lfs_context,
+        block_size=gnw.external_flash_block_size,
+        block_count=partition.size // gnw.external_flash_block_size,
+        block_cycles=500,
+        mount=False,
+    )
+
+    try:
+        fs.mount()
+    except LittleFSError as e:
+        if e.code == LittleFSError.Error.LFS_ERR_CORRUPT:
+            log.debug(f"Partition at 0x{partition.address:X} failed mount integrity check.")
+            return False
+        raise
+
+    nodes_checked = 0
+    try:
+        for root, dirs, files in fs.walk("/"):
+            for name in dirs + files:
+                # Reading the stat forces LittleFS to traverse the node's metadata
+                fs.stat((Path(root) / name).as_posix())
+                nodes_checked += 1
+                if nodes_checked >= max_nodes:
+                    return True
+    except LittleFSError as e:
+        if e.code == LittleFSError.Error.LFS_ERR_CORRUPT:
+            log.debug(f"Partition at 0x{partition.address:X} failed deep integrity check at node {nodes_checked}.")
+            return False
+        raise
+
+    return True
+
+
 class LfsDriverContext(UserContext):
-    def __init__(self, gnw: GnW, filesystem_end: int, cache: Optional[dict] = None) -> None:
+    def __init__(self, gnw: GnW, filesystem_end: int, cache: Optional[dict] = None, read_only: bool = False) -> None:
         validate_extflash_offset(filesystem_end)
 
         self.gnw = gnw
         self.filesystem_end = filesystem_end
         self.cache = _gnw_cache if cache is None else cache
+        self.read_only = read_only
 
     def read(self, cfg: LFSConfig, block: int, off: int, size: int) -> bytearray:
         try:
             return bytearray(self.cache[block][off : off + size])
         except KeyError:
             pass
-        self.gnw.wait_for_all_contexts_complete()  # if a prog/erase is being performed, chip is not in memory-mapped-mode
+        if not self.read_only:
+            self.gnw.wait_for_all_contexts_complete()  # if a prog/erase is being performed, chip is not in memory-mapped-mode
         addr = 0x9000_0000 + self.filesystem_end - ((block + 1) * cfg.block_size)
         self.cache[block] = bytearray(self.gnw.read_memory(addr, size))
         return bytearray(self.cache[block][off : off + size])
@@ -40,15 +103,17 @@ class LfsDriverContext(UserContext):
         except KeyError:
             pass
 
-        addr = self.filesystem_end - ((block + 1) * cfg.block_size) + off
-        self.gnw.program(0, addr, data, erase=False)
+        if not self.read_only:
+            addr = self.filesystem_end - ((block + 1) * cfg.block_size) + off
+            self.gnw.program(0, addr, data, erase=False)
 
         return 0
 
     def erase(self, cfg: LFSConfig, block: int) -> int:
         self.cache[block] = bytearray([0xFF] * cfg.block_size)
-        offset = self.filesystem_end - ((block + 1) * cfg.block_size)
-        self.gnw.erase(0, offset, cfg.block_size)
+        if not self.read_only:
+            offset = self.filesystem_end - ((block + 1) * cfg.block_size)
+            self.gnw.erase(0, offset, cfg.block_size)
         return 0
 
     def sync(self, cfg: LFSConfig) -> int:
@@ -72,6 +137,22 @@ def get_filesystem(gnw: GnW, offset: int = 0, block_count=0, mount=True) -> Litt
         Mount the filesystem.
     """
     filesystem_end = gnw.external_flash_size - offset
+    if offset == 0:
+        candidates = [p for p in gnw.scan_geometry() if p.type == "LittleFS"]
+        valid_partitions = []
+        if candidates:
+            for p in candidates:
+                if _test_lfs_integrity(gnw, p):
+                    valid_partitions.append(p)
+
+            if len(valid_partitions) > 1:
+                raise TooManyLFSPartitionsFoundError(
+                    "Multiple valid LittleFS partitions detected (likely from moving to an SD layout "
+                    "without erasing flash). Please specify which one to use with --offset."
+                )
+            elif len(valid_partitions) == 1:
+                filesystem_end = valid_partitions[0].address + valid_partitions[0].size
+
     lfs_context = LfsDriverContext(gnw, filesystem_end)
 
     fs = LittleFS(
