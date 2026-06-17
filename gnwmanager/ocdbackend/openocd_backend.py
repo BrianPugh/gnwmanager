@@ -142,8 +142,24 @@ def _launch_openocd(port: int, timeout: float = 10.0):  # -> subprocess.Popen[by
                 err = err.decode()
                 log.debug(err)
 
-                if "Interface ready" in err:
-                    raise OpenOCDAutoDetectError(f"Was able to connect to {name} probe, but unable to talk to device.")
+                # OpenOCD found and talked to the probe, but couldn't reach the target.
+                # "Interface ready" is emitted by the plain SWD/JTAG (DAP) transports.
+                # STLink uses the hla transport, which never prints "Interface ready" —
+                # instead it reports its firmware/VID:PID, the measured target voltage,
+                # and "init mode failed (unable to connect to the target)". Treat any of
+                # these as "probe found, but device unreachable" so we don't fall through
+                # to the misleading "couldn't find a probe" message.
+                probe_found_markers = (
+                    "Interface ready",
+                    "Target voltage",
+                    "init mode failed",
+                    "unable to connect to the target",
+                )
+                if any(marker in err for marker in probe_found_markers):
+                    raise OpenOCDAutoDetectError(
+                        f"Was able to connect to {name} probe, but unable to talk to the device. "
+                        "Try releasing the Game & Watch power button at the same time as running this command."
+                    )
 
                 break
             elif _is_port_open(port):  # openocd is successfully running (but might actually still error out soon!)
@@ -168,7 +184,7 @@ def _parse_md_response(res: str, addr: int, width: str) -> int:
         raise OpenOCDError(
             f"OpenOCD lost contact with the target while reading 0x{addr:08X}. "
             "The CPU likely entered low-power/standby and could not be halted — "
-            "make sure the Game & Watch is powered on with the power button held while gnwmanager connects."
+            "try releasing the Game & Watch power button at the same time as running this command."
         )
     try:
         return int(res.split(": ")[-1], 16)
