@@ -8,3 +8,7 @@ class DataError(Exception):
 
 class MissingThirdPartyError(Exception):
     """A required external library/executable is missing."""
+
+
+class TooManyLFSPartitionsFoundError(Exception):
+    """Multiple valid LittleFS partitions were found."""

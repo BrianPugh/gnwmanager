@@ -17,7 +17,7 @@ from littlefs.errors import LittleFSError
 from gnwmanager import __version__
 from gnwmanager.cli._parsers import GnWType, OffsetType, int_parser
 from gnwmanager.cli.devices import AutodetectError, DeviceModel
-from gnwmanager.exceptions import DataError, DebugProbeConnectionError
+from gnwmanager.exceptions import DataError, DebugProbeConnectionError, TooManyLFSPartitionsFoundError, MissingThirdPartyError
 from gnwmanager.gnw import GnW
 from gnwmanager.ocdbackend import OCDBackend
 
@@ -115,6 +115,21 @@ def info(
     _display("External Flash Size (MB):", str(gnw.external_flash_size / (1 << 20)))
     _display("Locked?: ", "LOCKED" if gnw.is_locked() else "UNLOCKED")
 
+    partitions = gnw.scan_geometry()
+    if partitions:
+        from gnwmanager.filesystem import _test_lfs_integrity
+        p_strs = []
+        for p in partitions:
+            ptype = p.type.replace(" (Patched)", "")
+            if p.type == "LittleFS" and not _test_lfs_integrity(gnw, p):
+                p_strs.append(f"{ptype} (Corrupt)")
+            else:
+                if p.size < 1024 * 1024:
+                    p_strs.append(f"{ptype} ({p.size / 1024:g}KB)")
+                else:
+                    p_strs.append(f"{ptype} ({p.size / (1024 * 1024):g}MB)")
+        _display("Partitions:", ", ".join(p_strs))
+
     try:
         fs = gnw.filesystem(offset=offset, block_count=0)
     except LittleFSError as e:
@@ -122,10 +137,17 @@ def info(
             fs_size = "MISSING/CORRUPT"
         else:
             raise
+    except Exception as e:
+        from gnwmanager.exceptions import TooManyLFSPartitionsFoundError
+        if isinstance(e, TooManyLFSPartitionsFoundError):
+            fs_size = "AMBIGUOUS (Multiple valid LFS partitions)"
+        else:
+            raise
     else:
         fs_stat = fs.fs_stat()
         fs_size_bytes = fs_stat.block_count * fs_stat.block_size
-        fs_size = f"{fs_stat.block_size} * {fs_stat.block_count} ({fs_size_bytes})"
+        p_addr = fs.context.filesystem_end - fs_size_bytes
+        fs_size = f"{fs_stat.block_size} * {fs_stat.block_count} ({fs_size_bytes} @0x{p_addr:08X})"
 
     _display("Filesystem Size (B):", fs_size)
 
@@ -245,6 +267,11 @@ def main(
                 additional_kwargs["gnw"] = gnw
 
             command(*bound.args, **bound.kwargs, **additional_kwargs)
+    except (TooManyLFSPartitionsFoundError, MissingThirdPartyError) as e:
+        rich.print(f"[red]{e}[/red]")
+        close_on_exit = False
+        if exit_on_error:
+            sys.exit(1)
     except DebugProbeConnectionError as e:
         rich.print(f"[red]Error communicating with device ({e}). Is it ON and connected?[/red]")
         close_on_exit = False
@@ -284,6 +311,7 @@ def main(
     finally:
         if close_on_exit and gnw is not None:
             gnw.backend.close()
+
 
 
 def run_app():
