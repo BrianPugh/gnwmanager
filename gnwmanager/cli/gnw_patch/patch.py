@@ -1,13 +1,7 @@
-import importlib
-import json
 import logging
-from contextlib import suppress
-from pathlib import Path
-from threading import Lock
 
-from .compact_json_encoder import CompactJSONEncoder
 from .compression import lzma_compress
-from .exception import InvalidAsmError
+from .thumb_asm import assemble as thumb_assemble
 
 log = logging.getLogger(__name__)
 
@@ -19,48 +13,6 @@ def twos_compliment(value, bits):
         # Two's Compliment
         return (1 << bits) + value
 
-class CachedKeystone:
-    _lock = Lock()
-
-    def __init__(self):
-        path = importlib.resources.files("gnwmanager.cli.gnw_patch") / "keystone_cache.json"
-        self.path = Path(path)
-        self._cache = {}
-        with suppress(FileNotFoundError):
-            with self.path.open("r") as f:
-                self._cache = json.load(f)
-
-    @property
-    def ks(self):
-        try:
-            return self._ks
-        except AttributeError:
-            from keystone import KS_ARCH_ARM, KS_MODE_THUMB, Ks
-            self._ks = Ks(KS_ARCH_ARM, KS_MODE_THUMB)
-            return self._ks
-
-    def asm(self, *args, **kwargs):
-        key = str(args) + json.dumps(kwargs, sort_keys=True)
-        with suppress(KeyError):
-            return self._cache[key]
-
-        value = self.ks.asm(*args, **kwargs)[0]
-
-        if value is None:
-            raise InvalidAsmError
-
-        with self._lock:
-            self._cache[key] = value
-
-            self.path.parent.mkdir(exist_ok=True, parents=True)
-            with self.path.open("w") as f:
-                json.dump(
-                    self._cache, f, sort_keys=True, indent="\t", cls=CompactJSONEncoder
-                )
-
-        return value
-
-_cached_keystone = CachedKeystone()
 
 class FirmwarePatchMixin:
     """Patch commands that apply to a single firmware instance."""
@@ -202,14 +154,6 @@ class FirmwarePatchMixin:
         self[offset : offset + size] = b"\x00\xbe" * n_bkpts
         return size
 
-    @property
-    def _ks(self):
-        try:
-            return self._ks_inst
-        except AttributeError:
-            self._ks_inst = _cached_keystone
-        return self._ks_inst
-
     def asm(self, offset: int, data: str, size=None) -> int:
         """
         Parameters
@@ -218,10 +162,10 @@ class FirmwarePatchMixin:
             Assembly instructions
         """
         data = data.strip()
-        if data.startswith(("b.w")):
-            encoding = self._ks.asm(data, self.FLASH_BASE + offset)
+        if data.startswith("b.w"):
+            encoding = thumb_assemble(data, self.FLASH_BASE + offset)
         else:
-            encoding = self._ks.asm(data)
+            encoding = thumb_assemble(data)
         log.debug(f'    "{data}" -> {[hex(x) for x in encoding]}')
         if size:
             assert len(encoding) == size
