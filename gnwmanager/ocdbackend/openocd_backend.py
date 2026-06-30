@@ -23,6 +23,17 @@ _COMMAND_TOKEN_STR = "\x1a"
 _COMMAND_TOKEN_BYTES = _COMMAND_TOKEN_STR.encode("utf-8")
 _BUFFER_SIZE = 4096
 
+# Bit-banged picoprobe SWD has no level shifting; signal integrity on hand-soldered
+# G&W flying leads degrades past ~1 MHz and surfaces as garbage DPIDR / "cannot read
+# IDR" / BAD_HASH_RAM_COMPRESSED. target/stm32h7x.cfg forces "adapter speed 1800" when
+# sourced and bumps to 4000 in its reset-init event, so this must be (re)applied AFTER
+# the source and the reset-init handler overridden, or it is silently ignored.
+_CMSIS_DAP_SPEED_KHZ = 1000
+
+# Raspberry Pi bit-banged SWD has the same constraints and the same need to apply the
+# speed after sourcing target/stm32h7x.cfg (see _CMSIS_DAP_SPEED_KHZ).
+_RPI_GPIO_SPEED_KHZ = 1000
+
 
 class OpenOCDError(DebugProbeConnectionError):
     pass
@@ -93,19 +104,20 @@ def _openocd_launch_commands(port: int) -> Generator[tuple[str, list[str]], None
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
     yield "jlink", cmd
 
-    # CMSIS-DAP (pi pico). Bit-banged SWD via RP2040 PIO with no level shifting;
-    # signal integrity on hand-soldered G&W flying leads degrades quickly past
-    # ~1 MHz and surfaces as BAD_HASH_RAM_COMPRESSED. 1 MHz is the safe default.
+    # CMSIS-DAP (pi pico). See _CMSIS_DAP_SPEED_KHZ: the adapter speed must be applied
+    # *after* sourcing the target cfg (which forces 1800 kHz) and the reset-init event
+    # (which bumps to 4000 kHz) overridden, otherwise our slow speed is silently ignored.
     cmd = base_cmd.copy()
-    cmd.extend(["-c", "adapter speed 1000"])
     cmd.extend(["-c", "source [find interface/cmsis-dap.cfg]"])
     cmd.extend(["-c", "transport select swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
+    cmd.extend(["-c", f"adapter speed {_CMSIS_DAP_SPEED_KHZ}"])
+    cmd.extend(["-c", f"stm32h7x.cpu0 configure -event reset-init {{ adapter speed {_CMSIS_DAP_SPEED_KHZ} }}"])
     yield "cmsis-dap", cmd
 
-    # Raspberry Pi GPIO
+    # Raspberry Pi GPIO. As with cmsis-dap, the adapter speed must be applied *after*
+    # sourcing the target cfg and the reset-init event overridden (see _RPI_GPIO_SPEED_KHZ).
     cmd = base_cmd.copy()
-    cmd.extend(["-c", "adapter speed 1000"])
     cmd.extend(["-c", "source [find interface/sysfsgpio-raspberrypi.cfg]"])
     # SWCLK - GPIO25, physical pin 22
     # SWDIO - GPIO24, physical pin 18
@@ -117,6 +129,8 @@ def _openocd_launch_commands(port: int) -> Generator[tuple[str, list[str]], None
         cmd.extend(["-c", "sysfsgpio_swd_nums 25 24"])
     cmd.extend(["-c", "transport select swd"])
     cmd.extend(["-c", "source [find target/stm32h7x.cfg]"])
+    cmd.extend(["-c", f"adapter speed {_RPI_GPIO_SPEED_KHZ}"])
+    cmd.extend(["-c", f"stm32h7x.cpu0 configure -event reset-init {{ adapter speed {_RPI_GPIO_SPEED_KHZ} }}"])
     yield "rpi-gpio", cmd
 
 
