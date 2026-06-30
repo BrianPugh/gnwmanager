@@ -95,6 +95,7 @@ class Firmware(FirmwarePatchMixin, bytearray):
 
     FLASH_BASE = 0x0000_0000
     FLASH_LEN = 0
+    _offset = 0  # external-flash relocation offset added to lookup destinations; nonzero only on self.external
 
     def __init__(self, firmware=None):
         if firmware:
@@ -495,8 +496,9 @@ class Device:
         if delete:
             src.clear_range(src_offset, src_offset + size)
 
+        dst_base = dst.FLASH_BASE + dst._offset
         for i in range(size):
-            self.lookup[src.FLASH_BASE + src_offset + i] = dst.FLASH_BASE + dst_offset + i
+            self.lookup[src.FLASH_BASE + src_offset + i] = dst_base + dst_offset + i
 
         return size
 
@@ -687,6 +689,7 @@ class Device:
     def __call__(self):
         from . import MarioGnW, ZeldaGnW
 
+        self.external._offset = getattr(self.args, "offset_size", 0)
         self.int_pos = self.internal.empty_offset
         out = self.patch()
 
