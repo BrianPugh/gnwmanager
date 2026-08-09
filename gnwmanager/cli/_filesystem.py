@@ -269,3 +269,34 @@ def rm(
     gnw.start_gnwmanager()
     fs = gnw.filesystem(offset=offset)
     fs.remove(path.as_posix(), recursive=recursive)
+
+
+@app.command(group="Filesystem")
+def geometry(
+    *,
+    gnw: GnWType,
+):
+    """List all detected partitions on the external flash."""
+    from gnwmanager.filesystem import _test_lfs_integrity
+    
+    gnw.start_gnwmanager()
+    partitions = gnw.scan_geometry()
+
+    if not partitions:
+        print("No partitions detected.")
+        return
+
+    print(f"{'Address':<12} {'Size':<12} {'Type':<30} {'Notes':<20}")
+    print("-" * 76)
+    for p in partitions:
+        notes = ""
+        if p.type == "LittleFS":
+            if _test_lfs_integrity(gnw, p):
+                notes = "Active/Intact"
+            else:
+                notes = "Corrupt/Stale"
+        if p.size < 1024 * 1024:
+            size_str = f"{p.size / 1024:g}KB"
+        else:
+            size_str = f"{p.size / (1024 * 1024):g}MB"
+        print(f"0x{p.address:08X} {size_str:<12} {p.type:<30} {notes:<20}")
