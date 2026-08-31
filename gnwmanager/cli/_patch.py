@@ -8,7 +8,7 @@ from cyclopts import App, Group, Parameter, validators
 from cyclopts.types import ExistingBinPath
 
 from gnwmanager.cli._bootloader import flash_bootloader
-from gnwmanager.cli._parsers import GnWType
+from gnwmanager.cli._parsers import GnWType, int_parser
 from gnwmanager.cli.gnw_patch.exception import NotEnoughSpaceError
 from gnwmanager.cli.gnw_patch.mario import MarioGnW
 from gnwmanager.cli.gnw_patch.zelda import ZeldaGnW
@@ -77,6 +77,7 @@ def mario(
     no_smb2: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
     slim: Annotated[bool, Parameter(group=high_level_flash_group)] = False,
     internal_only: Annotated[bool, Parameter(group=high_level_flash_group)] = False,
+    ext_offset: Annotated[int, Parameter(group=low_level_flash_group, converter=int_parser)] = 0,
 ):
     """Patch & Flash original mario firmware.
 
@@ -117,6 +118,10 @@ def mario(
         Remove bulky easter eggs (mario song and sleeping images) from extflash.
     internal_only: bool
         Configuration so no external flash is used.
+    ext_offset: int
+        Relocate external flash to this offset (hex ok, e.g. 0x400000) instead of the
+        default 0x90000000, so the OFW can coexist with other data on a large SPI flash.
+        Must be a multiple of 4096. Defaults to 0 (no offset).
     """
     if internal_only:
         slim = True
@@ -138,6 +143,7 @@ def mario(
         no_sleep_images=no_sleep_images,
         no_smb2=no_smb2,
         compression_ratio=1.4,
+        offset_size=ext_offset,
     )
 
     internal_remaining_free, compressed_memory_remaining_free = device()
@@ -150,7 +156,7 @@ def mario(
     gnw.start_gnwmanager()
     gnw.flash(1, 0, bytes(device.internal), progress=False)
     if device.external:
-        gnw.flash(0, 0, bytes(device.external), progress=True, desc="patched firmware")
+        gnw.flash(0, ext_offset, bytes(device.external), progress=True,  desc="patched firmware")
     if bootloader:
         flash_bootloader(0x08032000, gnw=gnw, repo=bootloader_repo, tag=bootloader_tag, label="0x08032000")
 
@@ -168,6 +174,7 @@ def zelda(
     no_sleep_images: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
     no_second_beep: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
     no_hour_tune: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
+    ext_offset: Annotated[int, Parameter(group=low_level_flash_group, converter=int_parser)] = 0,
 ):
     """Patch & Flash original zelda firmware.
 
@@ -199,6 +206,10 @@ def zelda(
         Remove the second beep in TIME/CLOCK.
     no_hour_tune: bool
         Remove the hour tune in TIME/CLOCK.
+    ext_offset: int
+        Not supported for the Zelda OFW: it has no relocatable base and reaches its
+        external data via absolute pointers, so the data cannot be offset. A nonzero
+        value is rejected; only 0 is accepted. Defaults to 0.
     """
     device = _common_prepare(ZeldaGnW, internal, external, bootloader)
 
@@ -207,6 +218,7 @@ def zelda(
         no_sleep_images=no_sleep_images,
         no_second_beep=no_second_beep,
         no_hour_tune=no_hour_tune,
+        offset_size=ext_offset,
     )
 
     internal_remaining_free, compressed_memory_remaining_free = device()
