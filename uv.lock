@@ -790,6 +790,7 @@ debug = [
 dev = [
     { name = "coverage", version = "7.10.7", source = { registry = "https://pypi.org/simple" }, extra = ["toml"], marker = "python_full_version < '3.10'" },
     { name = "coverage", version = "7.14.1", source = { registry = "https://pypi.org/simple" }, extra = ["toml"], marker = "python_full_version >= '3.10'" },
+    { name = "keystone-engine", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
     { name = "pre-commit", version = "4.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pre-commit", version = "4.6.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -802,9 +803,6 @@ docs = [
     { name = "sphinx" },
     { name = "sphinx-copybutton" },
     { name = "sphinx-rtd-theme" },
-]
-patch = [
-    { name = "keystone-engine" },
 ]
 
 [package.metadata]
@@ -832,6 +830,7 @@ debug = [
 ]
 dev = [
     { name = "coverage", extras = ["toml"], specifier = ">=5.1" },
+    { name = "keystone-engine", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'", specifier = ">=0.9.2,<0.10" },
     { name = "pre-commit", specifier = ">=2.16.0" },
     { name = "pytest", specifier = ">=7.1.2" },
     { name = "pytest-cov", specifier = ">=3.0.0" },
@@ -843,7 +842,6 @@ docs = [
     { name = "sphinx-copybutton", specifier = ">=0.5.2,<0.6" },
     { name = "sphinx-rtd-theme", specifier = ">=1.2.2,<2.1.0" },
 ]
-patch = [{ name = "keystone-engine", specifier = ">=0.9.2,<0.10" }]
 
 [[package]]
 name = "h11"
