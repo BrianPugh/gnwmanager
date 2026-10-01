@@ -30,7 +30,7 @@ homepage = "https://github.com/BrianPugh/gnwmanager"
 repository = "https://github.com/BrianPugh/gnwmanager"
 
 [project.optional-dependencies]
-pyocd = ["pyocd>=0.35.1"]
+pyocd = ["pyocd>=0.45.1"]
 
 [project.scripts]
 gnwmanager = "gnwmanager.cli.main:run_app"
