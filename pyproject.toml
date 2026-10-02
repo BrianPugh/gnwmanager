@@ -42,6 +42,10 @@ dev = [
     "pytest>=7.1.2",
     "pytest-cov>=3.0.0",
     "pytest-mock>=3.7.0",
+    # Reference assembler that tests/test_thumb_asm.py validates thumb_asm against.
+    # There's no macOS-arm64 wheel (it would build from sdist), so skip it there;
+    # the tests importorskip it and still run on Linux/Windows/Intel-mac CI.
+    "keystone-engine>=0.9.2,<0.10; sys_platform != 'darwin' or platform_machine != 'arm64'",
 ]
 docs = [
     "sphinx>=6.2.1,<7.5.0",
@@ -52,14 +56,6 @@ docs = [
 debug = [
     "ipdb>=0.13.9",
     "line_profiler>=3.5.1",
-]
-# keystone-engine is only needed to *regenerate* the gnw_patch firmware patch
-# binaries (it's lazily imported in gnwmanager/cli/gnw_patch/patch.py). It ships
-# no macOS arm64 wheel, so on Apple Silicon it builds from sdist; install with
-# `uv sync --group patch`, prefixing `_PYTHON_HOST_PLATFORM=macosx-11.0-arm64`
-# if the self-built wheel's platform tag is rejected.
-patch = [
-    "keystone-engine>=0.9.2,<0.10",
 ]
 
 # --- Build backend (hatchling + hatch-vcs) -------------------------------------
