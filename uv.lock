@@ -80,11 +80,11 @@ wheels = [
 
 [[package]]
 name = "autoregistry"
-version = "1.3.0"
+version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f2/01/c25d98d04efba972c559937d73627dd81c8a32d328d497de729c287da145/autoregistry-1.3.0.tar.gz", hash = "sha256:66c8273474a657d548b80772f03fa53bffef1aa913825c5b69f047331e7230d5", size = 18577, upload-time = "2026-06-04T00:40:41.754Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b2/a7/3a3abcbe79f1e835436bb72fb3c64d1f9705887cfaafb637cbb9c328bfea/autoregistry-1.3.1.tar.gz", hash = "sha256:3110c5054fd6fb1f972c7adbfc9df8cfa49ab3ce6c90c0d465625db310a3cb6d", size = 19224, upload-time = "2026-07-08T00:25:26.169Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1c/2c/c3f495deaef5898fe9df01cb0b4d7f26fa6372ebee629a0ee243f2a086c4/autoregistry-1.3.0-py3-none-any.whl", hash = "sha256:75cb4d6a7a87cfc59b3a2cfa9ad9de6a9797b1935dfab4332abd7fa86714600e", size = 18373, upload-time = "2026-06-04T00:40:40.45Z" },
+    { url = "https://files.pythonhosted.org/packages/b2/f4/a3b2ac9c69be875560435fc5d7b9bab427cc239585511b9f55e16ddca82e/autoregistry-1.3.1-py3-none-any.whl", hash = "sha256:8ac1859a140be6a092c1d3be592b6f15c40e9ecdec17932fea4a25f1427fd681", size = 18972, upload-time = "2026-07-08T00:25:24.944Z" },
 ]
 
 [[package]]
@@ -809,7 +809,7 @@ patch = [
 
 [package.metadata]
 requires-dist = [
-    { name = "autoregistry", specifier = ">=1.0.0,<2" },
+    { name = "autoregistry", specifier = ">=1.3.1,<2" },
     { name = "colorama", specifier = ">=0.4.6,<0.5" },
     { name = "cyclopts", specifier = ">=3.22.5,<4" },
     { name = "httpx", specifier = ">=0.28.1,<0.29" },
