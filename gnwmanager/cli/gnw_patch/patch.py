@@ -261,9 +261,10 @@ class FirmwarePatchMixin:
                 else:
                     self.clear_range(old_start, old_end)
 
+        dst_base = self.FLASH_BASE + self._offset
         for i in range(size):
             self._lookup[self.FLASH_BASE + old_start + i] = (
-                self.FLASH_BASE + new_start + i
+                dst_base + new_start + i
             )
 
         return size
