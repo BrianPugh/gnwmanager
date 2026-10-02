@@ -799,6 +799,7 @@ dev = [
     { name = "pytest", version = "9.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pytest-cov" },
     { name = "pytest-mock" },
+    { name = "websockets" },
 ]
 docs = [
     { name = "gitpython" },
@@ -840,6 +841,7 @@ dev = [
     { name = "pytest", specifier = ">=7.1.2" },
     { name = "pytest-cov", specifier = ">=3.0.0" },
     { name = "pytest-mock", specifier = ">=3.7.0" },
+    { name = "websockets", specifier = ">=14,<16" },
 ]
 docs = [
     { name = "gitpython", specifier = ">=3.1.47" },
