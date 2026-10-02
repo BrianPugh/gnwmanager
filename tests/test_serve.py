@@ -42,6 +42,28 @@ def test_backend_delegation_and_reattach():
     second.close.assert_called_once()
 
 
+def test_aligned_register_writes_use_word_binding():
+    target = backend()
+    session = BackendSession(lambda: target)
+    session.execute("attach", [])
+    # DHCSR requires DBGKEY and C_HALT in the same 32-bit transaction.
+    session.execute("write_memory", [0xE000EDF0, "03005fa0"])
+    target.write_uint32.assert_called_once_with(0xE000EDF0, 0xA05F0003)
+    target.write_memory.assert_not_called()
+    session.close()
+
+
+@pytest.mark.parametrize("addr,data", [(1, "03005fa0"), (0, "aabb"), (0, "0001020304050607")])
+def test_other_memory_writes_keep_block_binding(addr, data):
+    target = backend()
+    session = BackendSession(lambda: target)
+    session.execute("attach", [])
+    session.execute("write_memory", [addr, data])
+    target.write_memory.assert_called_once_with(addr, bytes.fromhex(data))
+    target.write_uint32.assert_not_called()
+    session.close()
+
+
 @pytest.mark.parametrize(
     "method,args",
     [

@@ -80,7 +80,11 @@ class BackendSession:
                 if len(result) != size:
                     raise RuntimeError("Short device memory read")
                 return result.hex()
-            backend.write_memory(addr, data)
+            # Debug registers require an atomic word write (including DHCSR DBGKEY).
+            if size == 4 and addr % 4 == 0:
+                backend.write_uint32(addr, int.from_bytes(data, "little"))
+            else:
+                backend.write_memory(addr, data)
             return None
         if method in ("read_register", "write_register"):
             name = args[0].lower()
