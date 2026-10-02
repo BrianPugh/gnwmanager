@@ -161,3 +161,41 @@ When changing C sources, `make` must be re-ran to update the binaries located at
 gnwmanager/firmware.bin
 gnwmanager/unlock.bin
 ```
+
+
+## Remote programmer server
+
+Install gnwmanager and start a server using the usual backend options:
+
+```sh
+pip install gnwmanager
+gnwmanager serve
+# Or use an existing gwmeu GDB server:
+gnwmanager --backend gdb --gdb-host localhost --gdb-port 1234 serve
+# Or use PyOCD:
+gnwmanager --backend pyocd serve
+```
+
+The backend is selected at startup. OpenOCD retains its existing programmer auto-detection,
+including Raspberry Pi GPIO. The WebSocket cannot select backends or run CLI commands.
+It exposes serialized low-level memory, register, clock, and explicit target-control operations.
+The client remains responsible for firmware mailbox coordination and flash operations.
+
+The default endpoint is `ws://127.0.0.1:8765/gdb`, separately from the GDB TCP port.
+The server stays available when no target is connected; clients can retry attachment.
+Only one client can own the programmer at a time. Attachment, target control, and cleanup
+use the selected backend's existing behavior, including the GDB backend's normal halt/resume
+behavior. The server does not introduce a new GPIO driver or change backend policies.
+
+For a Raspberry Pi, tunnel the default loopback endpoint from the browser computer:
+
+```sh
+ssh -L 8765:127.0.0.1:8765 user@raspberrypi
+```
+
+For direct network access, use `serve --bind 0.0.0.0 --origin <browser-origin>`.
+`--origin` may be repeated. HTTPS clients can use `--cert <certificate> --key <private-key>`
+and a browser-trusted `wss://` endpoint.
+
+OpenOCD GPIO wiring follows the existing GnWManager configuration: SWCLK GPIO25 (pin22),
+SWDIO GPIO24 (pin18), and GND. Existing Raspberry Pi support is unchanged.

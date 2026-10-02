@@ -23,6 +23,7 @@ dependencies = [
     "httpx>=0.28.1,<0.29",
     "colorama>=0.4.6,<0.5",
     "pycryptodome>=3.23.0,<4",
+    "websockets>=14,<16",
 ]
 
 [project.urls]
