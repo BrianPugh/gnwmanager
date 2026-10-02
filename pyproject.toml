@@ -23,6 +23,7 @@ dependencies = [
     "httpx>=0.28.1,<0.29",
     "colorama>=0.4.6,<0.5",
     "pycryptodome>=3.23.0,<4",
+    "websockets>=14,<16",
 ]
 
 [project.urls]
@@ -31,7 +32,6 @@ repository = "https://github.com/BrianPugh/gnwmanager"
 
 [project.optional-dependencies]
 pyocd = ["pyocd>=0.35.1"]
-serve = ["websockets>=14,<16"]
 
 [project.scripts]
 gnwmanager = "gnwmanager.cli.main:run_app"
@@ -43,7 +43,6 @@ dev = [
     "pytest>=7.1.2",
     "pytest-cov>=3.0.0",
     "pytest-mock>=3.7.0",
-    "websockets>=14,<16",
 ]
 docs = [
     "sphinx>=6.2.1,<7.5.0",

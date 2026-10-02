@@ -165,10 +165,10 @@ gnwmanager/unlock.bin
 
 ## Remote programmer server
 
-Install the optional WebSocket dependency and start a server using the usual backend options:
+Install gnwmanager and start a server using the usual backend options:
 
 ```sh
-pip install "gnwmanager[serve]"
+pip install gnwmanager
 gnwmanager serve
 # Or use an existing gwmeu GDB server:
 gnwmanager --backend gdb --gdb-host localhost --gdb-port 1234 serve
