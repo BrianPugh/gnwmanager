@@ -242,6 +242,18 @@ def main(
                 # to connect to debug probe and device.
                 _display_host_info(backend)
 
+            if "backend_factory" in ignored:
+
+                def server_options():
+                    backend_kwargs = {"host": gdb_host, "port": gdb_port} if backend == "gdb" else {}
+                    return {
+                        "factory": lambda: OCDBackend[backend](**backend_kwargs),
+                        "frequency": frequency,
+                        "backend_name": backend,
+                    }
+
+                additional_kwargs["backend_factory"] = server_options
+
             if "gnw" in ignored:
                 if gnw is None:
                     backend_kwargs = {"host": gdb_host, "port": gdb_port} if backend == "gdb" else {}
