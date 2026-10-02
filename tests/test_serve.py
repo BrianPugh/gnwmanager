@@ -198,8 +198,10 @@ def test_server_uses_normal_backend_constructor_arguments(monkeypatch, selected)
     target = backend()
     constructor = Mock(return_value=target)
     monkeypatch.setattr(main, "OCDBackend", {selected: constructor})
+
     async def run_server(**kwargs):
         kwargs["factory"]()
+
     monkeypatch.setattr("gnwmanager.server.serve_backend", run_server)
     main.main("serve", backend=selected, gdb_host="example", gdb_port=4321)
     expected = {"host": "example", "port": 4321} if selected == "gdb" else {}
