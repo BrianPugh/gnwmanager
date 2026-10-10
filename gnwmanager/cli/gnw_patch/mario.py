@@ -40,6 +40,16 @@ class MarioGnW(Device, name="mario"):
         FLASH_LEN = 0x24100000 - FLASH_BASE
 
     def patch(self):
+        if self.args.offset_size:
+            base_addr = 0x9000_0000 + self.args.offset_size
+            try:
+                self.internal.asm(0x1066C, f"mov.w r3, #{hex(base_addr)}")
+            except Exception:
+                # If invalid immediate, load from literal pool (KEY_OFFSET = 0x106F4)
+                # ldr r3, [pc, #0x84] (2 bytes) + nop (2 bytes)
+                self.internal.replace(0x1066C, bytes.fromhex("214b00bf"))
+                self.internal.replace(0x106F4, base_addr, size=4)
+
         log.debug("Invoke custom bootloader prior to calling stock Reset_Handler.")
         self.internal.replace(0x4, "bootloader")
 
@@ -391,8 +401,8 @@ class MarioGnW(Device, name="mario"):
 
         # What is this data?
         # The memcpy to this address is all zero, so i guess its not used?
-        self.external.replace(0xF5858, b"\x00" * 34728)  # refence at internal 0x7210
-        self.ext_offset -= 34728
+        self.external.replace(0xF5858, b"\x00" * 34728)
+        self.move_ext(0xF5858, 34728, 0x7210)
 
         if self.compressed_memory_pos:
             # Compress and copy over compressed_memory
@@ -423,25 +433,61 @@ class MarioGnW(Device, name="mario"):
 
             self.ext_offset -= 8192
         else:
+            # NVRAM save banks: low bank = 0xfe000 + ext_offset, high bank = +0x1000.
+            # When the external image is relocated by offset_size (see top of
+            # patch()), the save target MUST be shifted too -- otherwise the
+            # un-offset address (e.g. 0xd9000) lands inside the OTHER console's
+            # external data (it falls in Zelda's Link's Awakening ROM at
+            # 0xd2000-0x1f4c00), and every Mario save silently corrupts it.
+            #
+            # 0xfe000 + ext_offset + offset_size (e.g. 0x4d9000) is not a Thumb-2
+            # modified immediate, and the original 10-byte "ite/mov.w/mov.w" slot
+            # can't hold movw+movt. So park the low-bank address in a free literal
+            # word and load it, then add 0x1000 for the high bank (still 10 bytes):
+            #     ldr.w r4, [pc, #imm]        ; r4 = low bank (offset-corrected)
+            #     it ne ; addne.w r4, #0x1000 ; high bank
+            # 0x468C is alignment padding (verified zero & unreferenced in the
+            # SHA1-pinned stock ROM) within ldr.w +/-4095 range of both sites.
+            offset_size = getattr(self.args, "offset_size", 0) or 0
+            nvram_lo = 0xFE000 + self.ext_offset + offset_size
+            literal_off = 0x468C
+            if self.internal.int(literal_off) != 0:
+                raise RuntimeError(
+                    f"NVRAM literal slot 0x{literal_off:X} is not free "
+                    f"(0x{self.internal.int(literal_off):08X}); stock ROM changed?"
+                )
+            self.internal.replace(literal_off, nvram_lo, size=4)
+            log.debug(f"NVRAM low-bank addr 0x{nvram_lo:X} -> literal 0x{literal_off:X}")
+
             log.debug("Update NVRAM read addresses")
+            imm_r = literal_off - ((0x4856 + 4) & ~3)
             self.internal.asm(
                 0x4856,
-                "ite ne; "
-                f"movne.w r4, #{hex(0xff000 + self.ext_offset)}; "
-                f"moveq.w r4, #{hex(0xfe000 + self.ext_offset)}",
+                f"ldr.w r4, [pc, #{imm_r}]; it ne; addne.w r4, r4, #0x1000",
             )
             log.debug("Update NVRAM write addresses")
+            imm_w = literal_off - ((0x48C0 + 4) & ~3)
             self.internal.asm(
                 0x48C0,
-                "ite ne; "
-                f"movne.w r4, #{hex(0xff000 + self.ext_offset)}; "
-                f"moveq.w r4, #{hex(0xfe000 + self.ext_offset)}",
+                f"ldr.w r4, [pc, #{imm_w}]; it ne; addne.w r4, r4, #0x1000",
             )
 
         # Finally, shorten the firmware
         log.debug("Updating end of OTFDEC pointer")
         self.internal.add(0x1_06EC, self.ext_offset)
         self.external.shorten(self.ext_offset)
+
+        offset_size = getattr(self.args, "offset_size", 0)
+        if offset_size > 0:
+            # We need to increase the OCTOSPI device size configuration so the memory-mapped space covers the offset.
+            # Stock is 20 (1MB).
+            # We calculate the next power of 2 exponent.
+            needed_bytes = offset_size + len(self.external)
+            device_size = (needed_bytes - 1).bit_length()
+            # Ensure it is at least the stock size of 20
+            device_size = max(20, device_size)
+            log.debug(f"Patching OCTOSPI device size to {device_size} (covering up to {1 << device_size} bytes)")
+            self.internal.replace(0xA41E, device_size, size=1)
 
         internal_remaining_free = len(self.internal) - self.int_pos
         compressed_memory_free = (
