@@ -6,17 +6,18 @@ C-build configuration, packed in ``gnwmanager/patch_elfs.tar.xz`` (``make patch-
 so users need no compiler. Neither holds any Nintendo firmware bytes.
 """
 
-import hashlib
+import argparse
 import importlib.resources
+import inspect
 import logging
 import shutil
 import tarfile
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Annotated, Any, Callable, Optional, Sequence
+from typing import Annotated, Any, Callable, Literal, Optional, Sequence
 
-from cyclopts import Parameter
+from cyclopts import App, Group, Parameter
 
 from gnwmanager.cli._bootloader import get_bootloader
 from gnwmanager.cli.main import app
@@ -31,8 +32,9 @@ BOOTLOADER_REPO = "sylverb/game-and-watch-bootloader"
 CODE_OPTIONS = ("--prebuilt", "--elf", "--patch")
 # The prebuilt ELFs, in the package.
 PATCH_ELFS = "patch_elfs.tar.xz"
-# gnwmanager's --help shows flash-patch's own help, so the patcher's is this.
-PATCHER_HELP = "--patcher-help"
+# Patcher options gnwmanager supplies: not shown, or shown in the "Advanced" panel.
+HIDDEN_OPTIONS = ("--patch", "--elf")
+ADVANCED_OPTIONS = ("--prebuilt", "--int-output", "--ext-output", "--dump-dir")
 # --sd-bootloader builds dual-boot Sylverb's SD bootloader here.
 SD_BOOTLOADER = 0x0803_2000
 
@@ -43,46 +45,6 @@ class PatchError(Exception):
 
 def _option(argv: Sequence[str], name: str) -> bool:
     return any(a == name or a.startswith(name + "=") for a in argv)
-
-
-def _sha1(path: Path) -> str:
-    return hashlib.sha1(path.read_bytes()).hexdigest()
-
-
-def model_of(internal: Path) -> Optional[str]:
-    """The model ``internal`` is the stock internal backup of, if any."""
-    from gnwmanager.gnw_patch.patches import Device
-
-    digest = _sha1(internal)
-    return next((m for m in MODELS if digest == Device.registry[m].Int.STOCK_ROM_SHA1_HASH), None)
-
-
-def detect_device(backup_dir: Path) -> str:
-    """The model whose stock internal backup is in ``backup_dir``.
-
-    Raises
-    ------
-    PatchError
-        No backup, or backups of both models (the choice is then the user's: mario, zelda or amalgam).
-    """
-    found, wrong = [], []
-    for model in MODELS:
-        path = backup_dir / f"internal_flash_backup_{model}.bin"
-        if not path.exists():
-            continue
-        if model_of(path) == model:
-            found.append(model)
-        else:
-            wrong.append(path)
-    if len(found) == 1:
-        return found[0]
-    if found:
-        raise PatchError(f"Found stock backups of both models in {backup_dir}; pass --device=mario|zelda|amalgam.")
-    if wrong:
-        bad = ", ".join(str(p) for p in wrong)
-        raise PatchError(f"{bad}: not a stock backup (dump it from an unpatched unit with gnwmanager dump).")
-    names = " or ".join(f"internal_flash_backup_{m}.bin" for m in MODELS)
-    raise PatchError(f"No {names} in {backup_dir}; pass --backup-dir, or dump them with gnwmanager dump.")
 
 
 @dataclass
@@ -134,6 +96,8 @@ def _legacy(argv: list[str], work_dir: Path) -> Command:
         if _option(argv, "--device"):
             raise PatchError(f"Give the model once: {argv[0]} or --device.")
         argv[0] = f"--device={argv[0]}"
+    if not _option(argv, "--device"):
+        raise PatchError("No model given: flash-patch mario|zelda|amalgam.")
     cmd = Command(argv)
     cmd.bootloader_repo = _pop_value(argv, "--bootloader-repo") or cmd.bootloader_repo
     cmd.bootloader_tag = _pop_value(argv, "--bootloader-tag") or cmd.bootloader_tag
@@ -141,8 +105,6 @@ def _legacy(argv: list[str], work_dir: Path) -> Command:
     if "--no-second-beep" in argv:
         argv.remove("--no-second-beep")
         log.warning("--no-second-beep is now a setting in the clock menu; ignoring it.")
-    if "--help" in argv:
-        return cmd
 
     paths = _positionals(argv)
     if not paths:
@@ -157,15 +119,9 @@ def _legacy(argv: list[str], work_dir: Path) -> Command:
     for path in (internal, external):
         if not path.is_file():
             raise PatchError(f"{path}: no such file.")
-    if _option(argv, "--device"):
-        model = options.build_parser().parse_known_args(argv)[0].device
-        if model not in MODELS:
-            raise PatchError(f"--device={model} reads its backups from --backup-dir.")
-    else:
-        model = model_of(internal)
-        if model is None:
-            raise PatchError(f"{internal}: not a stock backup (dump it from an unpatched unit with gnwmanager dump).")
-        argv.insert(0, f"--device={model}")
+    model = options.build_parser().parse_known_args(argv)[0].device
+    if model not in MODELS:
+        raise PatchError(f"{model} reads its backups from --backup-dir.")
     backups = work_dir / "backups"
     backups.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(internal, backups / f"internal_flash_backup_{model}.bin")
@@ -177,19 +133,11 @@ def _legacy(argv: list[str], work_dir: Path) -> Command:
 def patch_command(argv: Sequence[str], work_dir: Path) -> Command:
     """The patcher's command line: ``argv`` plus the defaults gnwmanager supplies.
 
-    The old form translated (``_legacy()``), the device (from the backups, unless given), and
-    the prebuilt ELFs (``unpack_elfs()``'s), output and debug files in ``work_dir`` (unless
+    The old form translated (``_legacy()``), and the prebuilt ELFs (``unpack_elfs()``'s), output and debug files in ``work_dir`` (unless
     given).
     """
-    from gnwmanager.gnw_patch.patches import options
-
-    argv = ["--help" if a == PATCHER_HELP else a for a in argv]
-    cmd = _legacy(argv, work_dir)
-    if "--help" in argv:
-        return cmd
-    if not _option(argv, "--device"):
-        args, _ = options.build_parser().parse_known_args(argv)
-        argv.insert(0, f"--device={detect_device(args.backup_dir)}")
+    cmd = _legacy(list(argv), work_dir)
+    argv = cmd.argv
     if not any(_option(argv, o) for o in CODE_OPTIONS):
         argv.append(f"--prebuilt={work_dir / 'patch_elfs'}")
     defaults = {
@@ -216,32 +164,165 @@ def unpack_elfs(dst: Path):
         tar.extractall(dst, **kwargs)
 
 
-@app.command
-def flash_patch(
-    *argv: Annotated[str, Parameter(allow_leading_hyphen=True)],
-    backend_factory: Annotated[Callable[[], dict[str, Any]], Parameter(parse=False)],
-):
-    """Patch the stock firmware for dual-boot (game-and-watch-patch) and flash it.
+@dataclass
+class _Option:
+    """A patcher option, merged over the models that have it."""
 
-    Every option but ``--bootloader-repo``/``--bootloader-tag`` goes to the patcher;
-    ``gnwmanager flash-patch --patcher-help`` lists them (``--device=zelda --patcher-help`` for
-    Zelda's). It reads the stock backups from ``--backup-dir`` (default: the current
-    directory): ``internal_flash_backup_<model>.bin`` and ``flash_backup_<model>.bin``.
-    ``--device`` defaults to the model of the backup found there; ``--device=amalgam`` puts
-    both models in one image and needs all 4 backups. ``--sd-bootloader`` also flashes
-    Sylverb's SD bootloader (the latest release, unless ``--bootloader-tag`` is given).
-    The unit is connected only after patching succeeds.
+    action: argparse.Action
+    group: str
+    # By model:
+    defaults: dict[str, Any] = field(default_factory=dict)
+    helps: dict[str, str] = field(default_factory=dict)
 
-    The older ``flash-patch MODEL INTERNAL EXTERNAL [OPTIONS]`` form still works
-    (``--bootloader`` is ``--sd-bootloader``).
 
-    Example::
+def _patcher_options(models: Sequence[str]) -> dict[str, _Option]:
+    """``models``' patcher options, by option name, in the order the patcher's help lists them."""
+    from gnwmanager.gnw_patch.patches import Device, options
 
-        gnwmanager flash-patch --sd-bootloader -- start bank1
+    out: dict[str, _Option] = {}
+    for model in models:
+        parser = options.build_parser()
+        Device.registry[model].add_arguments(parser)
+        for group in parser._action_groups:
+            for action in group._group_actions:
+                option = out.setdefault(action.option_strings[-1], _Option(action, group.title or ""))
+                option.defaults[model] = action.default
+                option.helps[model] = (action.help or "").rstrip(".") + "."
+    return out
 
-    https://github.com/BrianPugh/game-and-watch-patch
+
+def _help(name: str, option: _Option, models: Sequence[str]) -> str:
+    """The option's help (each model's, if they differ), the models that have it, and its default if meaningful here."""
+    if len(set(option.helps.values())) == 1:
+        parts = [next(iter(option.helps.values()))]
+    else:
+        parts = [f"{m.capitalize()}: {h}" for m, h in option.helps.items()]
+    if len(option.helps) < len(models):
+        parts.append(" and ".join(m.capitalize() for m in option.helps) + " only.")
+    defaults = {
+        m: d for m, d in option.defaults.items() if isinstance(d, (int, float, str)) and not isinstance(d, bool)
+    }
+    # gnwmanager picks the device and the paths.
+    if defaults and name != "--device" and name not in ADVANCED_OPTIONS:
+        if len(set(defaults.values())) == 1:
+            parts.append(f"Default: {next(iter(defaults.values()))}.")
+        else:
+            parts.append("Default: " + ", ".join(f"{d} ({m.capitalize()})" for m, d in defaults.items()) + ".")
+    return " ".join(parts)
+
+
+# flash-patch's options, by python name: (option name, nargs), so ``_patcher_argv()`` can
+# give ``patch_command()`` back the ones on the command line (cyclopts passes only those).
+_ARGV_OPTIONS: dict[str, tuple[str, Any]] = {}
+
+
+def _signature(device: str) -> inspect.Signature:
+    """A ``flash-patch`` command's parameters: ``device``'s patcher options, grouped as its help groups them.
+
+    The amalgam takes every model's options. Cyclopts parses and documents them; the patcher still checks them (ranges, conflicts).
     """
+    models = (device,) if device in MODELS else MODELS
+    groups: dict[str, Group] = {}
+
+    def group(title: str) -> Group:
+        return groups.setdefault(title, Group(title, sort_key=len(groups)))
+
+    group("Patch")
+    kw = inspect.Parameter.KEYWORD_ONLY
+    params = []
+    if device != "amalgam":
+        for name, what in (("internal", "internal"), ("external", "external flash")):
+            help = f"Stock {what} backup, instead of the one in --backup-dir."
+            annotation = Annotated[Optional[str], Parameter(name=name.upper(), help=help)]
+            params.append(
+                inspect.Parameter(name, inspect.Parameter.POSITIONAL_ONLY, default=None, annotation=annotation)
+            )
+    for name, option in _patcher_options(models).items():
+        action = option.action
+        if isinstance(action, argparse._HelpAction) or name == "--device":
+            continue
+        dest = action.dest
+        if name in ADVANCED_OPTIONS:
+            title = "Advanced"
+        elif option.group == "options":
+            title = "Patch"
+        else:
+            title = option.group
+        kwargs: dict[str, Any] = {}
+        if isinstance(action, argparse._StoreTrueAction):
+            hint: Any = bool
+            default: Any = False
+        elif action.nargs in ("*", "+"):
+            hint, default = Optional[list[str]], None
+            kwargs["consume_multiple"] = True
+        elif action.choices:
+            hint, default = Optional[Literal[tuple(action.choices)]], None  # type: ignore[valid-type]
+        else:
+            hint, default = Optional[str], None
+        param = Parameter(
+            name=name,
+            group=group(title),
+            help=_help(name, option, models),
+            show=name not in HIDDEN_OPTIONS,
+            show_default=False,
+            negative=(),
+            **kwargs,
+        )
+        _ARGV_OPTIONS[dest] = (name, action.nargs)
+        params.append(inspect.Parameter(dest, kw, default=default, annotation=Annotated[hint, param]))
+        if name == "--sd-bootloader":
+            bootloader = group(title)
+            _ARGV_OPTIONS["bootloader_repo"] = ("--bootloader-repo", None)
+            _ARGV_OPTIONS["bootloader_tag"] = ("--bootloader-tag", None)
+            params += [
+                inspect.Parameter(
+                    "bootloader_repo",
+                    kw,
+                    default=BOOTLOADER_REPO,
+                    annotation=Annotated[str, Parameter(group=bootloader, help="GitHub repo of the SD bootloader.")],
+                ),
+                inspect.Parameter(
+                    "bootloader_tag",
+                    kw,
+                    default="latest",
+                    annotation=Annotated[str, Parameter(group=bootloader, help="SD bootloader release to flash.")],
+                ),
+            ]
+    # The old form's options, translated by _legacy().
+    for dest, name in (("bootloader", "--bootloader"), ("no_second_beep", "--no-second-beep")):
+        _ARGV_OPTIONS[dest] = (name, 0)
+        params.append(inspect.Parameter(dest, kw, default=False, annotation=Annotated[bool, Parameter(show=False)]))
+    params.append(
+        inspect.Parameter(
+            "backend_factory", kw, annotation=Annotated[Callable[[], dict[str, Any]], Parameter(parse=False)]
+        )
+    )
+    return inspect.Signature(params)
+
+
+def _patcher_argv(device: str, paths: Sequence[str], given: dict[str, Any]) -> list[str]:
+    """The command line a ``flash-patch`` command got, as ``patch_command()`` takes it."""
+    argv = [device, *paths]
+    for dest, (name, nargs) in _ARGV_OPTIONS.items():
+        value = given.get(dest)
+        if value is None or value is False:
+            continue
+        if value is True:
+            argv.append(name)
+        elif nargs in ("*", "+"):
+            argv += [name, *value]
+        else:
+            argv.append(f"{name}={value}")
+    return argv
+
+
+def flash_patch(
+    device: str, paths: Sequence[str], backend_factory: Callable[[], dict[str, Any]], given: dict[str, Any]
+):
+    """Patches ``device``'s stock firmware and flashes it."""
     from gnwmanager.gnw_patch.patches import cli, options
+
+    argv = _patcher_argv(device, paths, given)
 
     with tempfile.TemporaryDirectory() as tmp:
         try:
@@ -250,7 +331,7 @@ def flash_patch(
                 unpack_elfs(Path(tmp) / "patch_elfs")
         except PatchError as e:
             raise SystemExit(str(e)) from None
-        cli.main(cmd.argv)  # Exits on --help or a bad option.
+        cli.main(cmd.argv)  # Exits on a bad option.
 
         _, models = options.parse(cmd.argv)
         args = next(iter(models.values()))
@@ -278,3 +359,42 @@ def flash_patch(
             gnw.flash(1, SD_BOOTLOADER - 0x0800_0000, bootloader, progress=False)
     finally:
         gnw.backend.close()
+
+
+HELP = """Patch the stock firmware for dual-boot (game-and-watch-patch) and flash it.
+
+It reads the stock backups from ``--backup-dir`` (default: the current directory):
+``internal_flash_backup_<model>.bin`` and ``flash_backup_<model>.bin``, or for ``mario`` and
+``zelda``, the INTERNAL EXTERNAL arguments. ``amalgam`` puts both models in one image and needs
+all 4 backups. ``flash-patch MODEL --help`` lists the model's options. ``--sd-bootloader`` also
+flashes Sylverb's SD bootloader. The unit is connected only after patching succeeds.
+
+Example::
+
+    gnwmanager flash-patch zelda --sd-bootloader -- start bank1
+
+https://github.com/BrianPugh/game-and-watch-patch
+"""
+
+
+def _command(device: str) -> Callable[..., None]:
+    """The ``flash-patch`` command for ``device``."""
+
+    def command(*paths: str, backend_factory: Callable[[], dict[str, Any]], **given: Any):
+        flash_patch(device, paths, backend_factory, given)
+
+    command.__name__ = f"flash_patch_{device}"
+    if device == "amalgam":
+        command.__doc__ = "Patch both models' stock firmware into one image (reads all 4 backups from --backup-dir)."
+    else:
+        command.__doc__ = f"Patch {device.capitalize()}'s stock firmware (INTERNAL EXTERNAL, or from --backup-dir)."
+    command.__signature__ = _signature(device)  # type: ignore[attr-defined]
+    command.__annotations__ = {name: p.annotation for name, p in command.__signature__.parameters.items()}  # type: ignore[attr-defined]
+    return command
+
+
+patch_app = App(name="flash-patch", help=HELP, version_flags=[], group_commands="Commands")
+COMMANDS = {device: _command(device) for device in DEVICES}
+for _device in DEVICES:
+    patch_app.command(COMMANDS[_device], name=_device)
+app.command(patch_app)

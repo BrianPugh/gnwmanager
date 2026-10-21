@@ -1,55 +1,18 @@
-import hashlib
 from pathlib import Path
 
 import pytest
+from cyclopts import UnknownOptionError
 
 from gnwmanager.cli import _patch
-from gnwmanager.cli._patch import PatchError, detect_device, patch_command
-from gnwmanager.gnw_patch.patches import Device
+from gnwmanager.cli._patch import PatchError, patch_command
+from gnwmanager.cli.main import app
 
 REPO = Path(__file__).resolve().parents[1]
 
 
-@pytest.fixture
-def fake_stock(monkeypatch):
-    """Make ``data`` pass as ``model``'s stock internal backup."""
-
-    def fake(model, data):
-        monkeypatch.setattr(Device.registry[model].Int, "STOCK_ROM_SHA1_HASH", hashlib.sha1(data).hexdigest())
-
-    return fake
-
-
-def test_detect_device(tmp_path, fake_stock):
-    fake_stock("zelda", b"zelda")
-    (tmp_path / "internal_flash_backup_zelda.bin").write_bytes(b"zelda")
-    assert detect_device(tmp_path) == "zelda"
-
-
-def test_detect_device_both(tmp_path, fake_stock):
-    for model in ("mario", "zelda"):
-        fake_stock(model, model.encode())
-        (tmp_path / f"internal_flash_backup_{model}.bin").write_bytes(model.encode())
-    with pytest.raises(PatchError, match="both models"):
-        detect_device(tmp_path)
-
-
-def test_detect_device_not_stock(tmp_path):
-    (tmp_path / "internal_flash_backup_mario.bin").write_bytes(b"patched")
-    with pytest.raises(PatchError, match="not a stock backup"):
-        detect_device(tmp_path)
-
-
-def test_detect_device_missing(tmp_path):
-    with pytest.raises(PatchError, match="No internal_flash_backup_mario.bin"):
-        detect_device(tmp_path)
-
-
-def test_patch_argv_defaults(tmp_path, fake_stock):
-    fake_stock("mario", b"mario")
-    (tmp_path / "internal_flash_backup_mario.bin").write_bytes(b"mario")
+def test_patch_argv_defaults(tmp_path):
     work = tmp_path / "work"
-    argv = patch_command([f"--backup-dir={tmp_path}", "--sd-bootloader"], work).argv
+    argv = patch_command(["mario", f"--backup-dir={tmp_path}", "--sd-bootloader"], work).argv
     assert argv[0] == "--device=mario"
     assert "--sd-bootloader" in argv
     assert f"--prebuilt={work / 'patch_elfs'}" in argv
@@ -58,15 +21,78 @@ def test_patch_argv_defaults(tmp_path, fake_stock):
     assert f"--dump-dir={work / 'debug'}" in argv
 
 
+def test_patch_argv_no_model(tmp_path):
+    with pytest.raises(PatchError, match="No model given"):
+        patch_command(["--sd-bootloader"], tmp_path)
+
+
 def test_patch_argv_keeps_given(tmp_path):
     given = ["--device=amalgam", "--elf=x.elf", "--patch=x.bin", "--int-output=a.bin", "--dump-dir=d"]
     assert patch_command(given, tmp_path).argv == [*given, f"--ext-output={tmp_path / 'external_flash_patched.bin'}"]
 
 
-def test_patch_argv_help(tmp_path):
-    # No backups needed.
-    assert patch_command(["--device=zelda", _patch.PATCHER_HELP], tmp_path).argv == ["--device=zelda", "--help"]
-    assert patch_command(["zelda", _patch.PATCHER_HELP], tmp_path).argv == ["--device=zelda", "--help"]
+def _parse(argv):
+    """The command line ``flash-patch argv`` hands ``patch_command()``."""
+    command, bound, ignored = app.parse_args(["flash-patch", *argv])
+    assert "backend_factory" in ignored
+    device = next(d for d, c in _patch.COMMANDS.items() if c is command)
+    return _patch._patcher_argv(device, bound.args, bound.kwargs)
+
+
+def test_cli_argv():
+    argv = _parse(["zelda", "--no-la", "--loz2", "a.nes", "--relocate-stock", "0x08120000"])
+    assert argv == ["zelda", "--relocate-stock=0x08120000", "--no-la", "--loz2=a.nes"]
+
+
+def test_cli_argv_list_option():
+    argv = _parse(["mario", "--smb1-graphics", "a.ips", "b.ips", "--no-smb2"])
+    assert argv == ["mario", "--smb1-graphics", "a.ips", "b.ips", "--no-smb2"]
+
+
+def test_cli_argv_legacy(tmp_path):
+    internal, external = _backups(tmp_path, "mario")
+    argv = _parse(["mario", str(internal), str(external), "--bootloader", "--bootloader-tag", "v1.0.3"])
+    cmd = patch_command(argv, tmp_path / "work")
+    assert cmd.argv[:2] == ["--device=mario", "--sd-bootloader"]
+    assert cmd.bootloader_tag == "v1.0.3"
+
+
+def test_cli_model_command():
+    assert _parse(["zelda", "--no-la"]) == ["zelda", "--no-la"]
+    assert _parse(["amalgam", "--sd-bootloader"]) == ["amalgam", "--sd-bootloader"]
+
+
+@pytest.mark.parametrize(
+    "argv", [["mario", "--no-such-option"], ["zelda", "--no-smb2"], ["mario", "--no-la"], ["mario", "--device=zelda"]]
+)
+def test_cli_unknown_option(argv):
+    with pytest.raises(UnknownOptionError):
+        app.parse_args(["flash-patch", *argv], exit_on_error=False)
+
+
+def test_cli_help_lists_commands(capsys):
+    app(["flash-patch", "--help"], exit_on_error=False)
+    out = capsys.readouterr().out
+    for model in _patch.DEVICES:
+        assert f"{model} " in out
+    assert "─ Patch ─" not in out
+
+
+def test_cli_help_amalgam(capsys):
+    app(["flash-patch", "amalgam", "--help"], exit_on_error=False)
+    out = capsys.readouterr().out
+    for name in ("--sd-bootloader", "--bootloader-tag", "--no-smb2", "--no-la", "--int-output", "Zelda only"):
+        assert name in out
+    for name in (*_patch.HIDDEN_OPTIONS, "--device", "INTERNAL"):
+        assert f"{name} " not in out
+
+
+def test_cli_help_model(capsys):
+    app(["flash-patch", "zelda", "--help"], exit_on_error=False)
+    out = capsys.readouterr().out
+    assert "--no-la" in out and "96x32" in out
+    for name in ("--no-smb2", "--device", "Zelda only", "96x48"):
+        assert name not in out
 
 
 def _backups(tmp_path, model):
@@ -76,9 +102,8 @@ def _backups(tmp_path, model):
     return internal, external
 
 
-def test_legacy_form(tmp_path, fake_stock):
+def test_legacy_form(tmp_path):
     """``flash-patch MODEL INTERNAL EXTERNAL [OPTIONS]``, as gnwmanager had it."""
-    fake_stock("mario", b"mario")
     internal, external = _backups(tmp_path, "mario")
     work = tmp_path / "work"
     argv = [
@@ -97,13 +122,6 @@ def test_legacy_form(tmp_path, fake_stock):
     assert (work / "backups" / "internal_flash_backup_mario.bin").read_bytes() == b"mario"
     assert (work / "backups" / "flash_backup_mario.bin").read_bytes() == b"external"
     assert (cmd.bootloader_repo, cmd.bootloader_tag) == (_patch.BOOTLOADER_REPO, "v1.0.3")
-
-
-def test_legacy_paths_detect_model(tmp_path, fake_stock):
-    fake_stock("zelda", b"zelda")
-    internal, external = _backups(tmp_path, "zelda")
-    argv = patch_command([str(internal), str(external)], tmp_path / "work").argv
-    assert argv[0] == "--device=zelda"
 
 
 def test_legacy_no_second_beep(tmp_path, caplog):
