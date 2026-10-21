@@ -48,7 +48,8 @@ jobs:
           files: |
             gnwmanager/firmware.bin
             gnwmanager/unlock.bin
-            dist/*
+            dist/*.whl
+            dist/*.tar.gz
 
   publish:
     needs: build
