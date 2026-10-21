@@ -43,6 +43,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
+          # A PEP 440 pre-release tag (v0.25.0rc1, v0.25.0b1, v0.25.0a1) isn't "Latest".
+          prerelease: ${{ contains(github.ref_name, 'rc') || contains(github.ref_name, 'b') || contains(github.ref_name, 'a') }}
           files: |
             gnwmanager/firmware.bin
             gnwmanager/unlock.bin
