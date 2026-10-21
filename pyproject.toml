@@ -183,6 +183,11 @@ ignore = [
     "TRY003",  # Avoid specifying messages outside exception class; overly strict, especially for ValueError
 ]
 
+[tool.ruff.lint.isort]
+# pre-commit.ci doesn't check out the gnw_patch submodule; without it, ruff would sort
+# gnwmanager.gnw_patch imports as third-party.
+known-first-party = ["gnwmanager"]
+
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = [
     "chr",
