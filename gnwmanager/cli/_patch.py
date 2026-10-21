@@ -2,13 +2,14 @@
 
 The patcher is the ``gnwmanager/gnw_patch`` submodule (only its ``patches/`` and
 ``tools/re/*.syms`` go into the wheel). Its compiled code comes prebuilt, one ELF per
-C-build configuration, in ``gnwmanager/patch_elfs/`` (``make patch-elfs``), so users
-need no compiler. Neither holds any Nintendo firmware bytes.
+C-build configuration, packed in ``gnwmanager/patch_elfs.tar.xz`` (``make patch-elfs``),
+so users need no compiler. Neither holds any Nintendo firmware bytes.
 """
 
 import hashlib
 import importlib.resources
 import logging
+import tarfile
 import tempfile
 from pathlib import Path
 from typing import Annotated, Any, Callable, Sequence
@@ -24,6 +25,8 @@ log = logging.getLogger(__name__)
 MODELS = ("mario", "zelda")
 # Options that name our compiled code; any of them replaces the prebuilt ELFs.
 CODE_OPTIONS = ("--prebuilt", "--elf", "--patch")
+# The prebuilt ELFs, in the package.
+PATCH_ELFS = "patch_elfs.tar.xz"
 # gnwmanager's --help shows flash-patch's own help, so the patcher's is this.
 PATCHER_HELP = "--patcher-help"
 # --sd-bootloader builds dual-boot Sylverb's SD bootloader here.
@@ -34,7 +37,7 @@ class PatchError(Exception):
     pass
 
 
-def _option(argv: list[str], name: str) -> bool:
+def _option(argv: Sequence[str], name: str) -> bool:
     return any(a == name or a.startswith(name + "=") for a in argv)
 
 
@@ -75,8 +78,8 @@ def detect_device(backup_dir: Path) -> str:
 def patch_argv(argv: Sequence[str], work_dir: Path) -> list[str]:
     """The patcher's command line: ``argv`` plus the defaults gnwmanager supplies.
 
-    The device (from the backups, unless given), the prebuilt ELFs, and the output and debug
-    files in ``work_dir`` (unless given).
+    The device (from the backups, unless given), and the prebuilt ELFs (``unpack_elfs()``'s),
+    output and debug files in ``work_dir`` (unless given).
     """
     from gnwmanager.gnw_patch.patches import options
 
@@ -87,7 +90,7 @@ def patch_argv(argv: Sequence[str], work_dir: Path) -> list[str]:
         args, _ = options.build_parser().parse_known_args(argv)
         argv.insert(0, f"--device={detect_device(args.backup_dir)}")
     if not any(_option(argv, o) for o in CODE_OPTIONS):
-        argv.append(f"--prebuilt={importlib.resources.files('gnwmanager') / 'patch_elfs'}")
+        argv.append(f"--prebuilt={work_dir / 'patch_elfs'}")
     defaults = {
         "--int-output": work_dir / "internal_flash_patched.bin",
         "--ext-output": work_dir / "external_flash_patched.bin",
@@ -97,6 +100,19 @@ def patch_argv(argv: Sequence[str], work_dir: Path) -> list[str]:
         if not _option(argv, name):
             argv.append(f"{name}={path}")
     return argv
+
+
+def unpack_elfs(dst: Path):
+    """Unpack the prebuilt ELFs into ``dst``."""
+    archive = importlib.resources.files("gnwmanager") / PATCH_ELFS
+    try:
+        f = archive.open("rb")
+    except FileNotFoundError:
+        raise PatchError(f"No {PATCH_ELFS} in the package; build it with make patch-elfs.") from None
+    with f, tarfile.open(fileobj=f, mode="r:xz") as tar:
+        # The data filter only exists from python 3.9.17 on.
+        kwargs: dict[str, Any] = {"filter": "data"} if hasattr(tarfile, "data_filter") else {}
+        tar.extractall(dst, **kwargs)
 
 
 @app.command(name="flash-patch")
@@ -125,6 +141,8 @@ def flash_patch(
     with tempfile.TemporaryDirectory() as tmp:
         try:
             argv_full = patch_argv(argv, Path(tmp))
+            if not any(_option(argv, o) for o in CODE_OPTIONS):
+                unpack_elfs(Path(tmp) / "patch_elfs")
         except PatchError as e:
             raise SystemExit(str(e)) from None
         cli.main(argv_full)  # Exits on --help or a bad option.

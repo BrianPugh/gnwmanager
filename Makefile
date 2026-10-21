@@ -271,14 +271,16 @@ gdb: $(BUILD_DIR)/$(TARGET).elf
 # game-and-watch-patch's prebuilt ELFs (flash-patch)
 #######################################
 # One ELF per configuration of its C build, built in the gnw_patch submodule with the
-# toolchain on PATH (release CI pins it). Needs the patcher's python dependencies, e.g.
-# `uv run make patch-elfs`.
+# toolchain on PATH (release CI pins it), packed into one archive: the ELFs are nearly
+# identical, so xz takes the 15 MB to ~120 KB. Needs the patcher's python dependencies,
+# e.g. `uv run make patch-elfs`.
 PYTHON ?= python
-PATCH_ELFS = gnwmanager/patch_elfs
+PATCH_ELFS_DIR = $(BUILD_DIR)/patch_elfs
 
 patch-elfs:
-	@$(RM) $(PATCH_ELFS)
-	cd gnwmanager/gnw_patch && $(PYTHON) -m scripts.build_elf_matrix $(abspath $(PATCH_ELFS))
+	@$(RM) $(PATCH_ELFS_DIR)
+	cd gnwmanager/gnw_patch && $(PYTHON) -m scripts.build_elf_matrix $(abspath $(PATCH_ELFS_DIR))
+	XZ_OPT=-9 tar -C $(PATCH_ELFS_DIR) -cJf gnwmanager/patch_elfs.tar.xz .
 .PHONY: patch-elfs
 
 

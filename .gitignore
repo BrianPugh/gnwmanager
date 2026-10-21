@@ -260,4 +260,4 @@ poetry.toml
 *.lprof
 
 # Prebuilt game-and-watch-patch ELFs (make patch-elfs)
-gnwmanager/patch_elfs/
+gnwmanager/patch_elfs.tar.xz

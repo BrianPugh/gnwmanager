@@ -52,7 +52,7 @@ def test_patch_argv_defaults(tmp_path, fake_stock):
     argv = patch_argv([f"--backup-dir={tmp_path}", "--sd-bootloader"], work)
     assert argv[0] == "--device=mario"
     assert "--sd-bootloader" in argv
-    assert any(a.startswith("--prebuilt=") and a.endswith("patch_elfs") for a in argv)
+    assert f"--prebuilt={work / 'patch_elfs'}" in argv
     assert f"--int-output={work / 'internal_flash_patched.bin'}" in argv
     assert f"--ext-output={work / 'external_flash_patched.bin'}" in argv
     assert f"--dump-dir={work / 'debug'}" in argv
@@ -68,11 +68,12 @@ def test_patch_argv_help(tmp_path):
     assert patch_argv(["--device=zelda", _patch.PATCHER_HELP], tmp_path) == ["--device=zelda", "--help"]
 
 
-@pytest.mark.skipif(not (REPO / "gnwmanager" / "patch_elfs" / "manifest.json").exists(), reason="needs make patch-elfs")
+@pytest.mark.skipif(not (REPO / "gnwmanager" / _patch.PATCH_ELFS).exists(), reason="needs make patch-elfs")
 @pytest.mark.skipif(not (REPO / "internal_flash_backup_mario.bin").exists(), reason="needs the stock mario backups")
 def test_patch_mario(tmp_path, capsys):
     from gnwmanager.gnw_patch.patches import cli
 
+    _patch.unpack_elfs(tmp_path / "patch_elfs")
     cli.main(patch_argv([f"--backup-dir={REPO}", "--device=mario"], tmp_path))
     assert (tmp_path / "internal_flash_patched.bin").stat().st_size == 0x20000
     assert (tmp_path / "external_flash_patched.bin").stat().st_size
