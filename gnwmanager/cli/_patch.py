@@ -1,221 +1,400 @@
+"""``flash-patch``: patch the stock firmware with game-and-watch-patch and flash it.
+
+The patcher is the ``gnwmanager/gnw_patch`` submodule (only its ``patches/`` and
+``tools/re/*.syms`` go into the wheel). Its compiled code comes prebuilt, one ELF per
+C-build configuration, packed in ``gnwmanager/patch_elfs.tar.xz`` (``make patch-elfs``),
+so users need no compiler. Neither holds any Nintendo firmware bytes.
+"""
+
+import argparse
 import importlib.resources
+import inspect
 import logging
-from argparse import Namespace
+import shutil
+import tarfile
+import tempfile
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Any, Callable, Literal, Optional, Sequence
 
-from cyclopts import App, Group, Parameter, validators
-from cyclopts.types import ExistingBinPath
+from cyclopts import App, Group, Parameter
 
-from gnwmanager.cli._bootloader import flash_bootloader
-from gnwmanager.cli._parsers import GnWType
-from gnwmanager.cli.gnw_patch.exception import NotEnoughSpaceError
-from gnwmanager.cli.gnw_patch.mario import MarioGnW
-from gnwmanager.cli.gnw_patch.zelda import ZeldaGnW
+from gnwmanager.cli._bootloader import get_bootloader
 from gnwmanager.cli.main import app
+from gnwmanager.gnw import GnW
 
 log = logging.getLogger(__name__)
 
-app.command(flash_patch := App("flash-patch", help="Patch & flash nintendo firmware for dual-boot."))
+MODELS = ("mario", "zelda")
+DEVICES = (*MODELS, "amalgam")
+BOOTLOADER_REPO = "sylverb/game-and-watch-bootloader"
+# Options that name our compiled code; any of them replaces the prebuilt ELFs.
+CODE_OPTIONS = ("--prebuilt", "--elf", "--patch")
+# The prebuilt ELFs, in the package.
+PATCH_ELFS = "patch_elfs.tar.xz"
+# Patcher options gnwmanager supplies: not shown, or shown in the "Advanced" panel.
+HIDDEN_OPTIONS = ("--patch", "--elf")
+ADVANCED_OPTIONS = ("--prebuilt", "--int-output", "--ext-output", "--dump-dir")
+# --sd-bootloader builds dual-boot Sylverb's SD bootloader here.
+SD_BOOTLOADER = 0x0803_2000
 
 
-def _log_patching_results(device, internal_remaining_free, compressed_memory_remaining_free):
-    log.info("Binary Patching Complete!")
-    log.info(f"    Internal Firmware Used:  {len(device.internal) - internal_remaining_free} bytes")
-    log.info(f"        Free: {internal_remaining_free} bytes")
-    log.info(f"    Compressed Memory Used: {len(device.compressed_memory) - compressed_memory_remaining_free} bytes")
-    log.info(f"        Free: {compressed_memory_remaining_free} bytes")
-    log.info(f"    External Firmware Used: {len(device.external)} bytes")
+class PatchError(Exception):
+    pass
 
 
-def _common_prepare(cls, internal: Path, external: Path, bootloader: bool):
-    if bootloader:
-        version = "0x08032000"
-    else:
-        version = "default"
-    log.info(f"loading {version}.bin")
-    patch_data = (
-        importlib.resources.files(f"gnwmanager.cli.gnw_patch.binaries.{cls.name}") / f"{version}.bin"
-    ).read_bytes()
-    elf = importlib.resources.files(f"gnwmanager.cli.gnw_patch.binaries.{cls.name}") / f"{version}.elf"
-    device = cls(internal, elf, external)
-    device.crypt()  # Decrypt external firmware.
-
-    # Copy over novel code.
-    novel_code_start = device.internal.STOCK_ROM_END
-    device.internal[novel_code_start:] = patch_data[novel_code_start:]
-    if bootloader:
-        # An additional 73728 Bytes.
-        # leaves 200KB onward for the bootloader.
-        device.internal.extend(b"\x00" * ((200 * (1 << 10)) - 0x20000))
-    else:
-        # An additional 128KB
-        device.internal.extend(b"\x00" * 0x20000)
-
-    return device
+def _option(argv: Sequence[str], name: str) -> bool:
+    return any(a == name or a.startswith(name + "=") for a in argv)
 
 
-low_level_flash_group = Group("Low Level Flags")
-high_level_flash_group = Group("High Level Flags", validator=validators.MutuallyExclusive())
-sd_bootloader_group = Group = "SD Bootloader"
+@dataclass
+class Command:
+    """``flash-patch``'s command line, split into the patcher's and gnwmanager's options."""
+
+    argv: list[str]
+    bootloader_repo: str = BOOTLOADER_REPO
+    bootloader_tag: str = "latest"
 
 
-@flash_patch.command(default_parameter=Parameter(negative=()))
-def mario(
-    internal: ExistingBinPath,
-    external: ExistingBinPath,
-    *,
-    gnw: GnWType,
-    bootloader: Annotated[bool, Parameter(group=sd_bootloader_group)] = False,
-    bootloader_repo: Annotated[str, Parameter(group=sd_bootloader_group)] = "sylverb/game-and-watch-bootloader",
-    bootloader_tag: Annotated[str, Parameter(group=sd_bootloader_group)] = "latest",
-    disable_sleep: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
-    sleep_time: Annotated[Optional[int], Parameter(validator=validators.Number(gte=1, lte=1092))] = None,
-    no_save: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
-    no_mario_song: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
-    no_sleep_images: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
-    no_smb2: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
-    slim: Annotated[bool, Parameter(group=high_level_flash_group)] = False,
-    internal_only: Annotated[bool, Parameter(group=high_level_flash_group)] = False,
-):
-    """Patch & Flash original mario firmware.
+def _pop_value(argv: list[str], name: str) -> Optional[str]:
+    """Removes ``name VALUE`` or ``name=VALUE`` from ``argv``; returns VALUE."""
+    for i, arg in enumerate(argv):
+        if arg == name:
+            if i + 1 == len(argv):
+                raise PatchError(f"{name} needs a value.")
+            value = argv[i + 1]
+            del argv[i : i + 2]
+            return value
+        if arg.startswith(name + "="):
+            del argv[i]
+            return arg.split("=", 1)[1]
+    return None
 
-    This is intended as a simplified way of patching firmware; customization is limited.
 
-    For complete customization, goto the original repo:
-        https://github.com/BrianPugh/game-and-watch-patch
+def _positionals(argv: list[str]) -> list[str]:
+    """The tokens of ``argv`` that aren't options or their values (the patcher takes none)."""
+    from gnwmanager.gnw_patch.patches import Device, options
 
-    Parameters
-    ----------
-    internal: Path
-        Path to internal flash dump from "gnwmanager dump".
-        Usually "internal_flash_backup_mario.bin"
-    external: Path
-        Path to external flash dump from "gnwmanager dump".
-        Usually "flash_backup_mario.bin"
-    bootloader: bool
-        Leave room and flash the sd-card bootloader.
-        The LEFT+GAME combination will launch the sd-card bootloader at 0x08032000.
-    bootloader_repo: str
-        Username/Repo to download the release from.
-    bootloader_tag: str
-        Version tag to download from (e.g. "v1.0.3")
-    disable_sleep: bool
-        Disables sleep timer.
-    sleep_time: int
-        Go to sleep after this many seconds of inactivity (valid range: [1, 1092]).
-    no_save: bool
-        Don't use up 2 pages (8192 bytes) of extflash for non-volatile saves.
-        High scores and brightness/volume configurations will NOT survive homebrew launches.
-    no_mario_song: bool
-        Remove the mario song easter egg to save space.
-    no_sleep_images: bool
-        Remove the 5 sleeping images to save space.
-    no_smb2: bool
-        Remove the super mario bro's 2 ROM.
-    slim: bool
-        Remove bulky easter eggs (mario song and sleeping images) from extflash.
-    internal_only: bool
-        Configuration so no external flash is used.
+    parser = options.build_parser()
+    parser.conflict_handler = "resolve"  # The 2 models share some option names.
+    for model in MODELS:
+        Device.registry[model].add_arguments(parser)
+    _, extras = parser.parse_known_args(argv)
+    return [a for a in extras if not a.startswith("-")]
+
+
+def _legacy(argv: list[str], work_dir: Path) -> Command:
+    """Translates the old ``flash-patch MODEL INTERNAL EXTERNAL`` form and gnwmanager's own options.
+
+    ``MODEL`` becomes ``--device``, the 2 backups are copied into ``work_dir/backups`` (the
+    ``--backup-dir``) under the names the patcher reads, and ``--bootloader`` is
+    ``--sd-bootloader``.
     """
-    if internal_only:
-        slim = True
-        no_save = True
-    if slim:
-        no_mario_song = True
-        no_sleep_images = True
-    if internal_only and bootloader:
-        log.warning("Removing SMB2 to make room for bootloader.")
-        no_smb2 = True
+    from gnwmanager.gnw_patch.patches import options
 
-    device = _common_prepare(MarioGnW, internal, external, bootloader)
+    if argv and argv[0] in DEVICES:
+        if _option(argv, "--device"):
+            raise PatchError(f"Give the model once: {argv[0]} or --device.")
+        argv[0] = f"--device={argv[0]}"
+    if not _option(argv, "--device"):
+        raise PatchError("No model given: flash-patch mario|zelda|amalgam.")
+    cmd = Command(argv)
+    cmd.bootloader_repo = _pop_value(argv, "--bootloader-repo") or cmd.bootloader_repo
+    cmd.bootloader_tag = _pop_value(argv, "--bootloader-tag") or cmd.bootloader_tag
+    argv[:] = ["--sd-bootloader" if a == "--bootloader" else a for a in argv]
+    if "--no-second-beep" in argv:
+        argv.remove("--no-second-beep")
+        log.warning("--no-second-beep is now a setting in the clock menu; ignoring it.")
 
-    device.args = Namespace(  # pyright: ignore[reportAttributeAccessIssue]
-        disable_sleep=disable_sleep,
-        sleep_time=sleep_time,
-        no_save=no_save,
-        no_mario_song=no_mario_song,
-        no_sleep_images=no_sleep_images,
-        no_smb2=no_smb2,
-        compression_ratio=1.4,
-    )
+    paths = _positionals(argv)
+    if not paths:
+        return cmd
+    if len(paths) != 2:
+        raise PatchError(f"Expected the 2 stock backups (INTERNAL EXTERNAL), got: {' '.join(paths)}")
+    if _option(argv, "--backup-dir"):
+        raise PatchError("Give the stock backups as INTERNAL EXTERNAL or with --backup-dir, not both.")
+    for path in paths:
+        argv.remove(path)
+    internal, external = (Path(p) for p in paths)
+    for path in (internal, external):
+        if not path.is_file():
+            raise PatchError(f"{path}: no such file.")
+    model = options.build_parser().parse_known_args(argv)[0].device
+    if model not in MODELS:
+        raise PatchError(f"{model} reads its backups from --backup-dir.")
+    backups = work_dir / "backups"
+    backups.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(internal, backups / f"internal_flash_backup_{model}.bin")
+    shutil.copyfile(external, backups / f"flash_backup_{model}.bin")
+    argv.append(f"--backup-dir={backups}")
+    return cmd
 
-    internal_remaining_free, compressed_memory_remaining_free = device()
 
-    if internal_only and device.external:
-        raise NotEnoughSpaceError("Wasn't able to completely relocate mario firmware to bank1.")
+def patch_command(argv: Sequence[str], work_dir: Path) -> Command:
+    """The patcher's command line: ``argv`` plus the defaults gnwmanager supplies.
 
-    _log_patching_results(device, internal_remaining_free, compressed_memory_remaining_free)
-
-    gnw.start_gnwmanager()
-    gnw.flash(1, 0, bytes(device.internal), progress=False)
-    if device.external:
-        gnw.flash(0, 0, bytes(device.external), progress=True, desc="patched firmware")
-    if bootloader:
-        flash_bootloader(0x08032000, gnw=gnw, repo=bootloader_repo, tag=bootloader_tag, label="0x08032000")
-
-
-@flash_patch.command(default_parameter=Parameter(negative=()))
-def zelda(
-    internal: ExistingBinPath,
-    external: ExistingBinPath,
-    *,
-    gnw: GnWType,
-    bootloader: Annotated[bool, Parameter(group=sd_bootloader_group)] = False,
-    bootloader_repo: Annotated[str, Parameter(group=sd_bootloader_group)] = "sylverb/game-and-watch-bootloader",
-    bootloader_tag: Annotated[str, Parameter(group=sd_bootloader_group)] = "latest",
-    no_la: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
-    no_sleep_images: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
-    no_second_beep: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
-    no_hour_tune: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
-):
-    """Patch & Flash original zelda firmware.
-
-    This is intended as a simplified way of patching firmware; customization is limited.
-
-    For complete customization, goto the original repo:
-        https://github.com/BrianPugh/game-and-watch-patch
-
-    Parameters
-    ----------
-    internal: Path
-        Path to internal flash dump from "gnwmanager dump".
-        Usually "internal_flash_backup_zelda.bin"
-    external: Path
-        Path to external flash dump from "gnwmanager dump".
-        Usually "flash_backup_zelda.bin"
-    bootloader: bool
-        Leave room and flash the sd-card bootloader.
-        The LEFT+GAME combination will launch the sd-card bootloader at 0x08032000.
-    bootloader_repo: str
-        Username/Repo to download the release from.
-    bootloader_tag: str
-        Version tag to download from (e.g. "v1.0.3")
-    no_la: bool
-        Remove Link's Awakening to save space.
-    no_sleep_images: bool
-        Remove the 5 sleeping images to save space.
-    no_second_beep: bool
-        Remove the second beep in TIME/CLOCK.
-    no_hour_tune: bool
-        Remove the hour tune in TIME/CLOCK.
+    The old form translated (``_legacy()``), and the prebuilt ELFs (``unpack_elfs()``'s), output and debug files in ``work_dir`` (unless
+    given).
     """
-    device = _common_prepare(ZeldaGnW, internal, external, bootloader)
+    cmd = _legacy(list(argv), work_dir)
+    argv = cmd.argv
+    if not any(_option(argv, o) for o in CODE_OPTIONS):
+        argv.append(f"--prebuilt={work_dir / 'patch_elfs'}")
+    defaults = {
+        "--int-output": work_dir / "internal_flash_patched.bin",
+        "--ext-output": work_dir / "external_flash_patched.bin",
+        "--dump-dir": work_dir / "debug",
+    }
+    for name, path in defaults.items():
+        if not _option(argv, name):
+            argv.append(f"{name}={path}")
+    return cmd
 
-    device.args = Namespace(  # pyright: ignore[reportAttributeAccessIssue]
-        no_la=no_la,
-        no_sleep_images=no_sleep_images,
-        no_second_beep=no_second_beep,
-        no_hour_tune=no_hour_tune,
+
+def unpack_elfs(dst: Path):
+    """Unpack the prebuilt ELFs into ``dst``."""
+    archive = importlib.resources.files("gnwmanager") / PATCH_ELFS
+    try:
+        f = archive.open("rb")
+    except FileNotFoundError:
+        raise PatchError(f"No {PATCH_ELFS} in the package; build it with make patch-elfs.") from None
+    with f, tarfile.open(fileobj=f, mode="r:xz") as tar:
+        # The data filter only exists from python 3.9.17 on.
+        kwargs: dict[str, Any] = {"filter": "data"} if hasattr(tarfile, "data_filter") else {}
+        tar.extractall(dst, **kwargs)
+
+
+@dataclass
+class _Option:
+    """A patcher option, merged over the models that have it."""
+
+    action: argparse.Action
+    group: str
+    # By model:
+    defaults: dict[str, Any] = field(default_factory=dict)
+    helps: dict[str, str] = field(default_factory=dict)
+
+
+def _patcher_options(models: Sequence[str]) -> dict[str, _Option]:
+    """``models``' patcher options, by option name, in the order the patcher's help lists them."""
+    from gnwmanager.gnw_patch.patches import Device, options
+
+    out: dict[str, _Option] = {}
+    for model in models:
+        parser = options.build_parser()
+        Device.registry[model].add_arguments(parser)
+        for group in parser._action_groups:
+            for action in group._group_actions:
+                option = out.setdefault(action.option_strings[-1], _Option(action, group.title or ""))
+                option.defaults[model] = action.default
+                option.helps[model] = (action.help or "").rstrip(".") + "."
+    return out
+
+
+def _help(name: str, option: _Option, models: Sequence[str]) -> str:
+    """The option's help (each model's, if they differ), the models that have it, and its default if meaningful here."""
+    if len(set(option.helps.values())) == 1:
+        parts = [next(iter(option.helps.values()))]
+    else:
+        parts = [f"{m.capitalize()}: {h}" for m, h in option.helps.items()]
+    if len(option.helps) < len(models):
+        parts.append(" and ".join(m.capitalize() for m in option.helps) + " only.")
+    defaults = {
+        m: d for m, d in option.defaults.items() if isinstance(d, (int, float, str)) and not isinstance(d, bool)
+    }
+    # gnwmanager picks the device and the paths.
+    if defaults and name != "--device" and name not in ADVANCED_OPTIONS:
+        if len(set(defaults.values())) == 1:
+            parts.append(f"Default: {next(iter(defaults.values()))}.")
+        else:
+            parts.append("Default: " + ", ".join(f"{d} ({m.capitalize()})" for m, d in defaults.items()) + ".")
+    return " ".join(parts)
+
+
+# flash-patch's options, by python name: (option name, nargs), so ``_patcher_argv()`` can
+# give ``patch_command()`` back the ones on the command line (cyclopts passes only those).
+_ARGV_OPTIONS: dict[str, tuple[str, Any]] = {}
+
+
+def _signature(device: str) -> inspect.Signature:
+    """A ``flash-patch`` command's parameters: ``device``'s patcher options, grouped as its help groups them.
+
+    The amalgam takes every model's options. Cyclopts parses and documents them; the patcher still checks them (ranges, conflicts).
+    """
+    models = (device,) if device in MODELS else MODELS
+    groups: dict[str, Group] = {}
+
+    def group(title: str) -> Group:
+        return groups.setdefault(title, Group(title, sort_key=len(groups)))
+
+    group("Patch")
+    kw = inspect.Parameter.KEYWORD_ONLY
+    params = []
+    if device != "amalgam":
+        for name, what in (("internal", "internal"), ("external", "external flash")):
+            help = f"Stock {what} backup, instead of the one in --backup-dir."
+            annotation = Annotated[Optional[str], Parameter(name=name.upper(), help=help)]
+            params.append(
+                inspect.Parameter(name, inspect.Parameter.POSITIONAL_ONLY, default=None, annotation=annotation)
+            )
+    for name, option in _patcher_options(models).items():
+        action = option.action
+        if isinstance(action, argparse._HelpAction) or name == "--device":
+            continue
+        dest = action.dest
+        if name in ADVANCED_OPTIONS:
+            title = "Advanced"
+        elif option.group == "options":
+            title = "Patch"
+        else:
+            title = option.group
+        kwargs: dict[str, Any] = {}
+        if isinstance(action, argparse._StoreTrueAction):
+            hint: Any = bool
+            default: Any = False
+        elif action.nargs in ("*", "+"):
+            hint, default = Optional[list[str]], None
+            kwargs["consume_multiple"] = True
+        elif action.choices:
+            hint, default = Optional[Literal[tuple(action.choices)]], None  # type: ignore[valid-type]
+        else:
+            hint, default = Optional[str], None
+        param = Parameter(
+            name=name,
+            group=group(title),
+            help=_help(name, option, models),
+            show=name not in HIDDEN_OPTIONS,
+            show_default=False,
+            negative=(),
+            **kwargs,
+        )
+        _ARGV_OPTIONS[dest] = (name, action.nargs)
+        params.append(inspect.Parameter(dest, kw, default=default, annotation=Annotated[hint, param]))
+        if name == "--sd-bootloader":
+            bootloader = group(title)
+            _ARGV_OPTIONS["bootloader_repo"] = ("--bootloader-repo", None)
+            _ARGV_OPTIONS["bootloader_tag"] = ("--bootloader-tag", None)
+            params += [
+                inspect.Parameter(
+                    "bootloader_repo",
+                    kw,
+                    default=BOOTLOADER_REPO,
+                    annotation=Annotated[str, Parameter(group=bootloader, help="GitHub repo of the SD bootloader.")],
+                ),
+                inspect.Parameter(
+                    "bootloader_tag",
+                    kw,
+                    default="latest",
+                    annotation=Annotated[str, Parameter(group=bootloader, help="SD bootloader release to flash.")],
+                ),
+            ]
+    # The old form's options, translated by _legacy().
+    for dest, name in (("bootloader", "--bootloader"), ("no_second_beep", "--no-second-beep")):
+        _ARGV_OPTIONS[dest] = (name, 0)
+        params.append(inspect.Parameter(dest, kw, default=False, annotation=Annotated[bool, Parameter(show=False)]))
+    params.append(
+        inspect.Parameter(
+            "backend_factory", kw, annotation=Annotated[Callable[[], dict[str, Any]], Parameter(parse=False)]
+        )
     )
+    return inspect.Signature(params)
 
-    internal_remaining_free, compressed_memory_remaining_free = device()
 
-    _log_patching_results(device, internal_remaining_free, compressed_memory_remaining_free)
+def _patcher_argv(device: str, paths: Sequence[str], given: dict[str, Any]) -> list[str]:
+    """The command line a ``flash-patch`` command got, as ``patch_command()`` takes it."""
+    argv = [device, *paths]
+    for dest, (name, nargs) in _ARGV_OPTIONS.items():
+        value = given.get(dest)
+        if value is None or value is False:
+            continue
+        if value is True:
+            argv.append(name)
+        elif nargs in ("*", "+"):
+            argv += [name, *value]
+        else:
+            argv.append(f"{name}={value}")
+    return argv
 
-    gnw.start_gnwmanager()
-    gnw.flash(1, 0, bytes(device.internal), progress=False)
-    if device.external:
-        gnw.flash(0, 0, bytes(device.external), progress=True, desc="patched firmware")
-    if bootloader:
-        flash_bootloader(0x08032000, gnw=gnw, repo=bootloader_repo, tag=bootloader_tag, label="0x08032000")
+
+def flash_patch(
+    device: str, paths: Sequence[str], backend_factory: Callable[[], dict[str, Any]], given: dict[str, Any]
+):
+    """Patches ``device``'s stock firmware and flashes it."""
+    from gnwmanager.gnw_patch.patches import cli, options
+
+    argv = _patcher_argv(device, paths, given)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            cmd = patch_command(argv, Path(tmp))
+            if not any(_option(argv, o) for o in CODE_OPTIONS):
+                unpack_elfs(Path(tmp) / "patch_elfs")
+        except PatchError as e:
+            raise SystemExit(str(e)) from None
+        cli.main(cmd.argv)  # Exits on a bad option.
+
+        _, models = options.parse(cmd.argv)
+        args = next(iter(models.values()))
+        internal = args.int_output.read_bytes()
+        external = args.ext_output.read_bytes()
+        bank2_path = args.int_output.with_name(args.int_output.stem + "_bank2.bin")
+        bank2 = bank2_path.read_bytes() if bank2_path.exists() else b""
+    bootloader = b""
+    if args.sd_bootloader:
+        bootloader = get_bootloader(cmd.bootloader_repo, cmd.bootloader_tag, label="0x08032000").read_bytes()
+
+    opts = backend_factory()
+    gnw = GnW(opts["factory"]())
+    gnw.backend.open()
+    try:
+        if opts["frequency"] is not None:
+            gnw.backend.set_frequency(opts["frequency"])
+        gnw.start_gnwmanager()
+        if external:
+            gnw.flash(0, 0, external, progress=True, desc="patched external firmware")
+        if bank2:
+            gnw.flash(2, 0, bank2, progress=False)
+        gnw.flash(1, 0, internal, progress=False)
+        if bootloader:
+            gnw.flash(1, SD_BOOTLOADER - 0x0800_0000, bootloader, progress=False)
+    finally:
+        gnw.backend.close()
+
+
+HELP = """Patch the stock firmware for dual-boot (game-and-watch-patch) and flash it.
+
+It reads the stock backups from ``--backup-dir`` (default: the current directory):
+``internal_flash_backup_<model>.bin`` and ``flash_backup_<model>.bin``, or for ``mario`` and
+``zelda``, the INTERNAL EXTERNAL arguments. ``amalgam`` puts both models in one image and needs
+all 4 backups. ``flash-patch MODEL --help`` lists the model's options. ``--sd-bootloader`` also
+flashes Sylverb's SD bootloader. The unit is connected only after patching succeeds.
+
+Example::
+
+    gnwmanager flash-patch zelda --sd-bootloader -- start bank1
+
+https://github.com/BrianPugh/game-and-watch-patch
+"""
+
+
+def _command(device: str) -> Callable[..., None]:
+    """The ``flash-patch`` command for ``device``."""
+
+    def command(*paths: str, backend_factory: Callable[[], dict[str, Any]], **given: Any):
+        flash_patch(device, paths, backend_factory, given)
+
+    command.__name__ = f"flash_patch_{device}"
+    if device == "amalgam":
+        command.__doc__ = "Patch both models' stock firmware into one image (reads all 4 backups from --backup-dir)."
+    else:
+        command.__doc__ = f"Patch {device.capitalize()}'s stock firmware (INTERNAL EXTERNAL, or from --backup-dir)."
+    command.__signature__ = _signature(device)  # type: ignore[attr-defined]
+    command.__annotations__ = {name: p.annotation for name, p in command.__signature__.parameters.items()}  # type: ignore[attr-defined]
+    return command
+
+
+patch_app = App(name="flash-patch", help=HELP, version_flags=[], group_commands="Commands")
+COMMANDS = {device: _command(device) for device in DEVICES}
+for _device in DEVICES:
+    patch_app.command(COMMANDS[_device], name=_device)
+app.command(patch_app)

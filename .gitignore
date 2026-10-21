@@ -258,3 +258,6 @@ poetry.toml
 /backups-*
 
 *.lprof
+
+# Prebuilt game-and-watch-patch ELFs (make patch-elfs)
+gnwmanager/patch_elfs.tar.xz

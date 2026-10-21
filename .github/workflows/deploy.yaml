@@ -14,15 +14,22 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0  # Needed for uv-dynamic-versioning to read git tags
+          submodules: true  # game-and-watch-patch (gnwmanager/gnw_patch)
 
       - name: arm-none-eabi-gcc GNU Arm Embedded Toolchain
-        uses: carlosperate/arm-none-eabi-gcc-action@v1.8.1
+        uses: carlosperate/arm-none-eabi-gcc-action@v1.14.1
+        with:
+          # game-and-watch-patch's golden hashes are recorded with this release.
+          release: "15.2.Rel1"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
 
       - name: Build stm32 firmwares
         run: make -j4
+
+      - name: Build game-and-watch-patch's prebuilt ELFs
+        run: uv run make patch-elfs
 
       - name: Build package
         run: uv build

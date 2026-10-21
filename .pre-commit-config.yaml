@@ -1,4 +1,4 @@
-exclude: ^(uv.lock|.idea/|Drivers/|Core/|gnwmanager/cli/gnw_patch/)
+exclude: ^(uv.lock|.idea/|Drivers/|Core/|gnwmanager/gnw_patch/)
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: "v0.17.0"

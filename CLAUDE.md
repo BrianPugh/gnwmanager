@@ -9,7 +9,9 @@ GnWManager is a Game & Watch device manager — a Python CLI tool + STM32 firmwa
 ## Development Setup
 
 ```bash
+git submodule update --init  # game-and-watch-patch (gnwmanager/gnw_patch)
 uv sync                     # Create venv and install dependencies
+uv run make patch-elfs      # flash-patch's prebuilt ELFs (needs arm-none-eabi-gcc)
 uv run pre-commit install   # Install git hooks (ruff, black, codespell, pyright)
 ```
 
@@ -50,7 +52,7 @@ uv build
 
 - **`filesystem.py`** — LittleFS integration via `littlefs-python`. Custom `LfsDriverContext` provides direct flash read/write through the debug probe.
 
-- **`cli/gnw_patch/`** — Firmware binary patching utilities with device-specific (Mario/Zelda) patch binaries. Excluded from linting.
+- **`gnw_patch/`** — The [game-and-watch-patch](https://github.com/BrianPugh/game-and-watch-patch) repo as a git submodule (excluded from linting, pyright and pytest; it has its own). `cli/_patch.py` generates `flash-patch`'s cyclopts commands from the patcher's argparse parsers (`flash-patch mario|zelda|amalgam`, each with its model's options; `HIDDEN_OPTIONS`/`ADVANCED_OPTIONS` cover the ones gnwmanager supplies), rebuilds an argv from the given ones and passes it to the patcher's `patches.cli.main(argv)`, which still validates them, adding `--prebuilt` and temporary output paths, then flashes the result (and, with `--sd-bootloader`, the latest SD bootloader through `get_bootloader`). The wheel takes only `patches/` and `tools/re/*.syms` from it, plus `patch_elfs.tar.xz` (gitignored): one compiled ELF per C-build configuration, built by `uv run make patch-elfs` (~30 s; the release CI pins gcc 15.2.Rel1) and unpacked into `flash-patch`'s temporary directory. Neither holds Nintendo firmware bytes. After a patcher change, bump the submodule (`git -C gnwmanager/gnw_patch pull`) and rebuild the ELFs: `--prebuilt` refuses ELFs built from other patcher sources.
 
 ### STM32 Firmware (`Core/`, `Drivers/`)
 
