@@ -1,0 +1,3 @@
+[submodule "gnwmanager/gnw_patch"]
+	path = gnwmanager/gnw_patch
+	url = https://github.com/BrianPugh/game-and-watch-patch.git

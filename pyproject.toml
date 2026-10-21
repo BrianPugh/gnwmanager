@@ -24,6 +24,9 @@ dependencies = [
     "colorama>=0.4.6,<0.5",
     "pycryptodome>=3.23.0,<4",
     "websockets>=14,<16",
+    # game-and-watch-patch (gnwmanager/gnw_patch) for flash-patch.
+    "capstone>=5.0.1,<6",
+    "numpy",
 ]
 
 [project.urls]
@@ -54,15 +57,6 @@ debug = [
     "ipdb>=0.13.9",
     "line_profiler>=3.5.1",
 ]
-# keystone-engine is only needed to *regenerate* the gnw_patch firmware patch
-# binaries (it's lazily imported in gnwmanager/cli/gnw_patch/patch.py). It ships
-# no macOS arm64 wheel, so on Apple Silicon it builds from sdist; install with
-# `uv sync --group patch`, prefixing `_PYTHON_HOST_PLATFORM=macosx-11.0-arm64`
-# if the self-built wheel's platform tag is rejected.
-patch = [
-    "keystone-engine>=0.9.2,<0.10",
-]
-
 # --- Build backend (hatchling + hatch-vcs) -------------------------------------
 # Version is derived from git tags (replaces the previous
 # poetry-dynamic-versioning setup). hatch-vcs wraps setuptools-scm; a tagged
@@ -72,22 +66,31 @@ source = "vcs"
 
 [tool.hatch.build.targets.wheel]
 packages = ["gnwmanager"]
+# Of the game-and-watch-patch submodule, flash-patch needs only the patcher and the stock
+# symbol files.
+exclude = ["gnwmanager/gnw_patch"]
 
-# `firmware.bin`/`unlock.bin` are produced by `make` and the `*.bin` files under
-# gnw_patch/binaries match the repo's global `*.bin` gitignore. Hatchling excludes
-# VCS-ignored files by default, so force-include them as build artifacts (parity
-# with the old [tool.poetry] include list).
+[tool.hatch.build.targets.wheel.force-include]
+"gnwmanager/gnw_patch/patches" = "gnwmanager/gnw_patch/patches"
+"gnwmanager/gnw_patch/tools/re/mario.syms" = "gnwmanager/gnw_patch/tools/re/mario.syms"
+"gnwmanager/gnw_patch/tools/re/zelda.syms" = "gnwmanager/gnw_patch/tools/re/zelda.syms"
+
+# `firmware.bin`/`unlock.bin` (`make`) and the patcher's prebuilt ELFs (`make patch-elfs`)
+# are build outputs, ignored by git. Hatchling excludes VCS-ignored files by default, so
+# force-include them as build artifacts.
 [tool.hatch.build]
 artifacts = [
     "gnwmanager/firmware.bin",
     "gnwmanager/unlock.bin",
-    "gnwmanager/cli/gnw_patch/binaries/mario/*.bin",
-    "gnwmanager/cli/gnw_patch/binaries/zelda/*.bin",
+    "gnwmanager/patch_elfs/*",
 ]
 
 [tool.uv]
 # Rebuild (and recompute the dynamic version) when commits or tags change.
 cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true, tags = true } }]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.coverage.run]
 branch = true
@@ -122,6 +125,7 @@ venv = ".venv"
 # Allow passing bytearray/memoryview where bytes is expected (pyright >=1.1.4xx
 # disables this promotion by default).
 disableBytesTypePromotions = false
+exclude = ["gnwmanager/gnw_patch"]
 
 [tool.ruff]
 target-version = 'py38'
@@ -135,6 +139,7 @@ exclude = [
     ".env",
     "venv",
     ".venv",
+    "gnwmanager/gnw_patch",  # game-and-watch-patch submodule; linted in its own repo
 ]
 
 line-length = 120  # Must agree with Black

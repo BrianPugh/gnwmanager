@@ -1,221 +1,172 @@
+"""``flash-patch``: patch the stock firmware with game-and-watch-patch and flash it.
+
+The patcher is the ``gnwmanager/gnw_patch`` submodule (only its ``patches/`` and
+``tools/re/*.syms`` go into the wheel). Its compiled code comes prebuilt, one ELF per
+C-build configuration, in ``gnwmanager/patch_elfs/`` (``make patch-elfs``), so users
+need no compiler. Neither holds any Nintendo firmware bytes.
+"""
+
+import hashlib
 import importlib.resources
 import logging
-from argparse import Namespace
+import tempfile
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Any, Callable, Sequence
 
-from cyclopts import App, Group, Parameter, validators
-from cyclopts.types import ExistingBinPath
+from cyclopts import Parameter
 
-from gnwmanager.cli._bootloader import flash_bootloader
-from gnwmanager.cli._parsers import GnWType
-from gnwmanager.cli.gnw_patch.exception import NotEnoughSpaceError
-from gnwmanager.cli.gnw_patch.mario import MarioGnW
-from gnwmanager.cli.gnw_patch.zelda import ZeldaGnW
-from gnwmanager.cli.main import app
+from gnwmanager.cli.main import app, find_cache_folder
+from gnwmanager.gnw import GnW
 
 log = logging.getLogger(__name__)
 
-app.command(flash_patch := App("flash-patch", help="Patch & flash nintendo firmware for dual-boot."))
+MODELS = ("mario", "zelda")
+# Options that name our compiled code; any of them replaces the prebuilt ELFs.
+CODE_OPTIONS = ("--prebuilt", "--elf", "--patch")
+# gnwmanager's --help shows flash-patch's own help, so the patcher's is this.
+PATCHER_HELP = "--patcher-help"
 
 
-def _log_patching_results(device, internal_remaining_free, compressed_memory_remaining_free):
-    log.info("Binary Patching Complete!")
-    log.info(f"    Internal Firmware Used:  {len(device.internal) - internal_remaining_free} bytes")
-    log.info(f"        Free: {internal_remaining_free} bytes")
-    log.info(f"    Compressed Memory Used: {len(device.compressed_memory) - compressed_memory_remaining_free} bytes")
-    log.info(f"        Free: {compressed_memory_remaining_free} bytes")
-    log.info(f"    External Firmware Used: {len(device.external)} bytes")
+class PatchError(Exception):
+    pass
 
 
-def _common_prepare(cls, internal: Path, external: Path, bootloader: bool):
-    if bootloader:
-        version = "0x08032000"
-    else:
-        version = "default"
-    log.info(f"loading {version}.bin")
-    patch_data = (
-        importlib.resources.files(f"gnwmanager.cli.gnw_patch.binaries.{cls.name}") / f"{version}.bin"
-    ).read_bytes()
-    elf = importlib.resources.files(f"gnwmanager.cli.gnw_patch.binaries.{cls.name}") / f"{version}.elf"
-    device = cls(internal, elf, external)
-    device.crypt()  # Decrypt external firmware.
-
-    # Copy over novel code.
-    novel_code_start = device.internal.STOCK_ROM_END
-    device.internal[novel_code_start:] = patch_data[novel_code_start:]
-    if bootloader:
-        # An additional 73728 Bytes.
-        # leaves 200KB onward for the bootloader.
-        device.internal.extend(b"\x00" * ((200 * (1 << 10)) - 0x20000))
-    else:
-        # An additional 128KB
-        device.internal.extend(b"\x00" * 0x20000)
-
-    return device
+def _option(argv: list[str], name: str) -> bool:
+    return any(a == name or a.startswith(name + "=") for a in argv)
 
 
-low_level_flash_group = Group("Low Level Flags")
-high_level_flash_group = Group("High Level Flags", validator=validators.MutuallyExclusive())
-sd_bootloader_group = Group = "SD Bootloader"
+def _sha1(path: Path) -> str:
+    return hashlib.sha1(path.read_bytes()).hexdigest()
 
 
-@flash_patch.command(default_parameter=Parameter(negative=()))
-def mario(
-    internal: ExistingBinPath,
-    external: ExistingBinPath,
-    *,
-    gnw: GnWType,
-    bootloader: Annotated[bool, Parameter(group=sd_bootloader_group)] = False,
-    bootloader_repo: Annotated[str, Parameter(group=sd_bootloader_group)] = "sylverb/game-and-watch-bootloader",
-    bootloader_tag: Annotated[str, Parameter(group=sd_bootloader_group)] = "latest",
-    disable_sleep: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
-    sleep_time: Annotated[Optional[int], Parameter(validator=validators.Number(gte=1, lte=1092))] = None,
-    no_save: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
-    no_mario_song: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
-    no_sleep_images: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
-    no_smb2: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
-    slim: Annotated[bool, Parameter(group=high_level_flash_group)] = False,
-    internal_only: Annotated[bool, Parameter(group=high_level_flash_group)] = False,
-):
-    """Patch & Flash original mario firmware.
+def detect_device(backup_dir: Path) -> str:
+    """The model whose stock internal backup is in ``backup_dir``.
 
-    This is intended as a simplified way of patching firmware; customization is limited.
-
-    For complete customization, goto the original repo:
-        https://github.com/BrianPugh/game-and-watch-patch
-
-    Parameters
-    ----------
-    internal: Path
-        Path to internal flash dump from "gnwmanager dump".
-        Usually "internal_flash_backup_mario.bin"
-    external: Path
-        Path to external flash dump from "gnwmanager dump".
-        Usually "flash_backup_mario.bin"
-    bootloader: bool
-        Leave room and flash the sd-card bootloader.
-        The LEFT+GAME combination will launch the sd-card bootloader at 0x08032000.
-    bootloader_repo: str
-        Username/Repo to download the release from.
-    bootloader_tag: str
-        Version tag to download from (e.g. "v1.0.3")
-    disable_sleep: bool
-        Disables sleep timer.
-    sleep_time: int
-        Go to sleep after this many seconds of inactivity (valid range: [1, 1092]).
-    no_save: bool
-        Don't use up 2 pages (8192 bytes) of extflash for non-volatile saves.
-        High scores and brightness/volume configurations will NOT survive homebrew launches.
-    no_mario_song: bool
-        Remove the mario song easter egg to save space.
-    no_sleep_images: bool
-        Remove the 5 sleeping images to save space.
-    no_smb2: bool
-        Remove the super mario bro's 2 ROM.
-    slim: bool
-        Remove bulky easter eggs (mario song and sleeping images) from extflash.
-    internal_only: bool
-        Configuration so no external flash is used.
+    Raises
+    ------
+    PatchError
+        No backup, or backups of both models (the choice is then the user's: mario, zelda or amalgam).
     """
-    if internal_only:
-        slim = True
-        no_save = True
-    if slim:
-        no_mario_song = True
-        no_sleep_images = True
-    if internal_only and bootloader:
-        log.warning("Removing SMB2 to make room for bootloader.")
-        no_smb2 = True
+    from gnwmanager.gnw_patch.patches import Device
 
-    device = _common_prepare(MarioGnW, internal, external, bootloader)
-
-    device.args = Namespace(  # pyright: ignore[reportAttributeAccessIssue]
-        disable_sleep=disable_sleep,
-        sleep_time=sleep_time,
-        no_save=no_save,
-        no_mario_song=no_mario_song,
-        no_sleep_images=no_sleep_images,
-        no_smb2=no_smb2,
-        compression_ratio=1.4,
-    )
-
-    internal_remaining_free, compressed_memory_remaining_free = device()
-
-    if internal_only and device.external:
-        raise NotEnoughSpaceError("Wasn't able to completely relocate mario firmware to bank1.")
-
-    _log_patching_results(device, internal_remaining_free, compressed_memory_remaining_free)
-
-    gnw.start_gnwmanager()
-    gnw.flash(1, 0, bytes(device.internal), progress=False)
-    if device.external:
-        gnw.flash(0, 0, bytes(device.external), progress=True, desc="patched firmware")
-    if bootloader:
-        flash_bootloader(0x08032000, gnw=gnw, repo=bootloader_repo, tag=bootloader_tag, label="0x08032000")
+    found, wrong = [], []
+    for model in MODELS:
+        path = backup_dir / f"internal_flash_backup_{model}.bin"
+        if not path.exists():
+            continue
+        if _sha1(path) == Device.registry[model].Int.STOCK_ROM_SHA1_HASH:
+            found.append(model)
+        else:
+            wrong.append(path)
+    if len(found) == 1:
+        return found[0]
+    if found:
+        raise PatchError(f"Found stock backups of both models in {backup_dir}; pass --device=mario|zelda|amalgam.")
+    if wrong:
+        bad = ", ".join(str(p) for p in wrong)
+        raise PatchError(f"{bad}: not a stock backup (dump it from an unpatched unit with gnwmanager dump).")
+    names = " or ".join(f"internal_flash_backup_{m}.bin" for m in MODELS)
+    raise PatchError(f"No {names} in {backup_dir}; pass --backup-dir, or dump them with gnwmanager dump.")
 
 
-@flash_patch.command(default_parameter=Parameter(negative=()))
-def zelda(
-    internal: ExistingBinPath,
-    external: ExistingBinPath,
-    *,
-    gnw: GnWType,
-    bootloader: Annotated[bool, Parameter(group=sd_bootloader_group)] = False,
-    bootloader_repo: Annotated[str, Parameter(group=sd_bootloader_group)] = "sylverb/game-and-watch-bootloader",
-    bootloader_tag: Annotated[str, Parameter(group=sd_bootloader_group)] = "latest",
-    no_la: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
-    no_sleep_images: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
-    no_second_beep: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
-    no_hour_tune: Annotated[bool, Parameter(group=low_level_flash_group)] = False,
-):
-    """Patch & Flash original zelda firmware.
+def patch_argv(argv: Sequence[str], work_dir: Path) -> list[str]:
+    """The patcher's command line: ``argv`` plus the defaults gnwmanager supplies.
 
-    This is intended as a simplified way of patching firmware; customization is limited.
-
-    For complete customization, goto the original repo:
-        https://github.com/BrianPugh/game-and-watch-patch
-
-    Parameters
-    ----------
-    internal: Path
-        Path to internal flash dump from "gnwmanager dump".
-        Usually "internal_flash_backup_zelda.bin"
-    external: Path
-        Path to external flash dump from "gnwmanager dump".
-        Usually "flash_backup_zelda.bin"
-    bootloader: bool
-        Leave room and flash the sd-card bootloader.
-        The LEFT+GAME combination will launch the sd-card bootloader at 0x08032000.
-    bootloader_repo: str
-        Username/Repo to download the release from.
-    bootloader_tag: str
-        Version tag to download from (e.g. "v1.0.3")
-    no_la: bool
-        Remove Link's Awakening to save space.
-    no_sleep_images: bool
-        Remove the 5 sleeping images to save space.
-    no_second_beep: bool
-        Remove the second beep in TIME/CLOCK.
-    no_hour_tune: bool
-        Remove the hour tune in TIME/CLOCK.
+    The device (from the backups, unless given), the prebuilt ELFs, and the output and debug
+    files in ``work_dir`` (unless given).
     """
-    device = _common_prepare(ZeldaGnW, internal, external, bootloader)
+    from gnwmanager.gnw_patch.patches import options
 
-    device.args = Namespace(  # pyright: ignore[reportAttributeAccessIssue]
-        no_la=no_la,
-        no_sleep_images=no_sleep_images,
-        no_second_beep=no_second_beep,
-        no_hour_tune=no_hour_tune,
-    )
+    argv = ["--help" if a == PATCHER_HELP else a for a in argv]
+    if "--help" in argv:
+        return argv
+    if not _option(argv, "--device"):
+        args, _ = options.build_parser().parse_known_args(argv)
+        argv.insert(0, f"--device={detect_device(args.backup_dir)}")
+    if not any(_option(argv, o) for o in CODE_OPTIONS):
+        argv.append(f"--prebuilt={importlib.resources.files('gnwmanager') / 'patch_elfs'}")
+    defaults = {
+        "--int-output": work_dir / "internal_flash_patched.bin",
+        "--ext-output": work_dir / "external_flash_patched.bin",
+        "--dump-dir": work_dir / "debug",
+    }
+    for name, path in defaults.items():
+        if not _option(argv, name):
+            argv.append(f"{name}={path}")
+    return argv
 
-    internal_remaining_free, compressed_memory_remaining_free = device()
 
-    _log_patching_results(device, internal_remaining_free, compressed_memory_remaining_free)
+def sd_bootloader() -> bytes:
+    """Sylverb's SD bootloader, at the release the patcher pins (cached)."""
+    from gnwmanager.gnw_patch.patches import sd_bootloader as pin
 
-    gnw.start_gnwmanager()
-    gnw.flash(1, 0, bytes(device.internal), progress=False)
-    if device.external:
-        gnw.flash(0, 0, bytes(device.external), progress=True, desc="patched firmware")
-    if bootloader:
-        flash_bootloader(0x08032000, gnw=gnw, repo=bootloader_repo, tag=bootloader_tag, label="0x08032000")
+    path = find_cache_folder() / "bootloader" / f"{pin.VERSION}_{pin.ASSET}"
+    if path.exists():
+        data = path.read_bytes()
+        try:
+            pin.check(data)
+        except pin.ChecksumError:
+            log.warning(f"{path}: corrupt; downloading it again.")
+        else:
+            return data
+    log.info(f"Downloading {pin.URL}")
+    data = pin.fetch()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return data
+
+
+@app.command(name="flash-patch")
+def flash_patch(
+    *argv: Annotated[str, Parameter(allow_leading_hyphen=True)],
+    backend_factory: Annotated[Callable[[], dict[str, Any]], Parameter(parse=False)],
+):
+    """Patch the stock firmware for dual-boot (game-and-watch-patch) and flash it.
+
+    Every option goes to the patcher; ``gnwmanager flash-patch --patcher-help`` lists them
+    (``--device=zelda --patcher-help`` for Zelda's). It reads the stock backups from
+    ``--backup-dir`` (default: the current directory): ``internal_flash_backup_<model>.bin``
+    and ``flash_backup_<model>.bin``. ``--device`` defaults to the model of the backup found
+    there; ``--device=amalgam`` puts both models in one image and needs all 4 backups.
+    The unit is connected only after patching succeeds.
+
+    Example::
+
+        gnwmanager flash-patch --sd-bootloader -- start bank1
+
+    https://github.com/BrianPugh/game-and-watch-patch
+    """
+    from gnwmanager.gnw_patch.patches import cli, options
+    from gnwmanager.gnw_patch.patches.sd_bootloader import ADDRESS
+
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            argv_full = patch_argv(argv, Path(tmp))
+        except PatchError as e:
+            raise SystemExit(str(e)) from None
+        cli.main(argv_full)  # Exits on --help or a bad option.
+
+        _, models = options.parse(argv_full)
+        args = next(iter(models.values()))
+        internal = args.int_output.read_bytes()
+        external = args.ext_output.read_bytes()
+        bank2_path = args.int_output.with_name(args.int_output.stem + "_bank2.bin")
+        bank2 = bank2_path.read_bytes() if bank2_path.exists() else b""
+    bootloader = sd_bootloader() if args.sd_bootloader else b""
+
+    opts = backend_factory()
+    gnw = GnW(opts["factory"]())
+    gnw.backend.open()
+    try:
+        if opts["frequency"] is not None:
+            gnw.backend.set_frequency(opts["frequency"])
+        gnw.start_gnwmanager()
+        if external:
+            gnw.flash(0, 0, external, progress=True, desc="patched external firmware")
+        if bank2:
+            gnw.flash(2, 0, bank2, progress=False)
+        gnw.flash(1, 0, internal, progress=False)
+        if bootloader:
+            gnw.flash(1, ADDRESS - 0x0800_0000, bootloader, progress=False)
+    finally:
+        gnw.backend.close()
