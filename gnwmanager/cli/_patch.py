@@ -115,7 +115,7 @@ def unpack_elfs(dst: Path):
         tar.extractall(dst, **kwargs)
 
 
-@app.command(name="flash-patch")
+@app.command
 def flash_patch(
     *argv: Annotated[str, Parameter(allow_leading_hyphen=True)],
     backend_factory: Annotated[Callable[[], dict[str, Any]], Parameter(parse=False)],
