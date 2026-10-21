@@ -15,7 +15,8 @@ from typing import Annotated, Any, Callable, Sequence
 
 from cyclopts import Parameter
 
-from gnwmanager.cli.main import app, find_cache_folder
+from gnwmanager.cli._bootloader import get_bootloader
+from gnwmanager.cli.main import app
 from gnwmanager.gnw import GnW
 
 log = logging.getLogger(__name__)
@@ -25,6 +26,8 @@ MODELS = ("mario", "zelda")
 CODE_OPTIONS = ("--prebuilt", "--elf", "--patch")
 # gnwmanager's --help shows flash-patch's own help, so the patcher's is this.
 PATCHER_HELP = "--patcher-help"
+# --sd-bootloader builds dual-boot Sylverb's SD bootloader here.
+SD_BOOTLOADER = 0x0803_2000
 
 
 class PatchError(Exception):
@@ -96,26 +99,6 @@ def patch_argv(argv: Sequence[str], work_dir: Path) -> list[str]:
     return argv
 
 
-def sd_bootloader() -> bytes:
-    """Sylverb's SD bootloader, at the release the patcher pins (cached)."""
-    from gnwmanager.gnw_patch.patches import sd_bootloader as pin
-
-    path = find_cache_folder() / "bootloader" / f"{pin.VERSION}_{pin.ASSET}"
-    if path.exists():
-        data = path.read_bytes()
-        try:
-            pin.check(data)
-        except pin.ChecksumError:
-            log.warning(f"{path}: corrupt; downloading it again.")
-        else:
-            return data
-    log.info(f"Downloading {pin.URL}")
-    data = pin.fetch()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
-    return data
-
-
 @app.command(name="flash-patch")
 def flash_patch(
     *argv: Annotated[str, Parameter(allow_leading_hyphen=True)],
@@ -128,6 +111,7 @@ def flash_patch(
     ``--backup-dir`` (default: the current directory): ``internal_flash_backup_<model>.bin``
     and ``flash_backup_<model>.bin``. ``--device`` defaults to the model of the backup found
     there; ``--device=amalgam`` puts both models in one image and needs all 4 backups.
+    ``--sd-bootloader`` also flashes the latest release of Sylverb's SD bootloader.
     The unit is connected only after patching succeeds.
 
     Example::
@@ -137,7 +121,6 @@ def flash_patch(
     https://github.com/BrianPugh/game-and-watch-patch
     """
     from gnwmanager.gnw_patch.patches import cli, options
-    from gnwmanager.gnw_patch.patches.sd_bootloader import ADDRESS
 
     with tempfile.TemporaryDirectory() as tmp:
         try:
@@ -152,7 +135,10 @@ def flash_patch(
         external = args.ext_output.read_bytes()
         bank2_path = args.int_output.with_name(args.int_output.stem + "_bank2.bin")
         bank2 = bank2_path.read_bytes() if bank2_path.exists() else b""
-    bootloader = sd_bootloader() if args.sd_bootloader else b""
+    bootloader = b""
+    if args.sd_bootloader:
+        # The latest release, as flash-bootloader defaults to.
+        bootloader = get_bootloader("sylverb/game-and-watch-bootloader", label="0x08032000").read_bytes()
 
     opts = backend_factory()
     gnw = GnW(opts["factory"]())
@@ -167,6 +153,6 @@ def flash_patch(
             gnw.flash(2, 0, bank2, progress=False)
         gnw.flash(1, 0, internal, progress=False)
         if bootloader:
-            gnw.flash(1, ADDRESS - 0x0800_0000, bootloader, progress=False)
+            gnw.flash(1, SD_BOOTLOADER - 0x0800_0000, bootloader, progress=False)
     finally:
         gnw.backend.close()
