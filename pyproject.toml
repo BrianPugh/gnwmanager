@@ -23,7 +23,7 @@ dependencies = [
     "httpx>=0.28.1,<0.29",
     "colorama>=0.4.6,<0.5",
     "pycryptodome>=3.23.0,<4",
-    "websockets>=14,<16",
+    "websockets>=16.1.1,<17",
     # game-and-watch-patch (gnwmanager/gnw_patch) for flash-patch.
     "capstone>=5.0.1,<6",
     "numpy",
