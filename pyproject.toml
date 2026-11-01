@@ -55,7 +55,7 @@ docs = [
 ]
 debug = [
     "ipdb>=0.13.9",
-    "line_profiler>=3.5.1",
+    "line_profiler>=5.1.0",
 ]
 # --- Build backend (hatchling + hatch-vcs) -------------------------------------
 # Version is derived from git tags (replaces the previous
