@@ -9,7 +9,7 @@ GnWManager is a Game & Watch device manager — a Python CLI tool + STM32 firmwa
 ## Development Setup
 
 ```bash
-git submodule update --init  # game-and-watch-patch (gnwmanager/gnw_patch)
+git submodule update --init  # game-and-watch-patch (gnwmanager/gnw_patch); also in every new worktree, else uv sync fails: "Forced include not found"
 uv sync                     # Create venv and install dependencies
 uv run make patch-elfs      # flash-patch's prebuilt ELFs (needs arm-none-eabi-gcc)
 uv run pre-commit install   # Install git hooks (ruff, black, codespell, pyright)
