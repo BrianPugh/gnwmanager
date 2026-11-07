@@ -22,7 +22,7 @@ dependencies = [
     "psutil>=7.2.2,<8",
     "httpx>=0.28.1,<0.29",
     "colorama>=0.4.6,<0.5",
-    "pycryptodome>=3.23.0,<4",
+    "pycryptodome>=4.2.0,<5",
     "websockets>=14,<16",
     # game-and-watch-patch (gnwmanager/gnw_patch) for flash-patch.
     "capstone>=5.0.1,<6",
