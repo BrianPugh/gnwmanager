@@ -44,6 +44,24 @@ _MAX_TRANSFER_RETRIES = 2
 _MAX_CHUNK_RETRIES = 3
 
 
+class Partition(NamedTuple):
+    address: int
+    size: int
+    type: str
+
+
+_PTYPE_MAP = {
+    "Zelda OFW": "Zelda Assets",
+    "Zelda Assets": "Zelda Assets (Patched)",
+    "Mario OFW": "Mario Assets",
+    "Mario Assets": "Mario Assets (Patched)",
+    "Zelda OFW (Int)": "Zelda OFW",
+    "Zelda Pat(Int)": "Zelda OFW (Patched)",
+    "Mario OFW (Int)": "Mario OFW",
+    "Mario Pat(Int)": "Mario OFW (Patched)",
+}
+
+
 def _is_transfer_corruption_error(exc: "DataError") -> bool:
     if not exc.args or not isinstance(exc.args[0], str):
         return False
@@ -57,6 +75,8 @@ actions: dict[str, int] = {
     "LIST_SD_DIR": 3,
     "DELETE_FILE_FROM_SD": 4,
     "READ_FILE_FROM_SD": 5,
+    "SCAN_LFS": 6,
+    "SCAN_GEOMETRY": 7,
 }
 
 _comm: dict[str, Variable] = {
@@ -1036,11 +1056,71 @@ class GnW:
             log.warning("SD directory listing was truncated (output larger than 256 KiB).")
         return data.decode("utf-8", errors="replace")
 
+    def scan_lfs(self) -> List[Partition]:
+        """Auto-detect LittleFS partition candidates using the device-side scanner."""
+        context = self.get_context()
+        self.write_uint32(context["response_ready"], 0)
+        self.write_uint32(context["action"], actions["SCAN_LFS"])
+        self._drain_pending_writes(context)
+        self.write_uint32(context["ready"], self.context_counter)
+        self.context_counter += 1
+
+        self.wait_for_context_response(context)
+        nbytes = self.read_uint32(context["size"])
+        if nbytes == 0:
+            self.write_uint32(context["ready"], 0)
+            return []
+
+        data = self.read_memory(context["buffer"], nbytes)
+        self.write_uint32(context["ready"], 0)
+
+        partitions = []
+        for i in range(0, len(data), 24):
+            chunk = data[i : i + 24]
+            if len(chunk) < 24:
+                break
+            addr = int.from_bytes(chunk[0:4], "little")
+            size = int.from_bytes(chunk[4:8], "little")
+            ptype = chunk[8:24].rstrip(b"\x00").decode("utf-8")
+            ptype = _PTYPE_MAP.get(ptype, ptype)
+            partitions.append(Partition(addr, size, ptype))
+
+        return partitions
+
+    def scan_geometry(self) -> List[Partition]:
+        """Scan the entire flash for partitions using the device-side scanner."""
+        context = self.get_context()
+        self.write_uint32(context["response_ready"], 0)
+        self.write_uint32(context["action"], actions["SCAN_GEOMETRY"])
+        self._drain_pending_writes(context)
+        self.write_uint32(context["ready"], self.context_counter)
+        self.context_counter += 1
+
+        self.wait_for_context_response(context)
+        nbytes = self.read_uint32(context["size"])
+        data = self.read_memory(context["buffer"], nbytes) if nbytes else b""
+        self.write_uint32(context["ready"], 0)
+
+        partitions = []
+        # Each gnwmanager_partition_t is 4+4+16 = 24 bytes
+        for i in range(0, len(data), 24):
+            chunk = data[i : i + 24]
+            if len(chunk) < 24:
+                break
+            addr = int.from_bytes(chunk[0:4], "little")
+            size = int.from_bytes(chunk[4:8], "little")
+            ptype = chunk[8:24].rstrip(b"\x00").decode("utf-8")
+            ptype = _PTYPE_MAP.get(ptype, ptype)
+            partitions.append(Partition(addr, size, ptype))
+        partitions.sort(key=lambda p: p.address)
+        return partitions
+
     def start_gnwmanager(self, force=False, resume=True):
         if not force and self._gnwmanager_started:
             return
 
         self.reset_and_halt()
+        self.reset_context_counter()
 
         firmware = (importlib.resources.files("gnwmanager") / "firmware.bin").read_bytes()
         log.debug(f"Loaded {len(firmware)} bytes of gnwmanager firmware.")
